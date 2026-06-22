@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>AK-47 FPS Demo</title>
+<title>FPS ARENA</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTMiIGZpbGw9IiMwZTEyMTgiLz48Y2lyY2xlIGN4PSIzMiIgY3k9IjMyIiByPSIyMSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMjgzMDNjIiBzdHJva2Utd2lkdGg9IjYiLz48Y2lyY2xlIGN4PSIzMiIgY3k9IjMyIiByPSIxOSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZTg1MDNhIiBzdHJva2Utd2lkdGg9IjIuNSIvPjxyZWN0IHg9IjMwLjYiIHk9IjUiIHdpZHRoPSIyLjgiIGhlaWdodD0iMTUiIGZpbGw9IiNlODUwM2EiLz48cmVjdCB4PSIzMC42IiB5PSI0NCIgd2lkdGg9IjIuOCIgaGVpZ2h0PSIxNSIgZmlsbD0iI2U4NTAzYSIvPjxyZWN0IHg9IjUiIHk9IjMwLjYiIHdpZHRoPSIxNSIgaGVpZ2h0PSIyLjgiIGZpbGw9IiNlODUwM2EiLz48cmVjdCB4PSI0NCIgeT0iMzAuNiIgd2lkdGg9IjE1IiBoZWlnaHQ9IjIuOCIgZmlsbD0iI2U4NTAzYSIvPjxjaXJjbGUgY3g9IjMyIiBjeT0iMzIiIHI9IjMuNCIgZmlsbD0iI2ZmZDIzYSIvPjwvc3ZnPgo=">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Consolas', 'Courier New', monospace; color: #fff; user-select: none; }
@@ -437,7 +438,7 @@
     <span style="color:#ffd060">СТАРТ:</span> у тебя <b>пусто</b> (нет оружия, патронов, брони). У сруба — <b>ДОСКА СНАРЯЖЕНИЯ</b>. Подойди и нажми <b>F</b>, чтобы взять: <span style="color:#ffd066">АКМ</span>, <span style="color:#ffd066">M416</span>, <span style="color:#a0ffa0">бронежилет</span>, <span style="color:#a0c0ff">шлем</span>, <span style="color:#ffd066">рюкзак</span>, <span style="color:#ff7080">коллиматор</span>, <span style="color:#ff7080">прицел 3X</span>.<br>
     <span style="color:#ffd060">ЦЕЛЬ:</span> добеги до базы врага → возьми <span style="color:#ff7060">КРАСНЫЙ ФЛАГ</span> → доставь его в <span style="color:#7ec0ff">синюю зону</span> у сруба = <b>ПОБЕДА</b>.<br>
     <span style="color:#ffd060">ВРАГИ:</span> 60 ботов в волнах — 20 уже на поле, 15 наступают с базы, 13 в резерве, 12 защищают флаг.<br>
-    <span style="color:#a0c0ff">ЗАЩИТА:</span> ШЛЕМ — пережить хедшот · БРОНЯ — поглощает 50 HP в торс/голову · РЮКЗАК — +100 к запасу патронов (всего 220).<br>
+    <span style="color:#a0c0ff">ЗАЩИТА:</span> ШЛЕМ — пережить хедшот · БРОНЯ — поглощает 50 HP в торс/голову · РЮКЗАК — +100 к запа��у патронов (всего 220).<br>
     <span style="color:#ff8a8a">УРОН ПО ЗОНАМ:</span> голова — смерть (без шлема) · грудь — 50/50 · руки/ноги — 2-3 попадания.<br>
     <span style="color:#90ff90">АПТЕЧКИ:</span> +1 за каждых 3 убитых · нажми <b>3</b> чтобы восстановить здоровье.
   </div>
@@ -690,6 +691,56 @@ fxaaPass.material.uniforms['resolution'].value.set(
   1 / (window.innerHeight * Math.min(window.devicePixelRatio, 1.5))
 );
 composer.addPass(fxaaPass);
+/* === R6 BODYCAM POST-FX — grain + vignette + chromatic aberration =========
+ * Gives the cheap "helmet/bodycam" look: lens vignette darkening the edges,
+ * animated film grain, and a subtle RGB split that grows toward the frame
+ * edges and spikes when the player whip-turns or takes damage. Runs in
+ * linear space BEFORE OutputPass so it composes correctly with bloom+ACES.
+ * Uniforms are driven per-frame from the render loop. */
+const _camFX = { hurt: 0, time: 0, prevYaw: 0 };
+const BodycamShader = {
+  uniforms: {
+    tDiffuse:    { value: null },
+    uTime:       { value: 0 },
+    uAberration: { value: 0.0012 },
+    uGrain:      { value: 0.045 },
+    uVignette:   { value: 0.34 },
+    uDamage:     { value: 0.0 }
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float uTime, uAberration, uGrain, uVignette, uDamage;
+    varying vec2 vUv;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
+    void main(){
+      vec2 uv = vUv;
+      vec2 dir = uv - 0.5;
+      float r2 = dot(dir, dir);
+      /* Chromatic aberration grows toward the edges + damage/turn boost */
+      float ca = uAberration * (1.0 + r2 * 3.0) + uDamage * 0.004;
+      vec2 off = dir * ca;
+      float cr = texture2D(tDiffuse, uv + off).r;
+      float cg = texture2D(tDiffuse, uv).g;
+      float cb = texture2D(tDiffuse, uv - off).b;
+      vec3 col = vec3(cr, cg, cb);
+      /* Vignette — smooth radial darkening of the corners */
+      float vig = smoothstep(0.95, 0.25, r2 * 2.2);
+      col *= mix(1.0, vig, uVignette);
+      /* Animated film grain (subtle, per-pixel) */
+      float g = hash(uv * vec2(1920.0, 1080.0) + fract(uTime) * 97.3) - 0.5;
+      col += g * uGrain;
+      /* Damage red wash at the edges */
+      col = mix(col, vec3(0.55, 0.02, 0.02), clamp(uDamage, 0.0, 1.0) * r2 * 2.0);
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `
+};
+const bodycamPass = new ShaderPass(BodycamShader);
+composer.addPass(bodycamPass);
 /* Final tonemap + sRGB blit (handled by OutputPass since the composer
  * internally uses linear half-float buffers when toneMapping is set on
  * the renderer). */
@@ -916,7 +967,7 @@ TRENCH_RECTS.push({ cx: -15, cz:  -40, halfX: 1.2, halfZ: 3.5, rotY: Math.PI / 1
 TRENCH_RECTS.push({ cx:  12, cz:  -75, halfX: 1.2, halfZ: 3.5, rotY: -Math.PI / 8,  depth: 1.1 });
 TRENCH_RECTS.push({ cx:  -6, cz: -110, halfX: 1.2, halfZ: 4.0, rotY: 0.0,           depth: 1.0 });
 
-/* PvP-only extra trenches — added only when running the online arena so
+/* PvP-only extra trenches �� added only when running the online arena so
  * PvE keeps its familiar shape. Push them BEFORE the terrain is baked. */
 if (typeof PVP_MODE !== 'undefined' && PVP_MODE) {
   TRENCH_RECTS.push({ cx:  -8, cz:  -25, halfX: 1.2, halfZ: 3.0, rotY: Math.PI / 6, depth: 1.0 });
@@ -3122,7 +3173,7 @@ function createAK47() {
     ak.add(groove);
   }
   /* Gas tube — visible cylinder under upper handguard, brushed steel */
-  const gasTube = new THREE.Mesh(new THREE.CylinderGeometry(0.0105, 0.0105, 0.285, 12), darkMetal);
+  const gasTube = new THREE.Mesh(new THREE.CylinderGeometry(0.0105, 0.0105, 0.285, 16), darkMetal);
   gasTube.rotation.x = Math.PI / 2;
   gasTube.position.set(0, 0.042, -0.265);
   ak.add(gasTube);
@@ -3159,16 +3210,16 @@ function createAK47() {
   ak.add(gbFront);
 
   /* Barrel */
-  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.0105, 0.0105, 0.26, 14), darkMetal);
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.0105, 0.0105, 0.26, 20), darkMetal);
   barrel.rotation.x = Math.PI / 2;
   barrel.position.set(0, 0.014, -0.350);
   ak.add(barrel);
-  const barrelFront = new THREE.Mesh(new THREE.CylinderGeometry(0.0075, 0.0075, 0.25, 14), darkMetal);
+  const barrelFront = new THREE.Mesh(new THREE.CylinderGeometry(0.0075, 0.0075, 0.25, 20), darkMetal);
   barrelFront.rotation.x = Math.PI / 2;
   barrelFront.position.set(0, 0.014, -0.605);
   ak.add(barrelFront);
 
-  /* === FRONT SIGHT TOWER (realistic AKM hooded post) ===
+  /* === FRONT SIGHT TOWER (AKM open-ear post) ===
    * Real AKM front sight is a cylindrical sleeve clamped on the barrel,
    * with TWO vertical ears connected at the top by a ROUND HOOD (not a
    * flat plate). The post sits inside the hood and its tip ends roughly
@@ -3179,38 +3230,28 @@ function createAK47() {
   fsBase.position.set(0, 0.014, -0.705);
   ak.add(fsBase);
   /* Riser block on top of the base where the ears mount */
-  const fsRiser = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.018, 0.024), metal);
-  fsRiser.position.set(0, 0.040, -0.705);
+  const fsRiser = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.028, 0.022), metal);
+  fsRiser.position.set(0, 0.044, -0.705);
   ak.add(fsRiser);
-  /* Two ears (hood walls) */
-  for (const sx of [-0.011, 0.011]) {
-    const ear = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.034, 0.018), polished);
-    ear.position.set(sx, 0.063, -0.705);
+  /* Two OPEN protective ears — tapered, converging slightly at the top.
+   * (AKM uses open wings, not a closed hood ring.) */
+  for (const sx of [-0.0125, 0.0125]) {
+    const ear = new THREE.Mesh(new THREE.BoxGeometry(0.0042, 0.044, 0.014), polished);
+    ear.position.set(sx, 0.073, -0.705);
+    ear.rotation.z = sx > 0 ? 0.07 : -0.07;
     ak.add(ear);
   }
-  /* Round hood arc — half torus connecting the two ears at the top.
-   * Radius matches ear spacing so the arc lands exactly on each ear. */
-  const fsHood = new THREE.Mesh(
-    new THREE.TorusGeometry(0.0115, 0.0028, 8, 18, Math.PI),
-    polished
-  );
-  fsHood.position.set(0, 0.080, -0.705);
-  fsHood.rotation.y = Math.PI / 2;   /* arc opens forward/back along Z */
-  ak.add(fsHood);
-  /* Hood side caps to give it depth (visible from the side) */
-  for (const sz of [-0.009, 0.009]) {
-    const cap = new THREE.Mesh(new THREE.TorusGeometry(0.0115, 0.0024, 6, 14, Math.PI), polished);
-    cap.position.set(0, 0.080, -0.705 + sz);
-    cap.rotation.y = Math.PI / 2;
-    ak.add(cap);
-  }
-  /* Adjustable post — TIP ends at the hood apex (y=0.080), NOT above it */
-  const fsPost = new THREE.Mesh(new THREE.CylinderGeometry(0.0022, 0.0028, 0.034, 10), polished);
-  fsPost.position.set(0, 0.063, -0.705);
+  /* (Removed the half-torus hood + side caps — at viewmodel scale they
+   * read as a metal blob. The open ears above are cleaner and accurate.) */
+  /* Thin crisp front POST — tip bead at y=0.090 so the ADS sight picture
+   * lines it up with the rear notch dead at screen centre (the old 0.080
+   * tip projected ~0.8 deg LOW, so the post sat under the notch). */
+  const fsPost = new THREE.Mesh(new THREE.CylinderGeometry(0.0017, 0.0026, 0.046, 12), polished);
+  fsPost.position.set(0, 0.067, -0.705);
   ak.add(fsPost);
-  /* Tiny bead at the very tip of the post — sits inside the hood */
-  const fsBead = new THREE.Mesh(new THREE.SphereGeometry(0.0035, 8, 6), polished);
-  fsBead.position.set(0, 0.080, -0.705);
+  /* Bright tip bead for fast acquisition (sits between the ears) */
+  const fsBead = new THREE.Mesh(new THREE.SphereGeometry(0.0030, 10, 8), polished);
+  fsBead.position.set(0, 0.090, -0.705);
   ak.add(fsBead);
   /* Adjustment screw on the side of the base */
   const fsScrew = new THREE.Mesh(new THREE.CylinderGeometry(0.0032, 0.0032, 0.006, 8), polished);
@@ -3223,7 +3264,7 @@ function createAK47() {
   ak.add(bayLug);
 
   /* Slant muzzle brake */
-  const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.013, 0.075, 12), darkMetal);
+  const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.013, 0.075, 18), darkMetal);
   muzzle.rotation.x = Math.PI / 2;
   muzzle.position.set(0, 0.014, -0.830);
   ak.add(muzzle);
@@ -4440,7 +4481,22 @@ function createBot(x, z, team = 'red') {
     crouching:     false,
     /* Throttling counter — distant bots only run their full AI every Nth
      * frame to keep CPU usage low when 60 bots are alive. */
-    aiTickPhase:   Math.floor(Math.random() * 3)
+    aiTickPhase:   Math.floor(Math.random() * 3),
+    /* === R4 — human-like target acquisition & steering ================
+     * reactionTime  — delay before the bot opens fire on a freshly-spotted
+     *                 target (no more instant aimbot reactions).
+     * spottedAt     — when continuous LOS to the player began (-1 = none).
+     * aimSettle     — 0..1, climbs while LOS is held; tightens the spread.
+     * stuck/sidestep— obstacle-avoidance steering so bots stop grinding
+     *                 face-first into walls and fences. */
+    reactionTime:  0.18 + Math.random() * 0.34,
+    spottedAt:     -1,
+    aimSettle:     0,
+    stuckTimer:    0,
+    sidestepUntil: 0,
+    sidestepDir:   1,
+    _lastX:        x,
+    _lastZ:        z
   };
   scene.add(g);
   bots.push(bot);
@@ -6327,6 +6383,8 @@ const flashDamage = (() => {
     d.style.opacity = 0.85;
     clearTimeout(timer);
     timer = setTimeout(() => d.style.opacity = 0, 250);
+    /* R6 bodycam — feed a decaying pulse into the post-FX shader */
+    if (typeof _camFX !== 'undefined') _camFX.hurt = Math.min(1, _camFX.hurt + 0.85);
   };
 })();
 
@@ -6729,7 +6787,7 @@ function updateBullets(dt) {
       } catch (_) {}
 
       /* E1 — SUPERSONIC CRACK: when an enemy bullet passes within ~2.8m
-       * of the player, play a sharp "вжух" whip-crack near the ear.
+       * of the player, play a sharp "вжу��" whip-crack near the ear.
        * Distance widened (was 1.5m) per user request. The crack volume
        * tapers with miss distance for a believable falloff. */
       if (!b.fromPlayer && audioCtx) {
@@ -7054,6 +7112,44 @@ function collidersTopAt(x, z) {
   return best;
 }
 
+/* === R3 — WEAPON CLIP DEPTH ============================================
+ * How deep a barrel SEGMENT (a→b, in world XZ) sinks into any solid
+ * collider/tree, in metres (0 = clear). The viewmodel anti-clip uses this
+ * to detect a fence the player is running ALONGSIDE — a case the single
+ * forward camera ray completely misses because the muzzle sits to the
+ * right of the view centre. Low jump-on-top colliders whose top is below
+ * the muzzle are ignored (the barrel passes harmlessly over a sandbag).
+ * Pure function of its inputs — covered by the offline collision harness. */
+function weaponClipDepth(ax, az, bx, bz, muzzleY) {
+  let worst = 0;
+  const SAMPLES = 6;
+  for (const c of colliders) {
+    if (c.maxY !== undefined && muzzleY !== undefined && c.maxY < muzzleY - 0.05) continue;
+    const cx = (c.minX + c.maxX) / 2, cz = (c.minZ + c.maxZ) / 2;
+    const ex = (c.maxX - c.minX) / 2, ez = (c.maxZ - c.minZ) / 2;
+    for (let i = 0; i <= SAMPLES; i++) {
+      const t = i / SAMPLES;
+      const x = ax + (bx - ax) * t, z = az + (bz - az) * t;
+      const dx = Math.abs(x - cx), dz = Math.abs(z - cz);
+      if (dx < ex && dz < ez) {
+        const pen = Math.min(ex - dx, ez - dz);
+        if (pen > worst) worst = pen;
+      }
+    }
+  }
+  if (typeof trees !== 'undefined') {
+    for (const tr of trees) {
+      for (let i = 0; i <= SAMPLES; i++) {
+        const t = i / SAMPLES;
+        const x = ax + (bx - ax) * t, z = az + (bz - az) * t;
+        const dist = Math.hypot(x - tr.x, z - tr.z);
+        if (dist < tr.r) { const pen = tr.r - dist; if (pen > worst) worst = pen; }
+      }
+    }
+  }
+  return worst;
+}
+
 /* ========================================================================
    GAME LOOP
    ======================================================================== */
@@ -7323,30 +7419,47 @@ function updatePlayer(dt) {
   try {
     const camPos = new THREE.Vector3();
     const camDir = new THREE.Vector3(0, 0, -1);
+    const camRight = new THREE.Vector3(1, 0, 0);
+    const camUp = new THREE.Vector3(0, 1, 0);
     camera.getWorldPosition(camPos);
     camDir.transformDirection(camera.matrixWorld);
-    const probeRange = 1.0;
+    camRight.transformDirection(camera.matrixWorld);
+    camUp.transformDirection(camera.matrixWorld);
+    const probeRange = 1.6;        /* gun reach (~0.95 m) + margin */
+    /* (1) Mesh raycast down the muzzle line — catches arbitrary geometry
+     *     dead ahead (tanks, trees, building faces). */
     raycaster.set(camPos, camDir);
     raycaster.far = probeRange;
     const probeTargets = [];
     if (typeof obstacles !== 'undefined') probeTargets.push(...obstacles);
     if (typeof trees !== 'undefined') for (const t of trees) if (t.obj) probeTargets.push(t.obj);
     const hits = raycaster.intersectObjects(probeTargets, true);
-    let lowT = 0;
-    if (hits.length) {
-      /* 1.0 when surface is at camera, fading to 0 at probeRange */
-      lowT = THREE.MathUtils.clamp(1 - hits[0].distance / probeRange, 0, 1);
-    }
-    /* Smooth the value so it doesn't snap on/off */
+    let lowRay = 0;
+    if (hits.length) lowRay = THREE.MathUtils.clamp(1 - hits[0].distance / probeRange, 0, 1);
+    /* (2) Barrel-segment vs collider/tree test. The forward ray above
+     *     misses a fence the player runs ALONGSIDE (the muzzle pokes out
+     *     to the right of the camera). We rebuild the real barrel segment
+     *     in world space — offset right + down to where the gun sits — and
+     *     measure how deep it sinks into solid geometry. This is what stops
+     *     the barrel sliding through fences/walls from the side. */
+    const gunBase = camPos.clone()
+      .addScaledVector(camRight, 0.16)
+      .addScaledVector(camUp, -0.13)
+      .addScaledVector(camDir, 0.05);
+    const muzzleTip = gunBase.clone().addScaledVector(camDir, 0.95);
+    const clipDepth = weaponClipDepth(gunBase.x, gunBase.z, muzzleTip.x, muzzleTip.z, muzzleTip.y);
+    const lowClip = THREE.MathUtils.clamp(clipDepth / 0.35, 0, 1);
+    const lowT = Math.max(lowRay, lowClip);
+    /* Smooth the value so it eases in/out instead of snapping */
     player._weaponLowT = (player._weaponLowT || 0) + (lowT - (player._weaponLowT || 0)) * (1 - Math.pow(0.0005, dt));
     const wt = player._weaponLowT;
     if (wt > 0.001) {
-      /* Pull weapon closer to camera (z toward -0.05) and lower it */
+      /* Pull the weapon back toward the chest and DROP the muzzle. Negative
+       * rotation.x points the barrel DOWN; positive would aim it skyward. */
       tgtBlended = tgtBlended.clone();
-      tgtBlended.z = THREE.MathUtils.lerp(tgtBlended.z, -0.05, wt);
+      tgtBlended.z = THREE.MathUtils.lerp(tgtBlended.z, -0.04, wt);
       tgtBlended.y = THREE.MathUtils.lerp(tgtBlended.y, tgtBlended.y - 0.10, wt);
-      /* Rotate barrel ~40° down at full press */
-      tgtRotX = THREE.MathUtils.lerp(tgtRotX, 0.70, wt);
+      tgtRotX = THREE.MathUtils.lerp(tgtRotX, -0.55, wt);
     }
   } catch (_) {}
   /* === TACTICAL SPRINT LOWER (B2) ===================================
@@ -7361,11 +7474,14 @@ function updatePlayer(dt) {
     const sl = player._sprintLowT;
     if (sl > 0.001) {
       tgtBlended = tgtBlended.clone();
-      tgtBlended.y = THREE.MathUtils.lerp(tgtBlended.y, tgtBlended.y - 0.16, sl);
-      tgtBlended.x = THREE.MathUtils.lerp(tgtBlended.x, tgtBlended.x + 0.06, sl);
-      tgtBlended.z = THREE.MathUtils.lerp(tgtBlended.z, -0.16, sl);
-      tgtRotX = THREE.MathUtils.lerp(tgtRotX, 0.95, sl);
-      player._sprintCantZ = -0.55 * sl;
+      tgtBlended.y = THREE.MathUtils.lerp(tgtBlended.y, tgtBlended.y - 0.12, sl);
+      tgtBlended.x = THREE.MathUtils.lerp(tgtBlended.x, tgtBlended.x + 0.04, sl);
+      tgtBlended.z = THREE.MathUtils.lerp(tgtBlended.z, -0.12, sl);
+      /* muzzle DROPS toward the ground (negative = down). The previous
+       * +0.95 aimed the barrel at the SKY and, with the heavy -0.55 roll,
+       * made the gun spin upward in the hands while sprinting. */
+      tgtRotX = THREE.MathUtils.lerp(tgtRotX, -0.32, sl);
+      player._sprintCantZ = -0.12 * sl;   /* subtle inboard cant (was -0.55) */
     } else {
       player._sprintCantZ = 0;
     }
@@ -7805,6 +7921,21 @@ function updateBots(dt) {
 
     const losPlayer = (dist < 90) && hasLineOfSight(bp, playerPos);
 
+    /* === R4 TARGET ACQUISITION ===========================================
+     * Track CONTINUOUS line-of-sight. A freshly-spotted player triggers a
+     * reaction delay before the bot can fire, and the bot's aim only
+     * settles (tightens) the longer it keeps eyes on target. Breaking LOS
+     * resets both, so every re-peek costs reaction time again. (dt is
+     * scaled by aiInterval because throttled bots tick less often.) */
+    if (losPlayer) {
+      if (bot.spottedAt < 0) { bot.spottedAt = now; bot.aimSettle = 0; }
+      bot.aimSettle = Math.min(1, bot.aimSettle + dt * aiInterval * 1.6);
+    } else {
+      bot.spottedAt = -1;
+      bot.aimSettle = Math.max(0, bot.aimSettle - dt * aiInterval * 2.0);
+    }
+    const reacted = bot.spottedAt >= 0 && (now - bot.spottedAt) >= bot.reactionTime;
+
     /* === REACTIVE COVER-SEEKING ============================================
      * If the bot took damage since the last AI tick, kick it into a panic
      * jink and bias it toward seeking cover. */
@@ -7976,12 +8107,43 @@ function updateBots(dt) {
       vx += px * k; vz += pz * k;
     }
 
+    /* === R4 OBSTACLE AVOIDANCE — steer around blockers ===================
+     * When a bot recently detected it is wedged against geometry, it
+     * sidesteps perpendicular to its heading instead of grinding face-first
+     * into the wall/fence (which looked dumb). Blends ~mostly-sideways with
+     * a little forward so it slides along the obstacle. */
+    if (now < bot.sidestepUntil && (vx !== 0 || vz !== 0)) {
+      const vlen = Math.hypot(vx, vz) || 1;
+      const hx = vx / vlen, hz = vz / vlen;
+      const sx = -hz * bot.sidestepDir, sz = hx * bot.sidestepDir;
+      vx = (hx * 0.4 + sx * 0.9) * vlen;
+      vz = (hz * 0.4 + sz * 0.9) * vlen;
+    }
+
     /* Apply movement with collision */
     const newX = bp.x + vx * dt;
     const newZ = bp.z + vz * dt;
     const c = collidePoint(newX, newZ);
     bp.x = c.x; bp.z = c.z;
     bp.y = terrainHeight(bp.x, bp.z) - (bot.crouching ? 0.30 : 0);
+
+    /* R4 — stuck detection: wanted to move but barely did → we're wedged.
+     * After a short grace, trigger a timed sidestep to route around it. */
+    {
+      const intended = Math.hypot(vx, vz) * dt;
+      const actual = Math.hypot(bp.x - bot._lastX, bp.z - bot._lastZ);
+      if (intended > 0.004 && actual < intended * 0.4) {
+        bot.stuckTimer += dt * aiInterval;
+        if (bot.stuckTimer > 0.25 && now > bot.sidestepUntil) {
+          bot.sidestepDir = (Math.random() < 0.5) ? -1 : 1;
+          bot.sidestepUntil = now + 0.6 + Math.random() * 0.4;
+          bot.stuckTimer = 0;
+        }
+      } else {
+        bot.stuckTimer = Math.max(0, bot.stuckTimer - dt * aiInterval);
+      }
+      bot._lastX = bp.x; bot._lastZ = bp.z;
+    }
 
     /* Walking animation */
     const isMoving = (vx*vx + vz*vz) > 0.5;
@@ -8006,7 +8168,7 @@ function updateBots(dt) {
       bot.burstShotsLeft = 0;
     }
     const suppressed = bot.suppressedUntil && now < bot.suppressedUntil;
-    const canShoot = losPlayer && dist < 70 && !bot.reloading && !suppressed &&
+    const canShoot = losPlayer && reacted && dist < 70 && !bot.reloading && !suppressed &&
                      (bot.phase === 'engage' || bot.phase === 'reposition');
     if (canShoot) {
       if (bot.burstShotsLeft <= 0 && now > bot.lastShot + bot.fireRate * 2.5) {
@@ -8075,7 +8237,11 @@ function botShoot(bot, dist) {
 
   /* spread (worsens when bot is panicking from recent damage or moving) */
   const panicMul = (performance.now()/1000 < bot.panicUntil) ? 1.7 : 1.0;
-  const sp = bot.accuracy * panicMul;
+  /* R4 — first shots after acquiring a target are wild; the group tightens
+   * as aimSettle climbs toward 1 (see the target-acquisition block in
+   * updateBots). A fully-settled bot shoots at its base accuracy. */
+  const settleMul = 1.0 + (1.0 - (bot.aimSettle !== undefined ? bot.aimSettle : 1)) * 1.6;
+  const sp = bot.accuracy * panicMul * settleMul;
   target.x += (Math.random()-0.5) * sp * dist;
   target.y += (Math.random()-0.5) * sp * dist + 0.4;
   target.z += (Math.random()-0.5) * sp * dist;
@@ -9053,6 +9219,10 @@ function applyCamShakeAndSway(camera, dt) {
     const f = (speed > 6 ? 7.0 : 4.0);
     pitchOffset += Math.sin(_shakeT * f) * 0.0010 * Math.min(1, speed/6);
     yawOffset   += Math.sin(_shakeT * f * 0.5) * 0.0015 * Math.min(1, speed/6);
+    /* R6 bodycam — gentle stride roll. Hip only, so ADS stays rock-steady. */
+    if (!player.isAiming) {
+      rollOffset += Math.sin(_shakeT * f * 0.5) * 0.006 * Math.min(1, speed/6);
+    }
   }
   /* Suppression jitter */
   if (player.suppression > 0.01) {
@@ -9559,34 +9729,41 @@ function updateLowHpVeil() {
  * ------------------------------------------------------------------------- */
 let _heatLevel = 0;
 let _heatGlowSprite = null;
-function _bumpHeat() { _heatLevel = Math.min(1, _heatLevel + 0.10); }
+/* R2 — per-shot heat tick. Smaller than before so the barrel only runs hot
+ * after genuinely SUSTAINED fire, not after a couple of rounds. Heat is a
+ * function of how fast you fire, never of how much ammo is left. */
+function _bumpHeat() { _heatLevel = Math.min(1, _heatLevel + 0.075); }
 function updateBarrelSmoke(dt) {
-  _heatLevel = Math.max(0, _heatLevel - dt * 0.25);
-  /* === HEAT GLOW — orange ember at the muzzle when barrel is hot. */
+  /* Cools steadily; vents a little faster when very hot (rising heat haze). */
+  _heatLevel = Math.max(0, _heatLevel - dt * (0.22 + _heatLevel * 0.10));
   const w = activeWeaponObj && activeWeaponObj();
+  /* === MUZZLE HEAT EMBER ===============================================
+   * A SMALL ember right at the muzzle TIP — not a whole-barrel red wash.
+   * Colour ramps dark-red (just hot) → orange (very hot) with heat, so it
+   * reads as a barrel heating up from sustained fire. Only appears past a
+   * high threshold so normal mag dumps don't "glow red". */
   if (!_heatGlowSprite) {
     const m = new THREE.SpriteMaterial({
       color: 0xff5510, transparent: true, opacity: 0,
       blending: THREE.AdditiveBlending, depthWrite: false
     });
     _heatGlowSprite = new THREE.Sprite(m);
-    _heatGlowSprite.scale.setScalar(0.18);
+    _heatGlowSprite.scale.setScalar(0.12);
     _heatGlowSprite.visible = false;
   }
-  if (w && _heatLevel > 0.5) {
+  if (w && _heatLevel > 0.6) {
     if (_heatGlowSprite.parent !== w) {
       try { w.add(_heatGlowSprite); } catch(_){}
     }
-    /* Position at the muzzle in weapon-local coordinates */
-    _heatGlowSprite.position.set(0, 0.014, -0.83);
-    /* Pulsing intensity scaled by heat above the threshold */
-    const intensity = (_heatLevel - 0.5) / 0.5;     /* 0..1 above threshold */
-    const pulse = 0.85 + 0.15 * Math.sin(performance.now() * 0.018);
-    _heatGlowSprite.material.opacity = intensity * pulse * 0.7;
-    _heatGlowSprite.scale.setScalar(0.10 + intensity * 0.16);
+    _heatGlowSprite.position.set(0, 0.014, -0.86);   /* muzzle tip */
+    const intensity = (_heatLevel - 0.6) / 0.4;       /* 0..1 above threshold */
+    const pulse = 0.82 + 0.18 * Math.sin(performance.now() * 0.02);
+    /* dark-red when barely hot → orange when glowing */
+    _heatGlowSprite.material.color.setRGB(1.0, 0.16 + intensity * 0.32, 0.03 + intensity * 0.07);
+    _heatGlowSprite.material.opacity = intensity * pulse * 0.6;
+    _heatGlowSprite.scale.setScalar(0.05 + intensity * 0.10);
     _heatGlowSprite.visible = true;
-    /* Warning notice once when crossing 0.7 */
-    if (_heatLevel > 0.7 && !player._hotWarned) {
+    if (_heatLevel > 0.75 && !player._hotWarned) {
       player._hotWarned = true;
       if (typeof showNotice === 'function') showNotice('СТВОЛ ПЕРЕГРЕТ');
       setTimeout(() => { player._hotWarned = false; }, 4500);
@@ -9595,24 +9772,35 @@ function updateBarrelSmoke(dt) {
     _heatGlowSprite.material.opacity = 0;
     _heatGlowSprite.visible = false;
   }
+  /* === HEAT SMOKE — the real tell =====================================
+   * The hotter the barrel, the more grey wisps curl off the muzzle, and
+   * they LINGER + grow as they rise. Overheating now reads as a SMOKING
+   * barrel, not a mysterious red dot. Smoke keeps venting for a while
+   * after the trigger is released, because heat decays slowly. */
   if (player.suppressorOn) return;
-  if (_heatLevel > 0.4 && Math.random() < dt * 6) {
-    const w = activeWeaponObj && activeWeaponObj();
-    if (!w) return;
-    const muzzleLocal = new THREE.Vector3(0, 0.05, -0.83);
-    const wp = muzzleLocal.clone(); w.localToWorld(wp);
-    const m = new THREE.SpriteMaterial({
-      color: 0x8c8c8c, transparent: true, opacity: 0.5, depthWrite: false
-    });
-    const s = new THREE.Sprite(m);
-    s.position.copy(wp);
-    s.scale.setScalar(0.10 + Math.random() * 0.06);
-    scene.add(s);
-    impacts.push({
-      obj: s, life: 0.7,
-      vel: new THREE.Vector3((Math.random()-0.5)*0.2, 0.6 + Math.random()*0.3, (Math.random()-0.5)*0.2),
-      _baseScale: s.scale.x, _grow: 2.0, _fadeFrom: 0.7
-    });
+  if (w && _heatLevel > 0.18) {
+    const rate = (_heatLevel - 0.15) * 14;            /* wisps per second */
+    if (Math.random() < dt * rate) {
+      const muzzleLocal = new THREE.Vector3((Math.random()-0.5)*0.02, 0.045, -0.85);
+      const wp = muzzleLocal.clone(); w.localToWorld(wp);
+      const tone = 0.55 + Math.random() * 0.18;
+      const m = new THREE.SpriteMaterial({
+        color: new THREE.Color(tone, tone, tone),
+        transparent: true, opacity: 0.0, depthWrite: false
+      });
+      const s = new THREE.Sprite(m);
+      s.position.copy(wp);
+      const baseScale = 0.08 + Math.random() * 0.05 + _heatLevel * 0.05;
+      s.scale.setScalar(baseScale);
+      scene.add(s);
+      const opacity = 0.26 + _heatLevel * 0.28;
+      s.material.opacity = opacity;
+      impacts.push({
+        obj: s, life: 0.9 + _heatLevel * 0.7,
+        vel: new THREE.Vector3((Math.random()-0.5)*0.18, 0.5 + Math.random()*0.35, (Math.random()-0.5)*0.18),
+        _baseScale: baseScale, _grow: 2.4, _fadeFrom: opacity
+      });
+    }
   }
 }
 
@@ -9734,6 +9922,191 @@ function applyDamageToPlayer(rawDmg, sourceWorldPos, dmgKind) {
  * Sun shadow update runs every other frame (the visual difference is
  * imperceptible), saving one matrixWorldInverse compute per frame. */
 let _animFrame = 0;
+/* ===========================================================================
+ * R5 — BATTLEFIELD ATMOSPHERE
+ * Sells the "active warzone" feel the map was missing: tall smoke columns
+ * rising off distant burning wreckage, flickering ember glow on the horizon,
+ * the occasional tracer lancing across a far treeline, distant muffled
+ * gunfire, and the rare crump of an off-map explosion (flash + shock smoke +
+ * crack). Fully self-contained and perf-budgeted; nothing here touches
+ * gameplay collision, damage, or the player. */
+const _battlefield = (() => {
+  const puffs = [];
+  const flashes = [];
+  let gunTimer  = 1.5 + Math.random() * 2.5;
+  let boomTimer = 10 + Math.random() * 12;
+
+  /* Distant burning wreckage — tall smoke columns + ember glow. */
+  const columns = [
+    { x: -72,  z: -120, scale: 1.7 },
+    { x:  98,  z:  -58, scale: 1.4 },
+    { x: -120, z:   44, scale: 1.5 },
+    { x:  64,  z:  128, scale: 1.3 },
+  ];
+  const glows = [];
+  for (const c of columns) {
+    c.y = (typeof terrainHeight === 'function') ? terrainHeight(c.x, c.z) : 0;
+    c.emit = Math.random();
+    const gm = new THREE.SpriteMaterial({
+      color: 0xff5a1e, transparent: true, opacity: 0.45,
+      blending: THREE.AdditiveBlending, depthWrite: false
+    });
+    const gs = new THREE.Sprite(gm);
+    gs.position.set(c.x, c.y + 1.0 * c.scale, c.z);
+    gs.scale.setScalar(2.6 * c.scale);
+    scene.add(gs);
+    glows.push({ sprite: gs, phase: Math.random() * Math.PI * 2, base: 2.6 * c.scale });
+  }
+
+  function emitColumnPuff(c) {
+    if (puffs.length > 70) return;
+    const tone = 0.16 + Math.random() * 0.10;        /* dark sooty grey */
+    const m = new THREE.SpriteMaterial({
+      color: new THREE.Color(tone, tone * 0.96, tone * 0.92),
+      transparent: true, opacity: 0.0, depthWrite: false
+    });
+    const s = new THREE.Sprite(m);
+    s.position.set(c.x + (Math.random()-0.5) * 1.5 * c.scale,
+                   c.y + 0.6 * c.scale,
+                   c.z + (Math.random()-0.5) * 1.5 * c.scale);
+    const baseScale = 2.2 * c.scale;
+    s.scale.setScalar(baseScale);
+    scene.add(s);
+    puffs.push({
+      sprite: s, life: 0, max: 6.5 + Math.random() * 3,
+      vy: 2.2 + Math.random() * 1.3, baseScale, grow: 9 * c.scale,
+      driftX: (Math.random()-0.5) * 0.6 + 0.4, driftZ: (Math.random()-0.5) * 0.6,
+      peak: 0.5 + Math.random() * 0.12
+    });
+  }
+
+  function farPoint(minD, maxD, y) {
+    const ang = Math.random() * Math.PI * 2;
+    const d = minD + Math.random() * (maxD - minD);
+    return new THREE.Vector3(
+      player.position.x + Math.cos(ang) * d,
+      (y !== undefined ? y : 1.4),
+      player.position.z + Math.sin(ang) * d
+    );
+  }
+
+  function distantGunfire() {
+    /* A short far-off burst from one random bearing. playEnemyShot is
+     * distance-attenuated + low-passed, so this reads as "fighting over
+     * there" without ever being mistaken for a threat to the player. */
+    const src = farPoint(52, 76, 1.4);
+    const dist = src.distanceTo(player.position);
+    const shots = 2 + Math.floor(Math.random() * 4);
+    for (let i = 0; i < shots; i++) {
+      setTimeout(() => {
+        if (typeof playEnemyShot === 'function') playEnemyShot(dist, src);
+      }, i * (70 + Math.random() * 60));
+    }
+    /* Sometimes a tracer skims a distant treeline. */
+    if (typeof spawnTracer === 'function' && Math.random() < 0.6) {
+      const a = src.clone(); a.y = 1.0 + Math.random() * 1.5;
+      const b = a.clone();
+      b.x += (Math.random()-0.5) * 30; b.z += (Math.random()-0.5) * 30;
+      b.y += 1.0 + Math.random() * 2.0;
+      spawnTracer(a, b);
+    }
+  }
+
+  function distantExplosion() {
+    const pos = farPoint(45, 90, 1.0);
+    pos.y = ((typeof terrainHeight === 'function') ? terrainHeight(pos.x, pos.z) : 0) + 1.0;
+    /* Bright muzzle-of-god flash */
+    const fm = new THREE.SpriteMaterial({
+      color: 0xffd28a, transparent: true, opacity: 0.95,
+      blending: THREE.AdditiveBlending, depthWrite: false
+    });
+    const fs = new THREE.Sprite(fm);
+    fs.position.copy(pos); fs.position.y += 1.5;
+    fs.scale.setScalar(5);
+    scene.add(fs);
+    flashes.push({ sprite: fs, life: 0, max: 0.5, baseScale: 5 });
+    /* Shock smoke that rises into a fresh column */
+    for (let i = 0; i < 4; i++) {
+      const tone = 0.18 + Math.random() * 0.10;
+      const m = new THREE.SpriteMaterial({
+        color: new THREE.Color(tone, tone * 0.9, tone * 0.85),
+        transparent: true, opacity: 0.0, depthWrite: false
+      });
+      const s = new THREE.Sprite(m);
+      s.position.set(pos.x + (Math.random()-0.5) * 3, pos.y + 1 + i * 1.5, pos.z + (Math.random()-0.5) * 3);
+      const baseScale = 3 + Math.random() * 2;
+      s.scale.setScalar(baseScale);
+      scene.add(s);
+      puffs.push({
+        sprite: s, life: 0, max: 7 + Math.random() * 3,
+        vy: 3.0 + Math.random() * 1.5, baseScale, grow: 12,
+        driftX: (Math.random()-0.5) * 0.8, driftZ: (Math.random()-0.5) * 0.8,
+        peak: 0.55
+      });
+    }
+    /* Distant crack/boom — reuse the attenuated enemy-shot sound twice. */
+    if (typeof playEnemyShot === 'function') {
+      const d = Math.min(78, pos.distanceTo(player.position));
+      playEnemyShot(d, pos);
+      setTimeout(() => { if (typeof playEnemyShot === 'function') playEnemyShot(d, pos); }, 55);
+    }
+  }
+
+  function _tick(dt) {
+    /* Ember glow flicker */
+    for (const g of glows) {
+      g.phase += dt * (3 + Math.random() * 2);
+      const k = 0.8 + Math.sin(g.phase) * 0.15 + Math.random() * 0.05;
+      g.sprite.scale.setScalar(g.base * k);
+      if (g.sprite.material) g.sprite.material.opacity = 0.32 + Math.sin(g.phase * 1.3) * 0.12;
+    }
+    /* Column emission */
+    for (const c of columns) {
+      c.emit -= dt;
+      if (c.emit <= 0) { emitColumnPuff(c); c.emit = 0.55 + Math.random() * 0.5; }
+    }
+    /* Rising smoke puffs */
+    for (let i = puffs.length - 1; i >= 0; i--) {
+      const p = puffs[i];
+      p.life += dt;
+      const t = p.life / p.max;
+      if (t >= 1) {
+        scene.remove(p.sprite);
+        if (p.sprite.material) p.sprite.material.dispose();
+        puffs.splice(i, 1);
+        continue;
+      }
+      p.sprite.position.y += p.vy * dt;
+      p.sprite.position.x += p.driftX * dt;
+      p.sprite.position.z += p.driftZ * dt;
+      p.sprite.scale.setScalar(p.baseScale + p.grow * t);
+      const op = (t < 0.15) ? (t / 0.15) * p.peak : p.peak * (1 - (t - 0.15) / 0.85);
+      if (p.sprite.material) p.sprite.material.opacity = Math.max(0, op);
+    }
+    /* Explosion flashes */
+    for (let i = flashes.length - 1; i >= 0; i--) {
+      const f = flashes[i];
+      f.life += dt;
+      const t = f.life / f.max;
+      if (t >= 1) {
+        scene.remove(f.sprite);
+        if (f.sprite.material) f.sprite.material.dispose();
+        flashes.splice(i, 1);
+        continue;
+      }
+      f.sprite.scale.setScalar(f.baseScale * (1 + t * 1.5));
+      if (f.sprite.material) f.sprite.material.opacity = 0.95 * (1 - t);
+    }
+    /* Timed events */
+    gunTimer -= dt;
+    if (gunTimer <= 0) { distantGunfire(); gunTimer = 2.0 + Math.random() * 4.0; }
+    boomTimer -= dt;
+    if (boomTimer <= 0) { distantExplosion(); boomTimer = 14 + Math.random() * 16; }
+  }
+
+  return { _tick };
+})();
+
 function animate() {
   requestAnimationFrame(animate);
   if (document.hidden || _ctxLost) {
@@ -9753,6 +10126,8 @@ function animate() {
     if (TEAM_MODE && typeof updateKillcam === 'function') updateKillcam();
   }
   updateRain(dt);
+  /* R5 — distant battlefield ambience (smoke columns, far gunfire, booms) */
+  if (typeof _battlefield !== 'undefined' && _battlefield) _battlefield._tick(dt);
   updateBullets(dt);                  /* B1/B2/B4 — physics projectiles */
   updateTracers(dt);
   updateImpacts(dt);
@@ -9789,8 +10164,26 @@ function animate() {
     _windUniforms.uTime.value += dt;
   }
 
-  /* Route through the post-processing composer (bloom → FXAA → tonemap).
-   * `dt` lets passes with internal animation (none currently) advance. */
+  /* === R6 bodycam post-FX uniforms — drive grain/vignette/aberration ===
+   * Aberration spikes with whip-pan turn speed and movement; grain rises
+   * at low HP; vignette + red wash pulse on damage. */
+  if (typeof bodycamPass !== 'undefined') {
+    _camFX.time += dt;
+    _camFX.hurt = Math.max(0, _camFX.hurt - dt * 1.6);
+    let dYaw = camera.rotation.y - _camFX.prevYaw;
+    if (dYaw >  Math.PI) dYaw -= Math.PI * 2;
+    if (dYaw < -Math.PI) dYaw += Math.PI * 2;
+    _camFX.prevYaw = camera.rotation.y;
+    const turn   = Math.min(1, Math.abs(dYaw) / (dt > 0.0001 ? dt : 0.016) / 6.0);
+    const moveCA = Math.min(1, Math.hypot(player.velocity.x, player.velocity.z) / 8);
+    const u = bodycamPass.uniforms;
+    u.uTime.value       = _camFX.time;
+    u.uAberration.value = 0.0011 + turn * 0.0026 + moveCA * 0.0006;
+    u.uGrain.value      = 0.045 + (player.health < 30 ? 0.05 : 0.0);
+    u.uVignette.value   = 0.34 + _camFX.hurt * 0.18;
+    u.uDamage.value     = _camFX.hurt;
+  }
+  /* Route through the post-processing composer (bloom → FXAA → bodycam → tonemap). */
   composer.render(dt);
 }
 animate();
@@ -11292,7 +11685,7 @@ if (PVP_MODE) {
       '<b>МЫШЬ</b> — обзор | <b>ЛКМ</b> — стрелять | <b>ПКМ</b> — прицелиться | <b>R</b> — перезарядка<br>' +
       '<b>1</b> — АКМ | <b>2</b> — M416 | <b>3</b> — аптечка | <b>B</b> — прицел | <b>O</b> — глушитель<br><br>' +
       '<span style="color:#ff6040">РЕЖИМ:</span> PVP 1 на 1 с игроком <b style="color:#ff6040">' + PVP_OPPONENT + '</b><br>' +
-      '<span style="color:#ffd060">СНАРЯЖЕНИЕ:</span> АКМ, M416, броня, шлем, рюкзак — выдаётся автоматически<br>' +
+      '<span style="color:#ffd060">СНАРЯЖЕНИЕ:</span> АКМ, M416, брон��, шлем, рюкзак — выдаётся автоматически<br>' +
       '<span style="color:#ff8a8a">ПРАВИЛА:</span> убейте противника. Респавн через 5 секунд. Раунды бесконечны.<br>' +
       '<span style="color:#90ff90">СЧЁТ:</span> побеждает тот, кто убил противника. Счёт отображается в правом верхнем углу.';
   }

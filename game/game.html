@@ -467,7 +467,7 @@
     <span style="color:#ffd060">ВРАГИ:</span> 60 ботов в волнах — 20 уже на поле, 15 наступают с базы, 13 в резерве, 12 защищают флаг.<br>
     <span style="color:#a0c0ff">ЗАЩИТА:</span> ШЛЕМ — пережить хедшот · БРОНЯ — поглощает 50 HP в торс/голову · РЮКЗАК — +100 к запасу патронов (всего 220).<br>
     <span style="color:#ff8a8a">УРОН ПО ЗОНАМ:</span> голова — смерть (без шлема) · грудь — 50/50 · руки/ноги — 2-3 попадания.<br>
-    <span style="color:#90ff90">АПТЕЧКИ:</span> +1 за каждых 3 убитых · нажми <b>3</b> чтобы восстановить здоровье.
+    <span style="color:#90ff90">АПТЕЧКИ:</span> +1 за каждых 3 убитых · нажми <b>3</b> чтобы в��сстановить здоровье.
   </div>
   <button class="play-btn" id="play">PLAY</button>
 </div>
@@ -619,7 +619,7 @@ window.addEventListener('resize', () => {
       bloomPass.setSize(window.innerWidth, window.innerHeight);
     }
     if (typeof fxaaPass !== 'undefined') {
-      const pr = Math.min(window.devicePixelRatio, 1.5);
+      const pr = (typeof _perf !== 'undefined') ? _perf.curPR : Math.min(window.devicePixelRatio, 1.5);
       fxaaPass.material.uniforms['resolution'].value.set(
         1 / (window.innerWidth  * pr),
         1 / (window.innerHeight * pr)
@@ -721,6 +721,106 @@ fxaaPass.material.uniforms['resolution'].value.set(
   1 / (window.innerHeight * Math.min(window.devicePixelRatio, 1.5))
 );
 composer.addPass(fxaaPass);
+
+/* ============================================================================
+   STAGE 4 — PERFORMANCE: live FPS monitor + adaptive resolution & quality.
+   On weak GPUs we keep the frame budget under control by (a) scaling the
+   render-target pixel ratio up/down toward an FPS target and (b) exposing a
+   quality tier (_perf.tier 2=high / 1=med / 0=low) plus a _perf.lowFX flag
+   that particle systems read to thin themselves out. HUD toggles with F8,
+   adaptive scaling toggles with F7. Nothing here touches gameplay. */
+const _perf = (() => {
+  const TEAM  = _urlParams.get('mode') === 'team';
+  const maxPR = Math.min(window.devicePixelRatio || 1, TEAM ? 1.0 : 1.5);
+  const minPR = Math.max(0.6, maxPR * 0.5);
+  const state = {
+    fps: 60, frameMs: 16.7,
+    maxPR, minPR, curPR: maxPR,
+    tier: 2, lowFX: false, hudOn: false, adaptive: true,
+    _acc: 0, _frames: 0, _interval: 0.5, _cool: 0,
+  };
+  const baseBloom = (typeof bloomPass !== 'undefined') ? bloomPass.strength : 0;
+
+  function applyPR(pr) {
+    state.curPR = pr;
+    try {
+      renderer.setPixelRatio(pr);
+      if (typeof composer !== 'undefined') composer.setPixelRatio(pr);
+      if (typeof fxaaPass !== 'undefined') {
+        fxaaPass.material.uniforms['resolution'].value.set(
+          1 / (window.innerWidth * pr), 1 / (window.innerHeight * pr));
+      }
+    } catch (_) {}
+  }
+
+  function applyTier(t) {
+    if (t === state.tier) return;
+    state.tier = t;
+    state.lowFX = (t === 0);
+    if (typeof bloomPass !== 'undefined') {
+      bloomPass.strength = (t === 0) ? baseBloom * 0.0 : (t === 1) ? baseBloom * 0.6 : baseBloom;
+    }
+  }
+
+  let hud = null;
+  function ensureHud() {
+    if (hud || typeof document === 'undefined') return;
+    hud = document.createElement('div');
+    hud.style.cssText = 'position:fixed;top:8px;left:8px;z-index:99999;font:600 12px/1.45 ui-monospace,monospace;color:#9effa0;background:rgba(0,0,0,0.55);padding:6px 9px;border-radius:6px;pointer-events:none;white-space:pre;display:none;text-shadow:0 1px 2px #000';
+    document.body.appendChild(hud);
+  }
+  function toggleHud() {
+    ensureHud();
+    state.hudOn = !state.hudOn;
+    if (hud) hud.style.display = state.hudOn ? 'block' : 'none';
+  }
+
+  function tick(dt) {
+    state._acc += dt; state._frames++;
+    if (state._cool > 0) state._cool -= dt;
+    if (state._acc >= state._interval) {
+      const fps = state._frames / state._acc;
+      state.fps = fps;
+      state.frameMs = 1000 / Math.max(1, fps);
+      state._acc = 0; state._frames = 0;
+
+      if (state.adaptive && state._cool <= 0) {
+        if (fps < 50 && state.curPR > state.minPR) {
+          applyPR(Math.max(state.minPR, +(state.curPR - 0.1).toFixed(2)));
+          state._cool = 1.0;
+        } else if (fps > 58 && state.curPR < state.maxPR) {
+          applyPR(Math.min(state.maxPR, +(state.curPR + 0.1).toFixed(2)));
+          state._cool = 1.5;
+        }
+      }
+
+      let t = state.tier;
+      if (fps < 38) t = 0;
+      else if (fps < 50) t = Math.min(t, 1);
+      else if (fps > 56) t = 2;
+      else if (fps > 46) t = Math.max(t, 1);
+      applyTier(t);
+
+      if (state.hudOn && hud) {
+        const info = (renderer.info && renderer.info.render) ? renderer.info.render : { calls: 0, triangles: 0 };
+        hud.textContent =
+          'FPS ' + fps.toFixed(0) + '  (' + state.frameMs.toFixed(1) + ' ms)\n' +
+          'PR  ' + state.curPR.toFixed(2) + ' / ' + state.maxPR.toFixed(2) + '   tier ' + state.tier + '\n' +
+          'draw ' + info.calls + '  tris ' + ((info.triangles || 0) / 1000).toFixed(0) + 'k';
+      }
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'F8') toggleHud();
+      else if (e.code === 'F7') state.adaptive = !state.adaptive;
+    });
+  }
+
+  return Object.assign(state, { tick, applyPR, toggleHud });
+})();
+
 /* === R6 BODYCAM POST-FX — grain + vignette + chromatic aberration =========
  * Gives the cheap "helmet/bodycam" look: lens vignette darkening the edges,
  * animated film grain, and a subtle RGB split that grows toward the frame
@@ -1279,6 +1379,11 @@ for (let i = 0; i < tPos.count; i++) {
 terrainGeo.computeVertexNormals();
 const terrainMat = new THREE.MeshStandardMaterial({ map: grassTex, roughness: 0.9, metalness: 0 });
 terrainMat.envMapIntensity = 0.85;
+/* STAGE 7 — crisp the ground at grazing angles with full GPU anisotropy. */
+try {
+  const _maxAniso = renderer.capabilities.getMaxAnisotropy();
+  if (grassTex.anisotropy < _maxAniso) { grassTex.anisotropy = _maxAniso; grassTex.needsUpdate = true; }
+} catch (_) {}
 /* === STAGE 2 — WET GROUND shader injection ============================
  * Low-lying ground (trench + crater floors, y < ~0) darkens and turns
  * glossy so it reads as rain-soaked mud that mirrors the overcast sky.
@@ -1289,9 +1394,9 @@ terrainMat.onBeforeCompile = (shader) => {
     .replace('#include <common>', '#include <common>\nvarying vec3 vWetPos;')
     .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vWetPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
   shader.fragmentShader = shader.fragmentShader
-    .replace('#include <common>', '#include <common>\nvarying vec3 vWetPos;\nfloat _wetAt(vec3 p){ float w = smoothstep(0.5, -1.3, p.y); float n = sin(p.x*0.6)*sin(p.z*0.55)*0.5+0.5; return clamp(w*(0.55+0.45*n), 0.0, 1.0); }')
-    .replace('#include <map_fragment>', '#include <map_fragment>\n  diffuseColor.rgb *= mix(1.0, 0.4, _wetAt(vWetPos));')
-    .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n  roughnessFactor = mix(roughnessFactor, 0.1, _wetAt(vWetPos));');
+    .replace('#include <common>', '#include <common>\nvarying vec3 vWetPos;\nfloat _wetAt(vec3 p){ float w = smoothstep(0.5, -1.3, p.y); float n = sin(p.x*0.6)*sin(p.z*0.55)*0.5+0.5; return clamp(w*(0.55+0.45*n), 0.0, 1.0); }\nfloat _h2(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }\nfloat _vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); float a=_h2(i), b=_h2(i+vec2(1.,0.)), c=_h2(i+vec2(0.,1.)), d=_h2(i+vec2(1.,1.)); return mix(mix(a,b,f.x), mix(c,d,f.x), f.y); }\nfloat _macro(vec3 p){ return _vn(p.xz*0.045)*0.55 + _vn(p.xz*0.14)*0.3 + _vn(p.xz*0.016)*0.5; }')
+    .replace('#include <map_fragment>', '#include <map_fragment>\n  float _mac = clamp(_macro(vWetPos), 0.0, 1.4);\n  diffuseColor.rgb *= (0.74 + 0.40 * _mac);\n  diffuseColor.rgb *= mix(1.0, 0.4, _wetAt(vWetPos));\n  diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.86,0.82,0.74), 0.22*(1.0-clamp(_mac,0.0,1.0)));')
+    .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n  roughnessFactor = mix(roughnessFactor, 0.1, _wetAt(vWetPos));\n  roughnessFactor = clamp(roughnessFactor + (clamp(_macro(vWetPos),0.0,1.0)-0.5)*0.22, 0.05, 1.0);');
 };
 const terrain = new THREE.Mesh(terrainGeo, terrainMat);
 terrain.receiveShadow = true;
@@ -2078,6 +2183,8 @@ function spawnRipple(x, y, z, scale0 = 0.12) {
 }
 
 function spawnSplash(x, y, z, n = 6, muddy = true) {
+  /* STAGE 5 — thin splash particle count when the perf tier drops to low. */
+  if (typeof _perf !== 'undefined' && _perf.tier === 0) n = Math.max(2, n >> 1);
   for (let i = 0; i < n; i++) {
     const mat = new THREE.MeshBasicMaterial({
       color: muddy ? 0x35291b : 0x97a4ac, transparent: true, opacity: 0.9, depthWrite: false
@@ -2148,8 +2255,13 @@ function updateMud(dt) {
   /* spawn rain ripples on puddles near the player */
   if (_puddles.length) {
     _rippleAcc += dt;
-    while (_rippleAcc >= 0.045) {
-      _rippleAcc -= 0.045;
+    /* STAGE 5 — stretch the ripple spawn interval as the perf tier drops so
+     * the per-ripple Mesh/material churn scales down under load. */
+    const _ripDt = (typeof _perf !== 'undefined')
+      ? (_perf.tier === 0 ? 0.14 : _perf.tier === 1 ? 0.08 : 0.045)
+      : 0.045;
+    while (_rippleAcc >= _ripDt) {
+      _rippleAcc -= _ripDt;
       let best = null, bestD = 1e9;
       for (let k = 0; k < 6; k++) {
         const p = _puddles[(Math.random() * _puddles.length) | 0];
@@ -5645,6 +5757,32 @@ hands.position.z = 0;
  * the bottom of the screen. Iron sights are aligned with X=0, weapon yaw=0. */
 weapon.position.set(0.20, -0.24, -0.30);
 weapon.rotation.set(0, 0, 0);
+
+/* ============================================================================
+   STAGE 6 — VIEWMODEL OVERLAY LAYER (guaranteed anti-clipping).
+   The weapon is rendered in a SECOND pass on a cleared depth buffer (see the
+   render block in animate), so it can never poke through walls/tanks/trees
+   regardless of how close the player stands. The existing raycast "weapon-low"
+   animation still lowers the gun for realism; this pass is the hard guarantee.
+   The weapon stays a child of the camera in the MAIN scene, so every muzzle /
+   bullet / iron-sight world-position calculation is completely unchanged.
+   We tag the whole weapon subtree onto a dedicated layer every frame (cheap —
+   the subtree is tiny) so dynamically-added parts (muzzle flash, ejected
+   shells, toggled attachments) inherit it too. */
+const VIEWMODEL_LAYER = 1;
+function _setViewmodelLayer() {
+  weapon.traverse((o) => {
+    o.layers.set(VIEWMODEL_LAYER);
+    if (o.isMesh) o.castShadow = false;   /* viewmodel must not cast world shadows */
+  });
+}
+/* Let the main lights illuminate the viewmodel layer as well as the world. */
+try {
+  hemi.layers.enable(VIEWMODEL_LAYER);
+  sun.layers.enable(VIEWMODEL_LAYER);
+  ambient.layers.enable(VIEWMODEL_LAYER);
+} catch (_) {}
+_setViewmodelLayer();
 camera.add(weapon);
 scene.add(camera);
 
@@ -11270,7 +11408,7 @@ function pickUpFromBoard(slot) {
       showNotice('КОЛЛИМАТОР (B - переключить)');
       break;
     case 'scope_3x':
-      if (player.inv.hasScope3x) { showNotice('ПРИЦЕЛ 3X УЖЕ В ИНВЕНТАРЕ'); return; }
+      if (player.inv.hasScope3x) { showNotice('ПРИЦЕЛ 3X УЖЕ В ИНВЕНТ��РЕ'); return; }
       player.inv.hasScope3x = true;
       showNotice('ПРИЦЕЛ 3X (B - переключить)');
       break;
@@ -11290,7 +11428,7 @@ function pickUpFromBoard(slot) {
     case 'foregrip':
       if (player.inv.hasForegrip) { showNotice('РУКОЯТКА УЖЕ УСТАНОВЛЕНА'); return; }
       player.inv.hasForegrip = true;
-      showNotice('ПЕРЕДНЯЯ РУКОЯТКА — МЕНЬШЕ ОТДАЧИ');
+      showNotice('ПЕРЕДНЯЯ РУКОЯТКА — МЕН��ШЕ ОТДАЧИ');
       break;
     case 'rig':
       /* W10 — chest rig: bigger ammo reserve + grenade capacity, tops both up */
@@ -12459,7 +12597,9 @@ const _battlefield = (() => {
   }
 
   function emitColumnPuff(c) {
-    if (puffs.length > 70) return;
+    /* STAGE 5 — cut the distant-smoke puff budget hard when FPS is low. */
+    const _cap = (typeof _perf !== 'undefined' && _perf.lowFX) ? 24 : 70;
+    if (puffs.length > _cap) return;
     const tone = 0.16 + Math.random() * 0.10;        /* dark sooty grey */
     const m = new THREE.SpriteMaterial({
       color: new THREE.Color(tone, tone * 0.96, tone * 0.92),
@@ -12617,6 +12757,7 @@ function animate() {
   }
   _animFrame = (_animFrame + 1) | 0;
   const dt = Math.min(0.05, clock.getDelta());
+  if (typeof _perf !== 'undefined') _perf.tick(dt);   /* STAGE 4 — FPS monitor + adaptive quality */
 
   if (controls.isLocked) {
     updatePlayer(dt);
@@ -12691,8 +12832,23 @@ function animate() {
   }
   /* STAGE 3 — advance the lens-rain droplet animation clock */
   if (typeof lensRainPass !== 'undefined') lensRainPass.uniforms.uTime.value = _camFX.time;
-  /* Route through the post-processing composer (bloom → FXAA → bodycam → tonemap). */
+  /* Route through the post-processing composer (bloom → FXAA → bodycam → tonemap).
+   * STAGE 6 — render the world WITHOUT the viewmodel layer, then draw the
+   * weapon as a separate overlay on a freshly-cleared depth buffer so it can
+   * never clip into world geometry. */
+  camera.layers.set(0);
   composer.render(dt);
+  if (typeof weapon !== 'undefined' && typeof _setViewmodelLayer === 'function') {
+    _setViewmodelLayer();
+    const _ac = renderer.autoClear;
+    renderer.autoClear = false;
+    renderer.setRenderTarget(null);
+    renderer.clearDepth();
+    camera.layers.set(VIEWMODEL_LAYER);
+    renderer.render(scene, camera);
+    camera.layers.set(0);
+    renderer.autoClear = _ac;
+  }
 }
 animate();
 

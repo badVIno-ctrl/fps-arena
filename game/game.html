@@ -465,7 +465,7 @@
     <span style="color:#ffd060">СТАРТ:</span> у тебя <b>пусто</b> (нет оружия, патронов, брони). У сруба — <b>ДОСКА СНАРЯЖЕНИЯ</b>. Подойди и нажми <b>F</b>, чтобы взять: <span style="color:#ffd066">АКМ</span>, <span style="color:#ffd066">M416</span>, <span style="color:#a0ffa0">бронежилет</span>, <span style="color:#a0c0ff">шлем</span>, <span style="color:#ffd066">рюкзак</span>, <span style="color:#ff7080">коллиматор</span>, <span style="color:#ff7080">прицел 3X</span>.<br>
     <span style="color:#ffd060">ЦЕЛЬ:</span> добеги до базы врага → возьми <span style="color:#ff7060">КРАСНЫЙ ФЛАГ</span> → доставь его в <span style="color:#7ec0ff">синюю зону</span> у сруба = <b>ПОБЕДА</b>.<br>
     <span style="color:#ffd060">ВРАГИ:</span> 60 ботов в волнах — 20 уже на поле, 15 наступают с базы, 13 в резерве, 12 защищают флаг.<br>
-    <span style="color:#a0c0ff">ЗАЩИТА:</span> ШЛЕМ — пережить хедшот · БРОНЯ — поглощает 50 HP в ��орс/голову · РЮКЗАК — +100 к запа����у патронов (всего 220).<br>
+    <span style="color:#a0c0ff">ЗАЩИТА:</span> ШЛЕМ — пережить хедшот · БРОНЯ — поглощает 50 HP в торс/голову · РЮКЗАК — +100 к запасу патронов (всего 220).<br>
     <span style="color:#ff8a8a">УРОН ПО ЗОНАМ:</span> голова — смерть (без шлема) · грудь — 50/50 · руки/ноги — 2-3 попадания.<br>
     <span style="color:#90ff90">АПТЕЧКИ:</span> +1 за каждых 3 убитых · нажми <b>3</b> чтобы восстановить здоровье.
   </div>
@@ -994,7 +994,7 @@ TRENCH_RECTS.push({ cx: -15, cz:  -40, halfX: 1.2, halfZ: 3.5, rotY: Math.PI / 1
 TRENCH_RECTS.push({ cx:  12, cz:  -75, halfX: 1.2, halfZ: 3.5, rotY: -Math.PI / 8,  depth: 1.1 });
 TRENCH_RECTS.push({ cx:  -6, cz: -110, halfX: 1.2, halfZ: 4.0, rotY: 0.0,           depth: 1.0 });
 
-/* PvP-only extra trenches �� added only when running the online arena so
+/* PvP-only extra trenches — added only when running the online arena so
  * PvE keeps its familiar shape. Push them BEFORE the terrain is baked. */
 if (typeof PVP_MODE !== 'undefined' && PVP_MODE) {
   TRENCH_RECTS.push({ cx:  -8, cz:  -25, halfX: 1.2, halfZ: 3.0, rotY: Math.PI / 6, depth: 1.0 });
@@ -2146,7 +2146,7 @@ function buildEquipBoard() {
     { x:  3.0, y: 2.6, kind: 'mp5',    label: 'MP5 (3)' },
     /* Row 2 — gear */
     { x: -3.0, y: 1.5, kind: 'armor',    label: 'БРОНЕЖИЛЕТ' },
-    { x: -1.8, y: 1.5, kind: 'helmet',   label: '��ЛЕМ' },
+    { x: -1.8, y: 1.5, kind: 'helmet',   label: 'ШЛЕМ' },
     { x: -0.6, y: 1.5, kind: 'backpack', label: 'РЮКЗАК' },
     { x:  0.5, y: 1.5, kind: 'ghillie',  label: 'МАСКХАЛАТ' },
     { x:  1.5, y: 1.5, kind: 'medkit',   label: 'АПТЕЧКИ x2' },
@@ -3665,6 +3665,21 @@ function createAK47() {
   heel.position.set(0, -0.028, 0.360);
   ak.add(heel);
 
+  /* === Phase 1 detail pass: white-dot iron sights (AKM) === */
+  const akWhite = new THREE.MeshStandardMaterial({ color: 0xf4f4f4, roughness: 0.45, metalness: 0.0, emissive: 0x3a3a3a });
+  /* Front bead white tritium dot (faces shooter, +Z) */
+  const akFdot = new THREE.Mesh(new THREE.CircleGeometry(0.0026, 12), akWhite);
+  akFdot.position.set(0, 0.090, -0.700);
+  ak.add(akFdot);
+  /* Two rear-notch white reference dots on the fin inner faces */
+  for (const sx of [-0.013, 0.013]) {
+    const rd = new THREE.Mesh(new THREE.CircleGeometry(0.0022, 12), akWhite);
+    rd.position.set(sx, 0.073, -0.111);
+    ak.add(rd);
+  }
+  /* Muzzle (flash + bullet origin) at the front of the slant brake */
+  ak.userData.muzzleZ = -0.87;
+
   ak.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
   return ak;
 }
@@ -3918,6 +3933,39 @@ function createM416() {
   stockLatch.position.set(0, -0.020, 0.180);
   m.add(stockLatch);
 
+  /* === Phase 1 detail pass: white-dot sights + extra controls (M416) === */
+  const mWhite = new THREE.MeshStandardMaterial({ color: 0xf4f4f4, roughness: 0.45, metalness: 0.0, emissive: 0x3a3a3a });
+  /* Front sight tritium dot on the post (faces shooter, +Z) */
+  const mFdot = new THREE.Mesh(new THREE.CircleGeometry(0.0028, 12), mWhite);
+  mFdot.position.set(0, 0.082, -0.451);
+  m.add(mFdot);
+  /* Two rear aperture dots flanking the window */
+  for (const sx of [-0.0072, 0.0072]) {
+    const rd = new THREE.Mesh(new THREE.CircleGeometry(0.0024, 12), mWhite);
+    rd.position.set(sx, -0.001, 0.0065);
+    rearSightM.add(rd);
+  }
+  /* Bolt catch / release paddle (left of lower) */
+  const mBoltCatch = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.014, 0.018), polished);
+  mBoltCatch.position.set(-0.028, -0.004, -0.006);
+  m.add(mBoltCatch);
+  /* Brass deflector bump behind ejection port */
+  const mDeflector = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.016, 0.014), steel);
+  mDeflector.position.set(0.030, 0.052, 0.012);
+  m.add(mDeflector);
+  /* QD sling swivel at the buffer tube */
+  const mSling = new THREE.Mesh(new THREE.TorusGeometry(0.008, 0.0022, 6, 12), polished);
+  mSling.rotation.y = Math.PI / 2;
+  mSling.position.set(0.020, 0.010, 0.090);
+  m.add(mSling);
+  /* M-LOK bottom screws on the handguard */
+  for (let i = 0; i < 3; i++) {
+    const screw = new THREE.Mesh(new THREE.CylinderGeometry(0.0026, 0.0026, 0.004, 6), polished);
+    screw.rotation.x = Math.PI / 2;
+    screw.position.set(0, -0.002, -0.22 - i * 0.05);
+    m.add(screw);
+  }
+
   /* === MUZZLE FLASH ATTACHMENT POINT (used externally) === */
   m.userData.muzzleZ = -0.78;
 
@@ -4020,6 +4068,23 @@ function createGlock18() {
   g.userData.magHomePos = mag.position.clone();
   g.userData.magHomeRot = mag.rotation.clone();
 
+  /* ---- Phase 1 detail pass: white-dot sights, controls, rail, grip
+   *      stippling, finger grooves, extended G18 selector + mag floorplate. ---- */
+  const gWhite = new THREE.MeshStandardMaterial({ color: 0xe9e9ee, roughness: 0.5, metalness: 0.0, emissive: 0x202020 });
+  const gStip  = new THREE.MeshStandardMaterial({ color: 0x0d0d10, roughness: 0.96, metalness: 0.02 });
+  const gFdot = new THREE.Mesh(new THREE.CircleGeometry(0.0019, 10), gWhite); gFdot.position.set(0, 0.078, -0.171); bolt.add(gFdot);
+  const gRdL = new THREE.Mesh(new THREE.CircleGeometry(0.0016, 10), gWhite); gRdL.position.set(-0.008, 0.078, 0.0145); bolt.add(gRdL);
+  const gRdR = gRdL.clone(); gRdR.position.set(0.008, 0.078, 0.0145); bolt.add(gRdR);
+  const gExtr = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.008, 0.020), polished); gExtr.position.set(0.0185, 0.060, -0.03); bolt.add(gExtr);
+  const gSel = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.014, 0.012), polished); gSel.position.set(0.020, 0.060, 0.028); bolt.add(gSel); /* G18 full-auto selector */
+  for (let i = 0; i < 2; i++) { const r = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.004, 0.006), poly); r.position.set(0, 0.012, -0.10 - i * 0.018); g.add(r); }
+  const gStopLv = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.008, 0.028), steel); gStopLv.position.set(-0.016, 0.030, -0.02); g.add(gStopLv);
+  const gPin = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.0035, 0.032, 10), steel); gPin.rotation.z = Math.PI / 2; gPin.position.set(0, 0.016, -0.05); g.add(gPin);
+  const gRel = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.012, 0.010), poly); gRel.position.set(-0.016, 0.020, 0.006); g.add(gRel);
+  for (const sx of [-0.0152, 0.0152]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.002, 0.085, 0.034), gStip); p.position.set(sx, 0.000, 0.002); grip.add(p); }
+  const gBack = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.085, 0.002), gStip); gBack.position.set(0, 0.000, 0.0235); grip.add(gBack);
+  for (let i = 0; i < 3; i++) { const fg = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.026, 8), poly); fg.rotation.z = Math.PI / 2; fg.position.set(0, 0.028 - i * 0.030, -0.0235); grip.add(fg); }
+  const gFloor = new THREE.Mesh(new THREE.BoxGeometry(0.030, 0.012, 0.046), poly); gFloor.position.set(0, -0.066, 0); mag.add(gFloor);
   g.userData.muzzleZ = -0.225;
   g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
   return g;
@@ -4083,8 +4148,8 @@ function createDeagle() {
   const trigger = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.018, 0.007), gold);
   trigger.position.set(0, 0.005, -0.045);
   g.add(trigger);
-  const hammer = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.018, 0.010), polished);
-  hammer.position.set(0, 0.052, 0.075);
+  const hammer = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.018, 0.012), polished);
+  hammer.position.set(0, 0.052, 0.053);
   g.add(hammer);
 
   const grip = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.130, 0.050), gripMat);
@@ -4100,6 +4165,19 @@ function createDeagle() {
   g.userData.magHomePos = mag.position.clone();
   g.userData.magHomeRot = mag.rotation.clone();
 
+  /* ---- Phase 1 detail pass: white-dot sights, muzzle crown, frame safety,
+   *      checkered grip panels + gold medallion, mag floorplate, frame pins. ---- */
+  const dWhite = new THREE.MeshStandardMaterial({ color: 0xe9e9ee, roughness: 0.5, metalness: 0.0, emissive: 0x202020 });
+  const dCheck = new THREE.MeshStandardMaterial({ color: 0x160d08, roughness: 0.9, metalness: 0.05 });
+  const dFdot = new THREE.Mesh(new THREE.CircleGeometry(0.0020, 10), dWhite); dFdot.position.set(0, 0.100, -0.200); bolt.add(dFdot);
+  const dRdL = new THREE.Mesh(new THREE.CircleGeometry(0.0017, 10), dWhite); dRdL.position.set(-0.009, 0.090, 0.0165); bolt.add(dRdL);
+  const dRdR = dRdL.clone(); dRdR.position.set(0.009, 0.090, 0.0165); bolt.add(dRdR);
+  const dCrown = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.012, 0.010, 14), polished); dCrown.rotation.x = Math.PI / 2; dCrown.position.set(0, 0.078, -0.250); g.add(dCrown);
+  const dSafety = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.012, 0.020), gold); dSafety.position.set(-0.024, 0.066, 0.020); g.add(dSafety);
+  for (const sx of [-0.020, 0.020]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.002, 0.095, 0.040), dCheck); p.position.set(sx, 0.000, 0.002); grip.add(p); }
+  const dMed = new THREE.Mesh(new THREE.CircleGeometry(0.008, 16), gold); dMed.position.set(0.0202, -0.01, 0.004); dMed.rotation.y = Math.PI / 2; grip.add(dMed);
+  const dFloor = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.014, 0.048), steel); dFloor.position.set(0, -0.070, 0); mag.add(dFloor);
+  for (let i = 0; i < 2; i++) { const scr = new THREE.Mesh(new THREE.CylinderGeometry(0.0026, 0.0026, 0.004, 8), polished); scr.rotation.x = Math.PI / 2; scr.position.set(0.020, 0.030, -0.12 + i * 0.10); g.add(scr); }
   g.userData.muzzleZ = -0.255;
   g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
   return g;
@@ -4202,6 +4280,19 @@ function createAK74() {
   stock.position.set(0, 0.020, 0.165);
   g.add(stock);
 
+  /* ---- Phase 1 detail pass: protected front-sight ears+hood+bead, rear notch
+   *      fins, dust-cover pressing ribs, handguard finger ribs, ribbed mag,
+   *      sling loop, textured pistol grip. ---- */
+  const aWhite = new THREE.MeshStandardMaterial({ color: 0xe9e9ee, roughness: 0.5, metalness: 0.0, emissive: 0x202020 });
+  for (const sx of [-0.011, 0.011]) { const ear = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.034, 0.014), polished); ear.position.set(sx, 0.060, -0.62); g.add(ear); }
+  const aHood = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.004, 0.014), polished); aHood.position.set(0, 0.076, -0.62); g.add(aHood);
+  const aTip = new THREE.Mesh(new THREE.SphereGeometry(0.0026, 8, 8), aWhite); aTip.position.set(0, 0.068, -0.62); g.add(aTip);
+  for (const sx of [-0.008, 0.008]) { const fin = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.010, 0.012), dark); fin.position.set(sx, 0.058, -0.14); g.add(fin); }
+  for (let i = 0; i < 4; i++) { const rib = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.004, 0.004), dark); rib.position.set(0, 0.040 - i * 0.025, -0.026); magBody.add(rib); }
+  for (const sx of [-0.012, 0.012]) { const cr = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.014, 0.16), steel); cr.position.set(sx, 0.070, -0.04); g.add(cr); }
+  for (let i = 0; i < 4; i++) { const hr = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.004, 0.006), dark); hr.position.set(0, 0.044, -0.20 - i * 0.030); g.add(hr); }
+  const aSling = new THREE.Mesh(new THREE.TorusGeometry(0.008, 0.0022, 6, 12), steel); aSling.position.set(0.020, 0.010, -0.46); aSling.rotation.y = Math.PI / 2; g.add(aSling);
+  for (const sx of [-0.0152, 0.0152]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.002, 0.07, 0.032), dark); p.position.set(sx, 0, 0); pgrip.add(p); }
   g.userData.muzzleZ = -0.745;
   g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
   return g;
@@ -4299,6 +4390,52 @@ function createScarH() {
   const cheek = new THREE.Mesh(new THREE.BoxGeometry(0.030, 0.014, 0.10), dark);
   cheek.position.set(0, 0.072, 0.18);
   g.add(cheek);
+
+  /* === Phase 1 detail pass: white-dot sights, grip + mag texture, controls (SCAR-H) === */
+  const sWhite = new THREE.MeshStandardMaterial({ color: 0xf4f4f4, roughness: 0.45, metalness: 0.0, emissive: 0x3a3a3a });
+  /* Front post white dot (faces shooter) */
+  const sFdot = new THREE.Mesh(new THREE.CircleGeometry(0.0026, 12), sWhite);
+  sFdot.position.set(0, 0.094, -0.413);
+  g.add(sFdot);
+  /* Two rear aperture dots */
+  for (const sx of [-0.008, 0.008]) {
+    const rd = new THREE.Mesh(new THREE.CircleGeometry(0.0024, 12), sWhite);
+    rd.position.set(sx, 0.090, 0.0035);
+    g.add(rd);
+  }
+  /* Ambidextrous safety levers (both sides of lower) */
+  for (const sx of [-1, 1]) {
+    const saf = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.005, 0.010), polished);
+    saf.position.set(sx * 0.026, 0.006, 0.010);
+    g.add(saf);
+  }
+  /* Magazine release button */
+  const sMagRel = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.012, 0.010), polished);
+  sMagRel.position.set(0.024, -0.006, -0.012);
+  g.add(sMagRel);
+  /* Folding-stock hinge */
+  const sHinge = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.030, 12), steel);
+  sHinge.rotation.z = Math.PI / 2;
+  sHinge.position.set(0, 0.030, 0.075);
+  g.add(sHinge);
+  /* Pistol-grip checker panels (children inherit grip tilt) */
+  for (const sx of [-1, 1]) {
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(0.001, 0.060, 0.030), dark);
+    panel.position.set(sx * 0.0156, 0, 0);
+    pgrip.add(panel);
+  }
+  /* Magazine grip ribs (inherit mag tilt) */
+  for (let i = 0; i < 4; i++) {
+    const rib = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.004, 0.006), dark);
+    rib.position.set(0, 0.045 - i * 0.030, -0.026);
+    magBody.add(rib);
+  }
+  /* Bottom rail teeth under the handguard */
+  for (let i = 0; i < 4; i++) {
+    const bt = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.003, 0.012), dark);
+    bt.position.set(0, 0.006, -0.28 - i * 0.04);
+    g.add(bt);
+  }
 
   g.userData.muzzleZ = -0.73;
   g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
@@ -4401,6 +4538,52 @@ function createMP5() {
   const buttplate = new THREE.Mesh(new THREE.BoxGeometry(0.040, 0.060, 0.016), dark);
   buttplate.position.set(0, 0.045, 0.225);
   g.add(buttplate);
+
+  /* === Phase 1 detail pass: white-dot sights, grip + mag texture, controls (MP5) === */
+  const pWhite = new THREE.MeshStandardMaterial({ color: 0xf4f4f4, roughness: 0.45, metalness: 0.0, emissive: 0x3a3a3a });
+  /* Front post white dot inside the hood (faces shooter) */
+  const pFdot = new THREE.Mesh(new THREE.CircleGeometry(0.0022, 12), pWhite);
+  pFdot.position.set(0, 0.062, -0.353);
+  g.add(pFdot);
+  /* Rear drum aperture ring (faces shooter) */
+  const pRear = new THREE.Mesh(new THREE.RingGeometry(0.0030, 0.0052, 14), pWhite);
+  pRear.position.set(0, 0.064, 0.028);
+  g.add(pRear);
+  /* HK "slap" charging-handle forward catch */
+  const pSlap = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.012, 0.008), polished);
+  pSlap.position.set(-0.040, 0.066, -0.235);
+  g.add(pSlap);
+  /* Paddle magazine release behind the mag well */
+  const pPaddle = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.022, 0.006), polished);
+  pPaddle.position.set(0, 0.000, 0.012);
+  g.add(pPaddle);
+  /* Two receiver push-pins */
+  for (const pz of [-0.02, 0.04]) {
+    const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.0032, 0.0032, 0.036, 10), polished);
+    pin.rotation.z = Math.PI / 2;
+    pin.position.set(0, 0.020, pz);
+    g.add(pin);
+  }
+  /* Slimline handguard ridges */
+  for (let i = 0; i < 5; i++) {
+    const ridge = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.0016, 6, 16), steel);
+    ridge.rotation.x = Math.PI / 2;
+    ridge.position.set(0, 0.045, -0.20 - i * 0.018);
+    g.add(ridge);
+  }
+  /* Pistol-grip texture panels (inherit grip tilt) */
+  for (const sx of [-1, 1]) {
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(0.001, 0.055, 0.028), steel);
+    panel.position.set(sx * 0.0145, 0, 0);
+    pgrip.add(panel);
+  }
+  /* Curved-magazine grip ribs */
+  for (let i = 0; i < 4; i++) {
+    const rib = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.004, 0.006), dark);
+    rib.position.set(0, -0.025 - i * 0.036, -0.082 - i * 0.012);
+    rib.rotation.x = 0.22;
+    mag.add(rib);
+  }
 
   g.userData.muzzleZ = -0.42;
   g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
@@ -4525,53 +4708,71 @@ function createRedDotSight() {
 }
 
 function createHoloSight() {
-  /* EOTech-style holographic sight — square open hood + additive circle-dot
-   * reticle. Built hollow (open window) so the player sees straight through
-   * it. The reticle is depthTest:false so it always floats over the view. */
+  /* EOTech-style holographic sight. The window is a fully OPEN rectangular
+   * frame (no solid glass) so the player sees straight through it, and the
+   * reticle is an additive depthTest:false overlay that always floats at the
+   * aim point. CRITICAL FIX: the battery/electronics housing now sits ABOVE
+   * the window (never on the line of sight), so ADS shows a clear picture
+   * instead of a black block. The dot is centered at local y=0.022 to match
+   * the ADS mounting offset (_dotY for 'holo'). */
   const g = new THREE.Group();
   g.userData.kind = 'holo';
   const body = new THREE.MeshStandardMaterial({ color: 0x17171a, roughness: 0.5, metalness: 0.7 });
+  const HW = 0.030;                 /* window half-width */
+  const yTop = 0.047, yBot = -0.003;
+  const yMid = (yTop + yBot) / 2;   /* = 0.022, the dot/eye height */
+  const frameZ = 0.010, frameZpos = -0.004;
   /* Rail base clamp */
-  const base = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.012, 0.075), body);
-  base.position.set(0, -0.006, 0);
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.052, 0.012, 0.080), body);
+  base.position.set(0, -0.009, 0.004);
   g.add(base);
-  /* Hood — top bar + two side walls forming an open square window */
-  const top = new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.006, 0.050), body);
-  top.position.set(0, 0.046, 0);
-  g.add(top);
-  for (const sx of [-0.023, 0.023]) {
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.046, 0.050), body);
-    wall.position.set(sx, 0.023, 0);
-    g.add(wall);
+  /* Open frame: top bar, bottom bar, two thin side posts. Kept SHALLOW in Z
+   * so the frame doesn't tunnel/occlude the view when looking through. */
+  const topBar = new THREE.Mesh(new THREE.BoxGeometry(2*HW + 0.012, 0.006, frameZ), body);
+  topBar.position.set(0, yTop, frameZpos); g.add(topBar);
+  const botBar = new THREE.Mesh(new THREE.BoxGeometry(2*HW + 0.012, 0.005, frameZ), body);
+  botBar.position.set(0, yBot, frameZpos); g.add(botBar);
+  for (const sx of [-(HW + 0.003), (HW + 0.003)]) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.006, (yTop - yBot) + 0.006, frameZ), body);
+    post.position.set(sx, yMid, frameZpos); g.add(post);
   }
-  /* Electronics housing block at the rear of the hood */
-  const hood = new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.022, 0.024), body);
-  hood.position.set(0, 0.020, 0.036);
-  g.add(hood);
-  /* Two control buttons on the housing for silhouette detail */
-  for (const bx of [-0.010, 0.010]) {
-    const btn = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.006, 0.004), body);
-    btn.position.set(bx, 0.026, 0.049);
+  /* Faint tinted glass so the window reads as a real optic but stays clear. */
+  const glass = new THREE.Mesh(
+    new THREE.PlaneGeometry(2*HW, yTop - yBot),
+    new THREE.MeshBasicMaterial({ color: 0x0a1a14, transparent: true, opacity: 0.10, depthWrite: false, side: THREE.DoubleSide })
+  );
+  glass.position.set(0, yMid, frameZpos);
+  g.add(glass);
+  /* Battery / electronics housing — ON TOP of the hood, above the glass,
+   * extending toward the shooter. Never blocks the sight line. */
+  const housing = new THREE.Mesh(new THREE.BoxGeometry(2*HW + 0.012, 0.020, 0.052), body);
+  housing.position.set(0, yTop + 0.013, 0.024);
+  g.add(housing);
+  /* Two control buttons on the rear face of the housing */
+  for (const bx of [-0.012, 0.012]) {
+    const btn = new THREE.Mesh(new THREE.BoxGeometry(0.007, 0.007, 0.004), body);
+    btn.position.set(bx, yTop + 0.013, 0.051);
     g.add(btn);
   }
-  /* Reticle — outer ring + center dot, additive overlay on the glassless window. */
+  /* Reticle — outer ring + bright center dot, additive overlay centered in
+   * the open window at dot height. renderOrder high so it floats on top. */
   const ringMat = new THREE.MeshBasicMaterial({
-    color: 0xff2a18, transparent: true, opacity: 0.9,
+    color: 0xff2a18, transparent: true, opacity: 0.92,
     blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false
   });
-  const ring = new THREE.Mesh(new THREE.RingGeometry(0.0095, 0.0120, 24), ringMat);
-  ring.position.set(0, 0.022, 0.014);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.0090, 0.0118, 28), ringMat);
+  ring.position.set(0, yMid, frameZpos + 0.002);
   ring.rotation.y = Math.PI;
-  ring.renderOrder = 99;
+  ring.renderOrder = 999;
   g.add(ring);
   const dotMat = new THREE.MeshBasicMaterial({
-    color: 0xff3322, transparent: true, opacity: 1.0,
+    color: 0xff5530, transparent: true, opacity: 1.0,
     blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false
   });
-  const dot = new THREE.Mesh(new THREE.CircleGeometry(0.0024, 14), dotMat);
-  dot.position.set(0, 0.022, 0.014);
+  const dot = new THREE.Mesh(new THREE.CircleGeometry(0.0026, 18), dotMat);
+  dot.position.set(0, yMid, frameZpos + 0.003);
   dot.rotation.y = Math.PI;
-  dot.renderOrder = 100;
+  dot.renderOrder = 1000;
   g.add(dot);
   g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
   return g;
@@ -4682,96 +4883,185 @@ function createScope3x() {
   return g;
 }
 
-/* Hands — camo sleeves + gloves */
+/* === Hands (Phase 2) — articulated gloves with jointed fingers ============
+ * Each hand is a Group with named finger sub-groups so the engine can:
+ *   - place the support / trigger hands per-weapon (WEAPON_HANDS table)
+ *   - curl the trigger finger on fire
+ *   - drive the support hand through the reload (leave handguard -> grab mag
+ *     -> guide it home -> slap the charging handle -> settle back)
+ * Finger pivots sit at the knuckle; a child "joint" pivot gives a second
+ * bend (PIP) so fingers wrap convincingly instead of staying flat boxes. */
+function _makeFinger(mat, jointMat, len1, len2, w) {
+  const knuckle = new THREE.Group();               /* pivot at base knuckle */
+  const prox = new THREE.Mesh(new THREE.BoxGeometry(w, len1, w * 0.95), mat);
+  prox.position.set(0, -len1 / 2, 0);
+  knuckle.add(prox);
+  const kp = new THREE.Mesh(new THREE.SphereGeometry(w * 0.6, 8, 6), jointMat);
+  knuckle.add(kp);
+  const joint = new THREE.Group();                 /* second pivot (PIP) */
+  joint.position.set(0, -len1, 0);
+  const dist = new THREE.Mesh(new THREE.BoxGeometry(w * 0.9, len2, w * 0.88), mat);
+  dist.position.set(0, -len2 / 2, 0);
+  joint.add(dist);
+  const tip = new THREE.Mesh(new THREE.SphereGeometry(w * 0.46, 8, 6), mat);
+  tip.position.set(0, -len2, 0);
+  joint.add(tip);
+  knuckle.add(joint);
+  knuckle.userData.joint = joint;
+  return knuckle;
+}
+
+/* Hands — camo sleeves + articulated gloves */
 function createHands() {
   const g = new THREE.Group();
   const sleeveMat = new THREE.MeshStandardMaterial({ map: camoTex, roughness: 0.9 });
-  const gloveMat = new THREE.MeshStandardMaterial({ color: 0x1d1d20, roughness: 0.75, metalness: 0.05 });
-  const skinMat = new THREE.MeshStandardMaterial({ color: 0xc89878, roughness: 0.7 });
-  const cuffMat = new THREE.MeshStandardMaterial({ color: 0x2a2a24, roughness: 0.85 });
-  const knuckleMat = new THREE.MeshStandardMaterial({ color: 0x141416, roughness: 0.6, metalness: 0.1 });
+  const gloveMat  = new THREE.MeshStandardMaterial({ color: 0x202024, roughness: 0.72, metalness: 0.05 });
+  const knuckMat  = new THREE.MeshStandardMaterial({ color: 0x141416, roughness: 0.55, metalness: 0.12 });
+  const cuffMat   = new THREE.MeshStandardMaterial({ color: 0x2a2a24, roughness: 0.85 });
 
-  /* Right arm (on grip) */
+  /* ---------- RIGHT (trigger) hand ---------- */
   const rArm = new THREE.Group();
   const rSleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.22, 12), sleeveMat);
-  rSleeve.rotation.x = 1.0;
-  rSleeve.position.set(0, -0.05, 0.13);
-  rArm.add(rSleeve);
-  /* Wrist cuff where the sleeve meets the glove */
+  rSleeve.rotation.x = 1.0; rSleeve.position.set(0, -0.05, 0.13); rArm.add(rSleeve);
   const rCuff = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.05, 0.04, 12), cuffMat);
-  rCuff.rotation.x = 1.0;
-  rCuff.position.set(0, -0.065, 0.095);
-  rArm.add(rCuff);
-  /* Detailed right hand (trigger hand): palm + knuckle guard + four curled
-   * fingers + thumb, anchored where the old single-box glove used to sit. */
+  rCuff.rotation.x = 1.0; rCuff.position.set(0, -0.065, 0.095); rArm.add(rCuff);
+
   const rHand = new THREE.Group();
   rHand.position.set(0, -0.07, 0.075);
   rHand.rotation.x = 0.3;
   const rPalm = new THREE.Mesh(new THREE.BoxGeometry(0.052, 0.085, 0.05), gloveMat);
   rHand.add(rPalm);
-  const rKnuckle = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.02, 0.042), knuckleMat);
-  rKnuckle.position.set(0, 0.012, -0.028);
-  rHand.add(rKnuckle);
-  for (let i = 0; i < 4; i++) {
-    const fx = -0.018 + i * 0.012;
-    const fseg = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.034, 0.020), gloveMat);
-    fseg.position.set(fx, -0.052, -0.020);
-    fseg.rotation.x = 0.55;
-    rHand.add(fseg);
-    const ftip = new THREE.Mesh(new THREE.BoxGeometry(0.009, 0.024, 0.018), gloveMat);
-    ftip.position.set(fx, -0.078, -0.004);
-    ftip.rotation.x = 1.0;
-    rHand.add(ftip);
+  const rBack = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.02, 0.044), knuckMat);
+  rBack.position.set(0, 0.014, -0.026); rHand.add(rBack);
+  /* three curled fingers (middle / ring / pinky) wrap the FRONT of the grip */
+  const rFingers = [];
+  const rLens = [[0.030, 0.026], [0.032, 0.028], [0.026, 0.022]];
+  for (let i = 0; i < 3; i++) {
+    const fx = -0.004 + i * 0.014;
+    const f = _makeFinger(gloveMat, knuckMat, rLens[i][0], rLens[i][1], 0.012);
+    f.position.set(fx, -0.030, -0.026);
+    f.rotation.x = 1.15;                  /* curl around the grip front */
+    f.userData.joint.rotation.x = 1.05;
+    rHand.add(f); rFingers.push(f);
   }
-  const rThumb = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.044, 0.020), gloveMat);
-  rThumb.position.set(-0.03, -0.04, 0.01);
-  rThumb.rotation.set(-0.2, 0, 0.4);
+  /* index = trigger finger (kept straighter; animated on fire) */
+  const rIndex = _makeFinger(gloveMat, knuckMat, 0.030, 0.024, 0.012);
+  rIndex.position.set(-0.018, -0.030, -0.024);
+  rIndex.rotation.x = 0.75;
+  rIndex.userData.joint.rotation.x = 0.55;
+  rHand.add(rIndex);
+  /* thumb wraps over the back of the grip */
+  const rThumb = _makeFinger(gloveMat, knuckMat, 0.022, 0.018, 0.014);
+  rThumb.position.set(0.024, -0.020, -0.004);
+  rThumb.rotation.set(-0.3, 0, 0.7);
+  rThumb.userData.joint.rotation.x = 0.5;
   rHand.add(rThumb);
   rArm.add(rHand);
   g.add(rArm);
 
-  /* Left arm (on handguard) */
+  /* ---------- LEFT (support) hand ---------- */
   const lArm = new THREE.Group();
   const lSleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.055, 0.30, 12), sleeveMat);
-  lSleeve.rotation.x = 1.45;
-  lSleeve.rotation.z = -0.15;
-  lSleeve.position.set(-0.04, -0.10, -0.05);
-  lArm.add(lSleeve);
-  /* Wrist cuff for the support arm */
+  lSleeve.rotation.x = 1.45; lSleeve.rotation.z = -0.15; lSleeve.position.set(-0.04, -0.10, -0.05); lArm.add(lSleeve);
   const lCuff = new THREE.Mesh(new THREE.CylinderGeometry(0.057, 0.055, 0.04, 12), cuffMat);
-  lCuff.rotation.x = 1.45;
-  lCuff.rotation.z = -0.15;
-  lCuff.position.set(-0.02, -0.06, -0.11);
-  lArm.add(lCuff);
-  /* Detailed left hand (support hand) gripping the handguard: palm + back
-   * pad + four fingers draping over the far side + thumb on the near side. */
+  lCuff.rotation.x = 1.45; lCuff.rotation.z = -0.15; lCuff.position.set(-0.02, -0.06, -0.11); lArm.add(lCuff);
+
   const lHand = new THREE.Group();
   lHand.position.set(-0.005, -0.04, -0.18);
   lHand.rotation.x = 0.05;
   const lPalm = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.045, 0.085), gloveMat);
   lHand.add(lPalm);
-  const lBack = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.016, 0.07), knuckleMat);
-  lBack.position.set(0, 0.026, 0);
-  lHand.add(lBack);
+  const lBack = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.016, 0.07), knuckMat);
+  lBack.position.set(0, 0.026, 0); lHand.add(lBack);
+  /* four fingers drape over the FAR side of the handguard (curl in -X) */
+  const lFingers = [];
   for (let i = 0; i < 4; i++) {
     const fz = -0.03 + i * 0.02;
-    const fseg = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.03, 0.016), gloveMat);
-    fseg.position.set(-0.03, -0.03, fz);
-    fseg.rotation.z = -0.5;
-    lHand.add(fseg);
-    const ftip = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.02, 0.014), gloveMat);
-    ftip.position.set(-0.044, -0.05, fz);
-    ftip.rotation.z = -1.0;
-    lHand.add(ftip);
+    const f = _makeFinger(gloveMat, knuckMat, 0.024, 0.020, 0.012);
+    f.position.set(-0.026, -0.018, fz);
+    f.rotation.z = -1.15;                 /* wrap down the far side */
+    f.userData.joint.rotation.z = -1.0;
+    lHand.add(f); lFingers.push(f);
   }
-  const lThumb = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.024, 0.04), gloveMat);
-  lThumb.position.set(0.028, -0.018, 0.0);
-  lThumb.rotation.z = 0.5;
+  const lThumb = _makeFinger(gloveMat, knuckMat, 0.020, 0.016, 0.014);
+  lThumb.position.set(0.026, -0.006, 0.0);
+  lThumb.rotation.set(0, 0, 0.9);
+  lThumb.userData.joint.rotation.z = 0.6;
   lHand.add(lThumb);
   lArm.add(lHand);
   g.add(lArm);
 
+  g.userData = {
+    rArm, lArm, rHand, lHand, rIndex, rThumb, lThumb,
+    rFingers, lFingers,
+    rIndexBaseX: rIndex.rotation.x,
+    rIndexJointBaseX: rIndex.userData.joint.rotation.x,
+  };
   return g;
+}
+
+/* Per-weapon hand placement. pos = offset applied to the whole arm group
+ * (relative to the createHands neutral pose), rot = arm euler in radians.
+ * pistol:true means the support hand clasps the firing hand instead of a
+ * forward handguard. Tuned values are a starting point for visual review. */
+const WEAPON_HANDS = {
+  _default: { right: { pos: [0, 0, 0],         rot: [0, 0, 0] },        left: { pos: [0, 0, 0],          rot: [0, 0, 0] } },
+  ak:       { right: { pos: [0, 0.00, 0.005],  rot: [0, 0, 0] },        left: { pos: [0, 0.00, 0.045],   rot: [0, 0, 0] } },
+  ak74:     { right: { pos: [0, 0.04, -0.055], rot: [0, 0, 0] },        left: { pos: [0, 0.045, -0.080], rot: [0, 0, 0] } },
+  m416:     { right: { pos: [0, -0.02, -0.055],rot: [0, 0, 0] },        left: { pos: [0, 0.05, -0.120],  rot: [0, 0, 0] } },
+  scar:     { right: { pos: [0, 0.04, -0.060], rot: [0, 0, 0] },        left: { pos: [0, 0.05, -0.160],  rot: [0, 0, 0] } },
+  mp5:      { right: { pos: [0, 0.05, -0.050], rot: [0, 0, 0] },        left: { pos: [0, 0.06, -0.060],  rot: [0, 0, 0] } },
+  glock:    { right: { pos: [0, 0.03, -0.060], rot: [0, 0, 0] },        left: { pos: [0.03, -0.02, 0.175], rot: [0, 0.35, 0.6] }, pistol: true },
+  deagle:   { right: { pos: [0, 0.025, -0.050],rot: [0, 0, 0] },        left: { pos: [0.03, -0.02, 0.185], rot: [0, 0.35, 0.6] }, pistol: true },
+};
+
+function applyHandsForWeapon(name) {
+  const H = hands && hands.userData;
+  if (!H || !H.rArm) return;
+  const c = WEAPON_HANDS[name] || WEAPON_HANDS._default;
+  const R = c.right, L = c.left;
+  H.rArm.position.set(R.pos[0], R.pos[1], R.pos[2]);
+  H.rArm.rotation.set(R.rot ? R.rot[0] : 0, R.rot ? R.rot[1] : 0, R.rot ? R.rot[2] : 0);
+  H.lArm.position.set(L.pos[0], L.pos[1], L.pos[2]);
+  H.lArm.rotation.set(L.rot ? L.rot[0] : 0, L.rot ? L.rot[1] : 0, L.rot ? L.rot[2] : 0);
+  H.lArm.visible = (L.visible !== false);
+  H.rBasePos = H.rArm.position.clone(); H.rBaseRot = H.rArm.rotation.clone();
+  H.lBasePos = H.lArm.position.clone(); H.lBaseRot = H.lArm.rotation.clone();
+  H.isPistol = !!c.pistol;
+}
+
+/* Live per-frame hand pose: trigger-finger squeeze + support-hand reload
+ * choreography. Uses absolute target + damped lerp so nothing accumulates. */
+function updateHandPose(dt) {
+  const H = hands && hands.userData;
+  if (!H || !H.lBasePos) return;
+  const clamp = (v, a, b) => (v < a ? a : (v > b ? b : v));
+
+  /* trigger finger: squeeze with recent recoil */
+  if (H.rIndex) {
+    const squeeze = clamp(player.recoil || 0, 0, 1) * 0.6;
+    const tX = H.rIndexBaseX + squeeze;
+    H.rIndex.rotation.x += (tX - H.rIndex.rotation.x) * clamp(dt * 22, 0, 1);
+    if (H.rIndex.userData.joint) {
+      const jX = H.rIndexJointBaseX + squeeze * 0.9;
+      H.rIndex.userData.joint.rotation.x += (jX - H.rIndex.userData.joint.rotation.x) * clamp(dt * 22, 0, 1);
+    }
+  }
+
+  /* support hand: reload choreography (rifles/SMGs only) */
+  let lox = 0, loy = 0, loz = 0, lrx = 0;
+  if (player.reloading && !H.isPistol) {
+    const t = (performance.now() / 1000 - player.reloadStart) / player.reloadDuration;
+    if (t < 0.22) { const f = t / 0.22; loy = -0.16 * f; loz = 0.16 * f; lrx = 0.6 * f; }
+    else if (t < 0.5) { loy = -0.16; loz = 0.16; lrx = 0.6; }
+    else if (t < 0.72) { const f = (t - 0.5) / 0.22; loy = -0.16 * (1 - f); loz = 0.16 * (1 - f); lrx = 0.6 * (1 - f); }
+    else if (t < 0.9) { const f = (t - 0.72) / 0.18; const u = Math.sin(f * Math.PI); loy = 0.05 * u; loz = 0.06 * u; lrx = -0.3 * u; }
+  }
+  const k = clamp(dt * 18, 0, 1);
+  H.lArm.position.x += ((H.lBasePos.x + lox) - H.lArm.position.x) * k;
+  H.lArm.position.y += ((H.lBasePos.y + loy) - H.lArm.position.y) * k;
+  H.lArm.position.z += ((H.lBasePos.z + loz) - H.lArm.position.z) * k;
+  H.lArm.rotation.x += ((H.lBaseRot.x + lrx) - H.lArm.rotation.x) * k;
 }
 
 const weapon = new THREE.Group();
@@ -5004,6 +5294,7 @@ function setActiveWeapon(name) {
     applySightToActiveWeapon();
     /* Update the muzzle-flash anchor to point at the active weapon's muzzle */
     setMuzzleFlashAnchor(name);
+    applyHandsForWeapon(name);
   } else {
     /* Empty hands */
     player.ammo = 0;
@@ -5041,7 +5332,7 @@ function ownedWeaponsInSlot(slot) {
 function selectSlot(slot) {
   const owned = ownedWeaponsInSlot(slot);
   if (owned.length === 0) {
-    showNotice({ pistol:'НЕТ ПИСТОЛЕТА', rifle:'НЕТ ВИНТО��КИ', special:'СПЕЦ-СЛОТ ПУСТ' }[slot] || 'СЛОТ ПУСТ');
+    showNotice({ pistol:'НЕТ ПИСТОЛЕТА', rifle:'НЕТ ВИНТОВКИ', special:'СПЕЦ-СЛОТ ПУСТ' }[slot] || 'СЛОТ ПУСТ');
     return;
   }
   let target;
@@ -5086,8 +5377,10 @@ function setMuzzleFlashAnchor(weaponName) {
   const target = (weaponName && WEAPON_OBJS[weaponName]) || ak;
   if (flash.parent !== target) target.add(flash);
   /* Each model declares its own muzzle Z; fall back to the AK value. */
-  const mz = (target.userData && typeof target.userData.muzzleZ === 'number')
-    ? target.userData.muzzleZ : -0.84;
+  const _supTip = player.suppressorOn && target.userData && typeof target.userData.muzzleZSup === 'number';
+  const mz = _supTip
+    ? target.userData.muzzleZSup
+    : ((target.userData && typeof target.userData.muzzleZ === 'number') ? target.userData.muzzleZ : -0.84);
   flash.position.set(0, 0.018, mz);
 }
 
@@ -5117,6 +5410,7 @@ function _makeSuppressorMesh(rTop, rBot, len) {
 const _supAk = _makeSuppressorMesh();
 _supAk.position.set(0, 0.018, -0.96);
 ak.add(_supAk);
+ak.userData.muzzleZSup = -0.96 - 0.18 / 2;
 /* --- M416 dedicated suppressor (sized to fit the thinner M416 barrel 0.012
  *     and the A2 flash hider at z=-0.73..-0.76). Previous version used the
  *     generic AK-sized suppressor (radii 0.018/0.022) which looked like a
@@ -5145,6 +5439,7 @@ const _supM416 = (function() {
 })();
 _supM416.position.set(0, 0.040, -0.87);
 m416.add(_supM416);
+m416.userData.muzzleZSup = -0.87 - 0.15 / 2;
 /* W7 — suppressors for the 5 new weapons (AK/M416 keep their bespoke cans).
  * Sized and positioned from the universal WEAPON_ATTACH anchor table. */
 const _supExtra = {};
@@ -5154,6 +5449,7 @@ for (const _supk of ['glock','deagle','ak74','scar','mp5']) {
   const _sps = _makeSuppressorMesh(_spa.supR[0], _spa.supR[1], _spa.supR[2]);
   _sps.position.set(_spa.sup[0], _spa.sup[1], _spa.sup[2]);
   WEAPON_OBJS[_supk].add(_sps);
+  WEAPON_OBJS[_supk].userData.muzzleZSup = _spa.sup[2] - _spa.supR[2] / 2;
   _supExtra[_supk] = _sps;
 }
 /* === W7 — RAIL LASER + FOREGRIP ======================================
@@ -5180,14 +5476,26 @@ for (const _lk in WEAPON_OBJS) {
   WEAPON_OBJS[_lk].add(_le);
   laserEmitters[_lk] = _le;
 }
-const laserBeam = new THREE.Mesh(
-  new THREE.CylinderGeometry(0.004, 0.004, 1, 6),
-  new THREE.MeshBasicMaterial({ color: 0xff2a18, transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, depthWrite: false }));
+/* Visible beam = bright thin CORE + soft wide GLOW (both additive). Built as
+ * a Group whose local +Y axis is the beam length, so the update code can point
+ * and stretch it with a single quaternion + scale.y = length. */
+const laserBeam = new THREE.Group();
+const _beamCore = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.0035, 0.0035, 1, 8),
+  new THREE.MeshBasicMaterial({ color: 0xff6048, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
+laserBeam.add(_beamCore);
+const _beamGlow = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.012, 0.012, 1, 8),
+  new THREE.MeshBasicMaterial({ color: 0xff2a18, transparent: true, opacity: 0.26, blending: THREE.AdditiveBlending, depthWrite: false }));
+laserBeam.add(_beamGlow);
+laserBeam.userData.core = _beamCore;
 laserBeam.visible = false;
+laserBeam.renderOrder = 6;
 scene.add(laserBeam);
 const laserDot = new THREE.Mesh(
-  new THREE.SphereGeometry(0.03, 8, 8),
-  new THREE.MeshBasicMaterial({ color: 0xff3322, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
+  new THREE.SphereGeometry(0.03, 10, 10),
+  new THREE.MeshBasicMaterial({ color: 0xff5538, transparent: true, opacity: 0.98, blending: THREE.AdditiveBlending, depthWrite: false }));
+laserDot.renderOrder = 7;
 laserDot.visible = false;
 scene.add(laserDot);
 
@@ -5200,6 +5508,12 @@ for (const _gk in WEAPON_OBJS) {
   _shaft.position.y = -0.055; _gm.add(_shaft);
   const _cap = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.02, 10), _gMat);
   _cap.position.y = -0.108; _gm.add(_cap);
+  for (let _fi = 0; _fi < 4; _fi++) {
+    const _groove = new THREE.Mesh(new THREE.TorusGeometry(0.0195, 0.0022, 6, 12), _gMat);
+    _groove.rotation.x = Math.PI / 2; _groove.position.y = -0.030 - _fi * 0.020; _gm.add(_groove);
+  }
+  const _mnt = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.016, 0.05), _gMat);
+  _mnt.position.y = 0.004; _gm.add(_mnt);
   _gm.position.set(_ga.grip[0], _ga.grip[1], _ga.grip[2]);
   _gm.visible = false;
   WEAPON_OBJS[_gk].add(_gm);
@@ -5246,8 +5560,14 @@ function _updateAttachmentsVisual(dt) {
     _laserCamPos.x + _laserDir.x * dist,
     _laserCamPos.y + _laserDir.y * dist,
     _laserCamPos.z + _laserDir.z * dist);
-  /* Beam: start just in front of the eye (world space) toward the dot. */
-  _laserOrigin.set(
+  /* Keep the projected dot readable at range without ballooning up close. */
+  laserDot.scale.setScalar(THREE.MathUtils.clamp(0.6 + dist * 0.045, 0.6, 4.2));
+  /* Beam ORIGIN = the real emitter on the gun (offset from the eye). This is
+   * the whole fix: casting from the eye made the beam collinear with the view
+   * so it showed only as a dot; from the emitter it reads as a true line. */
+  const _em = laserEmitters[aw];
+  if (_em) { _em.updateWorldMatrix(true, false); _em.getWorldPosition(_laserOrigin); }
+  else _laserOrigin.set(
     _laserCamPos.x + _laserDir.x * 0.4,
     _laserCamPos.y + _laserDir.y * 0.4,
     _laserCamPos.z + _laserDir.z * 0.4);
@@ -5260,6 +5580,8 @@ function _updateAttachmentsVisual(dt) {
   _laserQuat.setFromUnitVectors(_laserUp, _laserDir);
   laserBeam.quaternion.copy(_laserQuat);
   laserBeam.scale.set(1, len, 1);
+  /* Subtle flicker so the beam feels "live" rather than a static cylinder. */
+  if (laserBeam.userData.core) laserBeam.userData.core.material.opacity = 0.74 + 0.14 * Math.sin(performance.now() * 0.018);
 }
 
 function _updateSuppressorVisual() {
@@ -5328,6 +5650,67 @@ function createBot(x, z, team = 'red') {
   vest.position.y = 1.2;
   g.add(vest);
 
+  /* === W10 GEAR — per-bot loadout variety (visible kit) ===================
+   * Plate-carrier straps & pouches for everyone, plus a randomized chance of
+   * a backpack, a flipped-up NVG mount, or a full ghillie cloak (recon). */
+  const gearDark  = new THREE.MeshStandardMaterial({ color: 0x1c1b18, roughness: 0.85 });
+  const gearStrap = new THREE.MeshStandardMaterial({ color: 0x26241e, roughness: 0.9 });
+  for (const _sx of [-0.16, 0.16]) {
+    const strap = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.5, 0.05), gearStrap);
+    strap.position.set(_sx, 1.28, 0.0); strap.rotation.x = 0.02; g.add(strap);
+  }
+  for (let _pi = 0; _pi < 3; _pi++) {
+    const pouch = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.13, 0.07), gearDark);
+    pouch.position.set(-0.16 + _pi * 0.16, 1.04, 0.175); g.add(pouch);
+  }
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.10, 8), skin);
+  neck.position.y = 1.52; g.add(neck);
+  const pelvis = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.22, 0.30), legMat);
+  pelvis.position.y = 0.92; g.add(pelvis);
+  const belt = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.07, 0.34), gearDark);
+  belt.position.y = 0.86; g.add(belt);
+  for (const _kx of [-0.13, 0.13]) {
+    const knee = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.12, 0.14), gearDark);
+    knee.position.set(_kx, 0.40, 0.06); g.add(knee);
+  }
+  const _gr = Math.random();
+  const isGhillie  = _gr < 0.20;
+  const hasBackpack = !isGhillie && _gr < 0.50;
+  const hasNvg = !isGhillie && Math.random() < 0.35;
+  if (hasBackpack) {
+    const pack = new THREE.Mesh(new THREE.BoxGeometry(0.40, 0.50, 0.22),
+      new THREE.MeshStandardMaterial({ color: team === 'red' ? 0x402420 : 0x33381f, roughness: 0.95 }));
+    pack.position.set(0, 1.18, -0.26); g.add(pack);
+    const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.42, 8), gearDark);
+    roll.rotation.z = Math.PI / 2; roll.position.set(0, 0.92, -0.30); g.add(roll);
+  }
+  if (hasNvg) {
+    const mount = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.05), gearDark);
+    mount.position.set(0, 1.84, 0.12); g.add(mount);
+    const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.09, 8), gearDark);
+    tube.rotation.x = Math.PI / 2; tube.position.set(-0.03, 1.86, 0.18); g.add(tube);
+    const tube2 = tube.clone(); tube2.position.x = 0.03; g.add(tube2);
+  }
+  if (isGhillie) {
+    const burlapCol = team === 'red' ? 0x4a4024 : 0x3d4a26;
+    const cloak = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.7, 0.42),
+      new THREE.MeshStandardMaterial({ color: burlapCol, roughness: 1.0 }));
+    cloak.position.set(0, 1.18, -0.02); g.add(cloak);
+    for (let _si = 0; _si < 26; _si++) {
+      const strip = new THREE.Mesh(
+        new THREE.BoxGeometry(0.03, 0.18 + Math.random() * 0.22, 0.03),
+        new THREE.MeshStandardMaterial({ color: (Math.random() < 0.5 ? burlapCol : 0x2e3a1c), roughness: 1.0 }));
+      const ang = Math.random() * Math.PI * 2;
+      const rad = 0.22 + Math.random() * 0.12;
+      strip.position.set(Math.cos(ang) * rad, 1.05 + Math.random() * 0.5, Math.sin(ang) * rad * 0.7);
+      strip.rotation.set((Math.random()-0.5)*0.5, ang, (Math.random()-0.5)*0.5);
+      g.add(strip);
+    }
+    const hood = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8, 0, Math.PI*2, 0, Math.PI/2),
+      new THREE.MeshStandardMaterial({ color: burlapCol, roughness: 1.0 }));
+    hood.scale.set(1.1, 1.0, 1.2); hood.position.y = 1.78; g.add(hood);
+  }
+
   /* Head — tapered skull (sphere) instead of a cube, matches the PvP model
    * silhouette. Stays a single mesh so the headshot hit-test (mesh === bot.head)
    * keeps working. */
@@ -5371,6 +5754,13 @@ function createBot(x, z, team = 'red') {
   handR.position.y = -0.54;
   armRGroup.add(handR);
 
+  /* Low-ready carry: rifle sits in the hands instead of floating at the hip.
+   * Both shoulders rotate forward + roll inward so the hands meet on the gun;
+   * the walk animation sways gently around ARM_CARRY_X. */
+  const ARM_CARRY_X = 1.05;
+  armLGroup.rotation.set(ARM_CARRY_X, 0, 0.42);
+  armRGroup.rotation.set(ARM_CARRY_X, 0, -0.30);
+
   /* Legs pivot at the HIP: group at hip height, cylinder hangs below, so the
    * walk cycle swings the whole leg from the hip. legL/legR meshes remain the
    * raycast hit-targets; legLGroup/legRGroup are animated. */
@@ -5407,8 +5797,8 @@ function createBot(x, z, team = 'red') {
   const rifleMag = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.12, 0.08), new THREE.MeshStandardMaterial({ color: 0x1a1a1a }));
   rifleMag.position.set(0, -0.08, 0.05);
   botRifle.add(rifleMag);
-  botRifle.position.set(0.3, 1.05, -0.25);
-  botRifle.rotation.y = -0.2;
+  botRifle.position.set(0.05, 1.12, -0.40);
+  botRifle.rotation.set(0.04, 0, 0);
   g.add(botRifle);
 
   /* Bots receive shadows but don't cast them — 60 bots × shadow caster
@@ -5517,6 +5907,10 @@ function createBot(x, z, team = 'red') {
     _lastX:        x,
     _lastZ:        z
   };
+  bot.armCarryX = ARM_CARRY_X;
+  bot.isGhillie = isGhillie;
+  bot.ghillieHideHp = isGhillie;
+  bot._wasHit = false;
   scene.add(g);
   bots.push(bot);
   return bot;
@@ -7195,6 +7589,7 @@ window.addEventListener('keydown', e => {
     else {
       player.suppressorOn = !player.suppressorOn;
       _updateSuppressorVisual();
+      setMuzzleFlashAnchor(player.activeWeapon);
       showNotice(player.suppressorOn ? 'ГЛУШИТЕЛЬ НАДЕТ' : 'ГЛУШИТЕЛЬ СНЯТ');
     }
   }
@@ -7597,7 +7992,7 @@ function shoot() {
   if (typeof _heatLevel !== 'undefined' && _heatLevel > 0.85 && Math.random() < 0.12) {
     player.jamUntil = now + 1.0;
     playDrySnap();
-    if (typeof showNotice === 'function') showNotice('ЗАКЛИНИЛО — ОСТЫ��Ь');
+    if (typeof showNotice === 'function') showNotice('ЗАКЛИНИЛО — ОСТЫНЬ');
     if (typeof pushCamShake === 'function') pushCamShake(0.03);
     player.lastShot = now;
     return;
@@ -7928,7 +8323,7 @@ function updateBullets(dt) {
       } catch (_) {}
 
       /* E1 — SUPERSONIC CRACK: when an enemy bullet passes within ~2.8m
-       * of the player, play a sharp "вжу��" whip-crack near the ear.
+       * of the player, play a sharp "вжух" whip-crack near the ear.
        * Distance widened (was 1.5m) per user request. The crack volume
        * tapers with miss distance for a believable falloff. */
       if (!b.fromPlayer && audioCtx) {
@@ -8872,6 +9267,9 @@ function updatePlayer(dt) {
     player._appliedReloadPosY = posY;
   }
 
+  /* Phase 2 — articulated support hand + trigger finger */
+  updateHandPose(dt);
+
   /* === WEAPON SWAP ANIMATION (W5) — lower the current gun, switch the model
    * at the bottom of the dip, then raise the new gun into the ready pose.
    * Same undo/apply bake pattern as recoil/reload so weapon.position /
@@ -8974,7 +9372,7 @@ function botDesiredDest(bot, playerPos) {
       return { x: playerPos.x + (bot.spawnHome.x > 0 ? 12 : -12) + fo * 0.4,
                z: playerPos.z - 30 + dep * 1.5 };
     case 'defender': {
-      /* Patrol around the flag ��� stagger the angle per-bot via spawnHome */
+      /* Patrol around the flag — stagger the angle per-bot via spawnHome */
       const ang = (performance.now() / 1000) * 0.2 + bot.spawnHome.x;
       return { x: ENEMY_BASE.x + Math.cos(ang) * 5 + fo * 0.2,
                z: ENEMY_BASE.z - 4 + Math.sin(ang) * 4 + dep * 0.3 };
@@ -9102,6 +9500,8 @@ function updateBots(dt) {
     if (((frameCounter + bot.aiTickPhase) % aiInterval) !== 0) {
       /* Still apply previous-frame velocity & animation so movement remains
        * smooth, but skip raycasts/phase-machine. */
+      const _showHp = !bot.ghillieHideHp || bot._wasHit;
+      bot.hbBg.visible = _showHp; bot.hbFg.visible = _showHp;
       bot.hbBg.lookAt(camera.position);
       bot.hbFg.lookAt(camera.position);
       return;
@@ -9133,6 +9533,7 @@ function updateBots(dt) {
      * jink and bias it toward seeking cover. */
     if (bot.health < bot.healthLastTick) {
       bot.panicUntil = now + 0.6;
+      bot._wasHit = true;
       /* If health is critically low, trigger explicit cover-seek: pick a
        * point that puts an obstacle between us and the player. */
       if (bot.health < 35 && !bot.seekingCover && now > bot.coverSeekUntil) {
@@ -9343,10 +9744,15 @@ function updateBots(dt) {
       bot.walkPhase += dt * 8;
       bot.legLGroup.rotation.x = Math.sin(bot.walkPhase) * 0.5;
       bot.legRGroup.rotation.x = -Math.sin(bot.walkPhase) * 0.5;
-      bot.armLGroup.rotation.x = -Math.sin(bot.walkPhase) * 0.3;
+      const _ac = bot.armCarryX || 1.05;
+      bot.armLGroup.rotation.x = _ac - Math.sin(bot.walkPhase) * 0.06;
+      bot.armRGroup.rotation.x = _ac + Math.sin(bot.walkPhase) * 0.06;
     } else {
       bot.legLGroup.rotation.x *= 0.9;
       bot.legRGroup.rotation.x *= 0.9;
+      const _ac = bot.armCarryX || 1.05;
+      bot.armLGroup.rotation.x += (_ac - bot.armLGroup.rotation.x) * 0.2;
+      bot.armRGroup.rotation.x += (_ac - bot.armRGroup.rotation.x) * 0.2;
     }
 
     /* === FIRING ===
@@ -9383,6 +9789,8 @@ function updateBots(dt) {
     }
 
     /* Health bar facing camera and updating */
+    const _showHp = !bot.ghillieHideHp || bot._wasHit;
+    bot.hbBg.visible = _showHp; bot.hbFg.visible = _showHp;
     bot.hbBg.lookAt(camera.position);
     bot.hbFg.lookAt(camera.position);
     const hpRatio = Math.max(0, bot.health / bot.maxHealth);
@@ -9885,7 +10293,7 @@ function updateHUD() {
   if (gearEl) {
     const parts = [];
     if (player.inv.hasHelmet)   parts.push('<span style="color:#a0c0ff">ШЛЕМ</span>');
-    if (player.inv.hasArmor)    parts.push('<span style="color:#a0ffa0">��РОНЯ</span>');
+    if (player.inv.hasArmor)    parts.push('<span style="color:#a0ffa0">БРОНЯ</span>');
     if (player.inv.hasBackpack) parts.push('<span style="color:#ffd066">РЮКЗАК</span>');
     gearEl.innerHTML = parts.join(' · ');
   }
@@ -9977,6 +10385,74 @@ function nearestBoardSlot() {
   return best;
 }
 
+/* Raycast-based slot selection: pick the slot the player is LOOKING AT
+ * (center-screen ray), not merely the nearest by distance. This fixes the
+ * bug where aiming at one item grabbed whichever was physically closest. */
+const _boardRay   = new THREE.Raycaster();
+const _aimCenter  = new THREE.Vector2(0, 0);
+const _slotWorld  = new THREE.Vector3();
+const _camPos     = new THREE.Vector3();
+const _camDir     = new THREE.Vector3();
+function aimedBoardSlot() {
+  const REACH = 3.6;        /* max grab distance, metres */
+  const MAX_ANGLE = 0.26;   /* ~15deg cone around the crosshair */
+  /* Cheap early-out: player must be near the board at all. */
+  const pdx = equipBoard.cx - player.position.x;
+  const pdz = equipBoard.cz - player.position.z;
+  if (pdx*pdx + pdz*pdz > (REACH + 4.0) * (REACH + 4.0)) return null;
+
+  camera.getWorldPosition(_camPos);
+  camera.getWorldDirection(_camDir);
+
+  /* 1) Precise pass: a real raycast from the crosshair against slot meshes. */
+  const objs = [];
+  for (const s of equipBoard.slots) { if (!s.taken && s.obj) objs.push(s.obj); }
+  if (objs.length) {
+    _boardRay.setFromCamera(_aimCenter, camera);
+    _boardRay.far = REACH;
+    const hits = _boardRay.intersectObjects(objs, true);
+    if (hits.length) {
+      let o = hits[0].object;
+      while (o) {
+        for (const s of equipBoard.slots) {
+          if (!s.taken && s.obj === o) return s;
+        }
+        o = o.parent;
+      }
+    }
+  }
+
+  /* 2) Forgiving fallback: smallest angular deviation from the crosshair,
+   * within reach. Lets the player grab small optics without pixel-hunting. */
+  let best = null, bestAng = MAX_ANGLE;
+  for (const s of equipBoard.slots) {
+    if (s.taken) continue;
+    _slotWorld.set(s.x, s.y, s.z);
+    const toSlot = _slotWorld.sub(_camPos);
+    const dist = toSlot.length();
+    if (dist > REACH || dist < 1e-3) continue;
+    toSlot.multiplyScalar(1 / dist);
+    const ang = Math.acos(THREE.MathUtils.clamp(toSlot.dot(_camDir), -1, 1));
+    if (ang < bestAng) { bestAng = ang; best = s; }
+  }
+  return best;
+}
+
+/* Visual feedback: gently enlarge whatever slot is under the crosshair so the
+ * player sees exactly what F will pick up. Restores the previous one. */
+let _hlSlot = null;
+function highlightAimedSlot(slot) {
+  if (slot === _hlSlot) return;
+  if (_hlSlot && _hlSlot.obj && _hlSlot._baseScale !== undefined) {
+    _hlSlot.obj.scale.setScalar(_hlSlot._baseScale);
+  }
+  _hlSlot = slot;
+  if (_hlSlot && _hlSlot.obj) {
+    if (_hlSlot._baseScale === undefined) _hlSlot._baseScale = _hlSlot.obj.scale.x;
+    _hlSlot.obj.scale.setScalar(_hlSlot._baseScale * 1.12);
+  }
+}
+
 /* Take a slot's item: applies the right inventory mutation and hides the
  * board's miniature so the slot reads as empty. */
 function pickUpFromBoard(slot) {
@@ -9994,7 +10470,7 @@ function pickUpFromBoard(slot) {
       showNotice('ПОЛУЧЕНО: АКМ');
       break;
     case 'm416':
-      if (player.inv.hasM416) { showNotice('M416 УЖ�� В ИНВЕНТ��РЕ'); return; }
+      if (player.inv.hasM416) { showNotice('M416 УЖЕ В ИНВЕНТАРЕ'); return; }
       if (!canCarryAnotherPrimary('m416')) { showNotice('ЛИМИТ ОРУЖИЯ — ОСВОБОДИ СЛОТ'); return; }
       player.inv.hasM416 = true;
       player.weaponState.m416.ammo = WEAPON_STATS.m416.magSize;
@@ -10067,10 +10543,10 @@ function pickUpFromBoard(slot) {
       if (player.inv.hasHelmet) { showNotice('ШЛЕМ УЖЕ НАДЕТ'); return; }
       player.inv.hasHelmet = true;
       player.plates.helmet = player.plateMax.helmet;
-      showNotice('��ЛЕМ — ЗАЩИТА ГОЛОВЫ');
+      showNotice('ШЛЕМ — ЗАЩИТА ГОЛОВЫ');
       break;
     case 'backpack':
-      if (player.inv.hasBackpack) { showNotice('РЮКЗАК У��Е НАДЕТ'); return; }
+      if (player.inv.hasBackpack) { showNotice('РЮКЗАК УЖЕ НАДЕТ'); return; }
       player.inv.hasBackpack = true;
       player.reserveCap = 220;
       /* Allow player to carry more right now if they had a partial reserve */
@@ -10136,6 +10612,7 @@ function pickUpFromBoard(slot) {
       player.inv.hasSuppressor = true;
       player.suppressorOn = true;
       _updateSuppressorVisual();
+      setMuzzleFlashAnchor(player.activeWeapon);
       showNotice('ГЛУШИТЕЛЬ (O — надеть/снять)');
       break;
     case 'flashlight':
@@ -10203,11 +10680,11 @@ function cycleSight() {
 /* Single F-key handler: pick from board first, fall back to ammo refill. */
 function tryInteract() {
   if (!controls.isLocked) return;
-  const slot = nearestBoardSlot();
+  const slot = aimedBoardSlot();
   if (slot) { pickUpFromBoard(slot); return; }
   const crate = nearestAmmoCrate();
   if (!crate) {
-    showNotice('ПОДОЙДИ К ��ОСКЕ ИЛИ ЯЩИКУ');
+    showNotice('ПОДОЙДИ К ДОСКЕ ИЛИ ЯЩИКУ');
     return;
   }
   const now = performance.now() / 1000;
@@ -10228,7 +10705,7 @@ function tryInteract() {
   /* Refill grenades and smokes too — ammo crates are full re-supply now */
   let extras = [];
   if (player.frag < player.fragMax) {
-    extras.push('+' + (player.fragMax - player.frag) + ' гра��ат');
+    extras.push('+' + (player.fragMax - player.frag) + ' гранат');
     player.frag = player.fragMax;
   }
   if (player.smoke < player.smokeMax) {
@@ -10255,16 +10732,19 @@ function ensureAmmoHint() {
 }
 function updateAmmoHint() {
   const el = ensureAmmoHint();
-  if (!controls.isLocked) { el.style.display = 'none'; return; }
-  const slot = nearestBoardSlot();
+  if (!controls.isLocked) { el.style.display = 'none'; highlightAimedSlot(null); return; }
+  const slot = aimedBoardSlot();
+  highlightAimedSlot(slot);
   if (slot) {
     el.style.display = 'block';
     el.textContent = 'НАЖМИ F — ВЗЯТЬ: ' +
-      ({ ak:'АКМ', m416:'M416', armor:'БРОНЕЖИЛЕТ',
-         helmet:'ШЛЕМ', backpack:'РЮКЗАК',
-         red_dot:'КОЛЛИМАТОР', scope_3x:'ПРИЦЕЛ 3X',
-         medkit:'АПТЕЧКИ x2', suppressor:'ГЛУШИТЕЛЬ',
-         flashlight:'ФОНАРИК' }[slot.kind] || slot.kind);
+      ({ glock:'GLOCK-18', deagle:'DEAGLE', ak:'АКМ', m416:'M416',
+         ak74:'АК-74', scar:'SCAR-H', mp5:'MP5',
+         armor:'БРОНЕЖИЛЕТ', helmet:'ШЛЕМ', backpack:'РЮКЗАК',
+         ghillie:'МАСКХАЛАТ', medkit:'АПТЕЧКИ x2', suppressor:'ГЛУШИТЕЛЬ',
+         flashlight:'ФОНАРИК', red_dot:'КОЛЛИМАТОР', holo:'ГОЛОГРАФ.',
+         scope_3x:'ПРИЦЕЛ 3X', laser:'ЛАЗЕР', foregrip:'РУКОЯТКА',
+         rig:'РАЗГРУЗКА', nvg:'ПНВ' }[slot.kind] || slot.kind);
     return;
   }
   const crate = nearestAmmoCrate();
@@ -12103,7 +12583,7 @@ if (PVP_MODE) {
       }
     }
     else if (msg.type === 'opponent_left') {
-      showNotice('ПРОТИВНИК ОТКЛЮЧ��ЛСЯ');
+      showNotice('ПРОТИВНИК ОТКЛЮЧИЛСЯ');
       _pvpRoundActive = false;
       const rmsg = document.getElementById('pvp-round-msg');
       if (rmsg) rmsg.textContent = 'ПРОТИВНИК ПОКИНУЛ ИГРУ';
@@ -13017,7 +13497,7 @@ if (PVP_MODE) {
       '<b>МЫШЬ</b> — обзор | <b>ЛКМ</b> — стрелять | <b>ПКМ</b> — прицелиться | <b>R</b> — перезарядка<br>' +
       '<b>1</b> — пистолет | <b>2</b> — винтовка | <b>3</b> — спец | <b>4</b> — аптечка | <b>B</b> — прицел | <b>O</b> — глушитель<br><br>' +
       '<span style="color:#ff6040">РЕЖИМ:</span> PVP 1 на 1 с игроком <b style="color:#ff6040">' + PVP_OPPONENT + '</b><br>' +
-      '<span style="color:#ffd060">СНАРЯЖЕНИЕ:</span> АКМ, M416, брон��, шлем, рюкзак — выдаётся автоматически<br>' +
+      '<span style="color:#ffd060">СНАРЯЖЕНИЕ:</span> АКМ, M416, броня, шлем, рюкзак — выдаётся автоматически<br>' +
       '<span style="color:#ff8a8a">ПРАВИЛА:</span> убейте противника. Респавн через 5 секунд. Раунды бесконечны.<br>' +
       '<span style="color:#90ff90">СЧЁТ:</span> побеждает тот, кто убил противника. Счёт отображается в правом верхнем углу.';
   }
@@ -13027,7 +13507,7 @@ if (PVP_MODE) {
       const h1 = menuEl2.querySelector('h1');
       if (h1) h1.textContent = 'КОМАНДНАЯ АРЕНА';
       const sub = menuEl2.querySelector('.subtitle');
-      if (sub) sub.textContent = 'до 5 на 5 · командный ��ой';
+      if (sub) sub.textContent = 'до 5 на 5 · командный бой';
       const ctrl = menuEl2.querySelector('.controls');
       const myColor = (TEAM_SIDE === 'A') ? '#44ddff' : '#ff5040';
       const myName  = (TEAM_SIDE === 'A') ? 'СИНИЕ' : 'КРАСНЫЕ';

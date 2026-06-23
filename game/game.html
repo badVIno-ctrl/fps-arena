@@ -375,7 +375,7 @@
   </div>
   <div id="inv">
     <div class="inv-slot" id="slot-medkit">
-      <div class="inv-key">3</div>
+      <div class="inv-key">4</div>
       <div class="inv-icon">✚</div>
       <div class="inv-count" id="medkit-count">2</div>
     </div>
@@ -394,7 +394,34 @@
       <div class="inv-icon" style="color:#888;font-size:13px">▮</div>
       <div class="inv-count" id="sup-status" style="font-size:9px">OFF</div>
     </div>
+    <div class="inv-slot" id="slot-laser" style="margin-left:8px;display:none">
+      <div class="inv-key">T</div>
+      <div class="inv-icon" style="color:#ff4438;font-size:13px">→</div>
+      <div class="inv-count" id="laser-status" style="font-size:9px">OFF</div>
+    </div>
+    <div class="inv-slot" id="slot-foregrip" style="margin-left:8px;display:none">
+      <div class="inv-key" style="font-size:8px">ГРИП</div>
+      <div class="inv-icon" style="color:#9a8f7a;font-size:13px">⬇</div>
+      <div class="inv-count" style="font-size:9px">ON</div>
+    </div>
+    <div class="inv-slot" id="slot-nvg" style="margin-left:8px;display:none">
+      <div class="inv-key">N</div>
+      <div class="inv-icon" style="color:#5fff7a;font-size:13px">◎</div>
+      <div class="inv-count" id="nvg-status" style="font-size:9px">OFF</div>
+    </div>
+    <div class="inv-slot" id="slot-rig" style="margin-left:8px;display:none">
+      <div class="inv-key" style="font-size:8px">РИГ</div>
+      <div class="inv-icon" style="color:#b8a060;font-size:13px">▦</div>
+      <div class="inv-count" style="font-size:9px">+</div>
+    </div>
   </div>
+  <!-- W10 — night-vision (ПНВ) full-screen phosphor overlay: green vignette
+       + scanlines. Toggled by _updateNvgVisual(); 3D ambient is boosted in
+       updateDayNight so the night battlefield actually becomes navigable. -->
+  <div id="nvg-overlay" style="display:none;position:fixed;inset:0;z-index:6;pointer-events:none;
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,0.10) 0px, rgba(0,0,0,0.10) 1px, transparent 1px, transparent 3px),
+      radial-gradient(ellipse at center, rgba(40,255,100,0.22) 0%, rgba(12,150,50,0.12) 55%, rgba(0,18,6,0.92) 100%);"></div>
   <!-- Stats panel (visible after death / on TAB) -->
   <div id="statsPanel" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.92);border:2px solid #ff3a3a;padding:30px 50px;font:600 14px/1.4 system-ui,sans-serif;letter-spacing:1.5px;z-index:50;min-width:380px">
     <div style="font:700 22px/1 system-ui,sans-serif;color:#ff5050;text-align:center;letter-spacing:3px;margin-bottom:18px">СТАТИСТИКА</div>
@@ -434,11 +461,11 @@
   <div class="controls">
     <b>WASD</b> — двигаться &nbsp;|&nbsp; <b>SHIFT</b> — бежать &nbsp;|&nbsp; <b>SPACE</b> — прыжок &nbsp;|&nbsp; <b>CTRL</b> — присесть &nbsp;|&nbsp; <b>Q / E</b> — наклон<br>
     <b>МЫШЬ</b> — обзор &nbsp;|&nbsp; <b>ЛКМ</b> — стрелять &nbsp;|&nbsp; <b>ПКМ</b> — прицелиться &nbsp;|&nbsp; <b>R</b> — перезарядка<br>
-    <b>1</b> — АКМ &nbsp;|&nbsp; <b>2</b> — M416 &nbsp;|&nbsp; <b>3</b> — аптечка &nbsp;|&nbsp; <b>B</b> — переключить прицел &nbsp;|&nbsp; <b>O</b> — глушитель &nbsp;|&nbsp; <b>F</b> — взять / пополнить &nbsp;|&nbsp; <b>ESC</b> — пауза<br><br>
+    <b>1</b> — пистолет &nbsp;|&nbsp; <b>2</b> — винтовка &nbsp;|&nbsp; <b>3</b> — спец &nbsp;|&nbsp; <b>4</b> — аптечка &nbsp;|&nbsp; <b>B</b> — переключить прицел &nbsp;|&nbsp; <b>O</b> — глушитель &nbsp;|&nbsp; <b>F</b> — взять / пополнить &nbsp;|&nbsp; <b>ESC</b> — пауза<br><br>
     <span style="color:#ffd060">СТАРТ:</span> у тебя <b>пусто</b> (нет оружия, патронов, брони). У сруба — <b>ДОСКА СНАРЯЖЕНИЯ</b>. Подойди и нажми <b>F</b>, чтобы взять: <span style="color:#ffd066">АКМ</span>, <span style="color:#ffd066">M416</span>, <span style="color:#a0ffa0">бронежилет</span>, <span style="color:#a0c0ff">шлем</span>, <span style="color:#ffd066">рюкзак</span>, <span style="color:#ff7080">коллиматор</span>, <span style="color:#ff7080">прицел 3X</span>.<br>
     <span style="color:#ffd060">ЦЕЛЬ:</span> добеги до базы врага → возьми <span style="color:#ff7060">КРАСНЫЙ ФЛАГ</span> → доставь его в <span style="color:#7ec0ff">синюю зону</span> у сруба = <b>ПОБЕДА</b>.<br>
     <span style="color:#ffd060">ВРАГИ:</span> 60 ботов в волнах — 20 уже на поле, 15 наступают с базы, 13 в резерве, 12 защищают флаг.<br>
-    <span style="color:#a0c0ff">ЗАЩИТА:</span> ШЛЕМ — пережить хедшот · БРОНЯ — поглощает 50 HP в торс/голову · РЮКЗАК — +100 к запа��у патронов (всего 220).<br>
+    <span style="color:#a0c0ff">ЗАЩИТА:</span> ШЛЕМ — пережить хедшот · БРОНЯ — поглощает 50 HP в ��орс/голову · РЮКЗАК — +100 к запа����у патронов (всего 220).<br>
     <span style="color:#ff8a8a">УРОН ПО ЗОНАМ:</span> голова — смерть (без шлема) · грудь — 50/50 · руки/ноги — 2-3 попадания.<br>
     <span style="color:#90ff90">АПТЕЧКИ:</span> +1 за каждых 3 убитых · нажми <b>3</b> чтобы восстановить здоровье.
   </div>
@@ -2045,23 +2072,23 @@ function buildEquipBoard() {
   });
   const peg = new THREE.MeshStandardMaterial({ color: 0x303034, roughness: 0.4, metalness: 0.7 });
   /* === Backboard: 5m wide x 2.4m tall plank wall === */
-  const board = new THREE.Mesh(new THREE.BoxGeometry(5.0, 2.4, 0.10), woodMat);
-  board.position.set(0, 1.2, 0);
+  const board = new THREE.Mesh(new THREE.BoxGeometry(7.2, 3.4, 0.10), woodMat);
+  board.position.set(0, 1.7, 0);
   g.add(board);
   /* Vertical plank seams (visual detail) */
-  for (let i = -2; i <= 2; i++) {
-    const seam = new THREE.Mesh(new THREE.BoxGeometry(0.04, 2.4, 0.02), woodDarkMat);
-    seam.position.set(i * 0.95, 1.2, 0.06);
+  for (let i = -3; i <= 3; i++) {
+    const seam = new THREE.Mesh(new THREE.BoxGeometry(0.04, 3.4, 0.02), woodDarkMat);
+    seam.position.set(i * 1.0, 1.7, 0.06);
     g.add(seam);
   }
   /* Top capping board */
-  const cap = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.10, 0.18), woodDarkMat);
-  cap.position.set(0, 2.42, 0);
+  const cap = new THREE.Mesh(new THREE.BoxGeometry(7.4, 0.10, 0.18), woodDarkMat);
+  cap.position.set(0, 3.42, 0);
   g.add(cap);
   /* Two side support beams */
   for (const sx of [-1, 1]) {
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(0.10, 2.4, 0.10), woodDarkMat);
-    beam.position.set(sx * 2.55, 1.2, 0);
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(0.10, 3.4, 0.10), woodDarkMat);
+    beam.position.set(sx * 3.65, 1.7, 0);
     g.add(beam);
   }
   /* === Title placard — bright glowing gold text on dark plank, visible from
@@ -2082,14 +2109,14 @@ function buildEquipBoard() {
   })();
   const placard = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 0.55),
     new THREE.MeshBasicMaterial({ map: title, toneMapped: false }));
-  placard.position.set(0, 2.10, 0.062);
+  placard.position.set(0, 3.05, 0.062);
   g.add(placard);
   /* Soft glow rectangle behind the placard for the "screen-glow" feel */
   const glowMat = new THREE.MeshBasicMaterial({
     color: 0xffc060, transparent: true, opacity: 0.18, depthWrite: false
   });
-  const glowPlane = new THREE.Mesh(new THREE.PlaneGeometry(5.4, 0.95), glowMat);
-  glowPlane.position.set(0, 2.10, 0.055);
+  const glowPlane = new THREE.Mesh(new THREE.PlaneGeometry(7.4, 0.95), glowMat);
+  glowPlane.position.set(0, 3.05, 0.055);
   g.add(glowPlane);
 
   /* === SLOT LAYOUT (left → right, 7 items, 2 rows) === */
@@ -2109,16 +2136,30 @@ function buildEquipBoard() {
   }
   /* Slot layout: localX, localY, kind, label */
   const SLOT_DEFS = [
-    { x: -2.0, y: 1.6, kind: 'ak',       label: 'AKM (1)' },
-    { x: -0.8, y: 1.6, kind: 'm416',     label: 'M416 (2)' },
-    { x:  0.4, y: 1.6, kind: 'armor',    label: 'БРОНЕЖИЛЕТ' },
-    { x:  1.5, y: 1.6, kind: 'helmet',   label: '��ЛЕМ' },
-    { x:  2.4, y: 1.6, kind: 'backpack', label: 'РЮКЗАК' },
-    { x: -1.6, y: 0.6, kind: 'red_dot',  label: 'КОЛЛИМАТОР' },
-    { x:  0.0, y: 0.6, kind: 'scope_3x', label: 'ПРИЦЕЛ 3X' },
-    { x:  1.6, y: 0.6, kind: 'medkit',   label: 'АПТЕЧКИ x2' },
-    { x:  2.4, y: 0.6, kind: 'suppressor', label: 'ГЛУШИТЕЛЬ (O)' },
-    { x: -2.4, y: 0.6, kind: 'flashlight', label: 'ФОНАРИК (L)' }
+    /* Row 1 — weapons (pistols → rifles → special) */
+    { x: -3.0, y: 2.6, kind: 'glock',  label: 'GLOCK-18 (1)' },
+    { x: -2.0, y: 2.6, kind: 'deagle', label: 'DEAGLE (1)' },
+    { x: -1.0, y: 2.6, kind: 'ak',     label: 'AKM (2)' },
+    { x:  0.0, y: 2.6, kind: 'm416',   label: 'M416 (2)' },
+    { x:  1.0, y: 2.6, kind: 'ak74',   label: 'АК-74 (2)' },
+    { x:  2.0, y: 2.6, kind: 'scar',   label: 'SCAR-H (2)' },
+    { x:  3.0, y: 2.6, kind: 'mp5',    label: 'MP5 (3)' },
+    /* Row 2 — gear */
+    { x: -3.0, y: 1.5, kind: 'armor',    label: 'БРОНЕЖИЛЕТ' },
+    { x: -1.8, y: 1.5, kind: 'helmet',   label: '��ЛЕМ' },
+    { x: -0.6, y: 1.5, kind: 'backpack', label: 'РЮКЗАК' },
+    { x:  0.5, y: 1.5, kind: 'ghillie',  label: 'МАСКХАЛАТ' },
+    { x:  1.5, y: 1.5, kind: 'medkit',   label: 'АПТЕЧКИ x2' },
+    { x:  2.4, y: 1.5, kind: 'suppressor', label: 'ГЛУШИТЕЛЬ (O)' },
+    { x:  3.3, y: 1.5, kind: 'flashlight', label: 'ФОНАРИК (L)' },
+    /* Row 3 — optics, attachments & night gear */
+    { x: -3.0, y: 0.5, kind: 'red_dot',  label: 'КОЛЛИМАТОР' },
+    { x: -2.0, y: 0.5, kind: 'holo',     label: 'ГОЛОГРАФ. (B)' },
+    { x: -1.0, y: 0.5, kind: 'scope_3x', label: 'ПРИЦЕЛ 3X' },
+    { x:  0.0, y: 0.5, kind: 'laser',    label: 'ЛАЗЕР (T)' },
+    { x:  1.0, y: 0.5, kind: 'foregrip', label: 'РУКОЯТКА' },
+    { x:  2.0, y: 0.5, kind: 'rig',      label: 'РАЗГРУЗКА' },
+    { x:  3.0, y: 0.5, kind: 'nvg',      label: 'ПНВ (N)' }
   ];
   const tinyOpticOffset = 0.30;     /* push optics out from board so they're visible */
   for (const def of SLOT_DEFS) {
@@ -2143,6 +2184,36 @@ function buildEquipBoard() {
       item.rotation.y = -Math.PI / 2;
       item.rotation.z = -0.02;
       item.position.set(def.x, def.y, 0.18);
+    } else if (def.kind === 'glock') {
+      item = createGlock18();
+      item.scale.set(2.4, 2.4, 2.4);
+      item.rotation.y = -Math.PI / 2;
+      item.rotation.z = -0.02;
+      item.position.set(def.x, def.y, 0.20);
+    } else if (def.kind === 'deagle') {
+      item = createDeagle();
+      item.scale.set(2.2, 2.2, 2.2);
+      item.rotation.y = -Math.PI / 2;
+      item.rotation.z = -0.02;
+      item.position.set(def.x, def.y, 0.20);
+    } else if (def.kind === 'ak74') {
+      item = createAK74();
+      item.scale.set(1.6, 1.6, 1.6);
+      item.rotation.y = -Math.PI / 2;
+      item.rotation.z = -0.02;
+      item.position.set(def.x, def.y, 0.18);
+    } else if (def.kind === 'scar') {
+      item = createScarH();
+      item.scale.set(1.5, 1.5, 1.5);
+      item.rotation.y = -Math.PI / 2;
+      item.rotation.z = -0.02;
+      item.position.set(def.x, def.y, 0.18);
+    } else if (def.kind === 'mp5') {
+      item = createMP5();
+      item.scale.set(1.9, 1.9, 1.9);
+      item.rotation.y = -Math.PI / 2;
+      item.rotation.z = -0.02;
+      item.position.set(def.x, def.y, 0.18);
     } else if (def.kind === 'armor') {
       item = makeArmorVest();
       item.scale.set(1.0, 1.0, 1.0);
@@ -2163,6 +2234,81 @@ function buildEquipBoard() {
       item.scale.set(3.0, 3.0, 3.0);
       item.rotation.y = Math.PI / 2;
       item.position.set(def.x, def.y, tinyOpticOffset);
+    } else if (def.kind === 'holo') {
+      item = createHoloSight();
+      item.scale.set(3.2, 3.2, 3.2);
+      item.rotation.y = Math.PI / 2;
+      item.position.set(def.x, def.y, tinyOpticOffset);
+    } else if (def.kind === 'laser') {
+      item = new THREE.Group();
+      const lbody = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.09, 0.22),
+        new THREE.MeshStandardMaterial({ color: 0x16161a, roughness: 0.5, metalness: 0.6 }));
+      item.add(lbody);
+      const llens = new THREE.Mesh(new THREE.CircleGeometry(0.03, 12),
+        new THREE.MeshBasicMaterial({ color: 0xff3322 }));
+      llens.position.z = 0.112; item.add(llens);
+      item.position.set(def.x, def.y, 0.20);
+    } else if (def.kind === 'foregrip') {
+      item = new THREE.Group();
+      const gMat = new THREE.MeshStandardMaterial({ color: 0x15151a, roughness: 0.85, metalness: 0.1 });
+      const gsh = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.055, 0.30, 12), gMat);
+      item.add(gsh);
+      const gcap = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.05, 12), gMat);
+      gcap.position.y = -0.16; item.add(gcap);
+      item.position.set(def.x, def.y, 0.18);
+    } else if (def.kind === 'ghillie') {
+      /* W9 — draped ghillie cloak: tapered poncho + shaggy burlap strips + hood */
+      item = new THREE.Group();
+      const ghMat = new THREE.MeshStandardMaterial({ map: camoTex, color: 0x5a5e3a, roughness: 1.0 });
+      const cloak = new THREE.Mesh(new THREE.ConeGeometry(0.30, 0.46, 10, 1, true), ghMat);
+      cloak.position.y = 0.02;
+      item.add(cloak);
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2;
+        const strip = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.14 + Math.random() * 0.14, 0.02), ghMat);
+        strip.position.set(Math.cos(a) * 0.25, -0.17, Math.sin(a) * 0.25);
+        strip.rotation.y = a;
+        item.add(strip);
+      }
+      const hood = new THREE.Mesh(new THREE.TorusGeometry(0.10, 0.03, 6, 14), ghMat);
+      hood.rotation.x = Math.PI / 2; hood.position.y = 0.24;
+      item.add(hood);
+      item.position.set(def.x, def.y, 0.18);
+    } else if (def.kind === 'rig') {
+      /* W10 — chest rig: webbing panel + three mag pouches across the front */
+      item = new THREE.Group();
+      const rigMat = new THREE.MeshStandardMaterial({ color: 0x3a3326, roughness: 0.9 });
+      const pchMat = new THREE.MeshStandardMaterial({ color: 0x2a2620, roughness: 0.95 });
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(0.40, 0.34, 0.08), rigMat);
+      item.add(panel);
+      for (let i = -1; i <= 1; i++) {
+        const p = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.20, 0.07), pchMat);
+        p.position.set(i * 0.12, -0.04, 0.07);
+        item.add(p);
+      }
+      /* Shoulder straps */
+      for (const sx of [-0.14, 0.14]) {
+        const strap = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.30, 0.05), rigMat);
+        strap.position.set(sx, 0.24, 0.0);
+        item.add(strap);
+      }
+      item.position.set(def.x, def.y, 0.18);
+    } else if (def.kind === 'nvg') {
+      /* W10 — night-vision goggles: mount + dual objective tubes w/ glowing lenses */
+      item = new THREE.Group();
+      const nvMat = new THREE.MeshStandardMaterial({ color: 0x2c3a2c, roughness: 0.5, metalness: 0.4 });
+      const lensMat = new THREE.MeshStandardMaterial({ color: 0x123a14, roughness: 0.2, metalness: 0.3, emissive: 0x14ff40, emissiveIntensity: 0.7 });
+      const mount = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.10, 0.06), nvMat);
+      item.add(mount);
+      for (const sx of [-0.07, 0.07]) {
+        const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.16, 14), nvMat);
+        tube.rotation.x = Math.PI / 2; tube.position.set(sx, 0, 0.10);
+        item.add(tube);
+        const lens = new THREE.Mesh(new THREE.CircleGeometry(0.04, 14), lensMat);
+        lens.position.set(sx, 0, 0.185);
+        item.add(lens);
+      }
+      item.position.set(def.x, def.y, 0.20);
     } else if (def.kind === 'medkit') {
       /* Mini medkit display (white box with red cross) */
       item = new THREE.Group();
@@ -2233,6 +2379,7 @@ function buildEquipBoard() {
 
     equipBoard.slots.push({
       obj: item, label: lbl, kind: def.kind, taken: false,
+      _isGun: (def.kind==='ak'||def.kind==='m416'||def.kind==='glock'||def.kind==='deagle'||def.kind==='ak74'||def.kind==='scar'||def.kind==='mp5'),
       x: equipBoard.cx + def.x,
       y: terrainHeight(equipBoard.cx + def.x, equipBoard.cz) + def.y,
       z: equipBoard.cz
@@ -2249,7 +2396,7 @@ function buildEquipBoard() {
   scene.add(g);
   /* The board is a backwall — make it solid so player can't walk THROUGH it */
   colliders.push({
-    minX: equipBoard.cx - 2.6, maxX: equipBoard.cx + 2.6,
+    minX: equipBoard.cx - 3.6, maxX: equipBoard.cx + 3.6,
     minZ: equipBoard.cz - 0.15, maxZ: equipBoard.cz + 0.15
   });
 
@@ -2262,7 +2409,7 @@ function buildEquipBoard() {
     roughness: 0.4, metalness: 0.7
   });
   /* Three under-board floodlamps + their visible bulbs */
-  for (const sx of [-1.7, 0, 1.7]) {
+  for (const sx of [-2.6, 0, 2.6]) {
     const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), lampMat);
     bulb.position.set(equipBoard.cx + sx, terrainHeight(equipBoard.cx, equipBoard.cz) + 0.20, equipBoard.cz + 0.55);
     scene.add(bulb);
@@ -2278,8 +2425,8 @@ function buildEquipBoard() {
     scene.add(lt);
   }
   /* Pole-mounted spotlight above the title placard for that "shop sign" look */
-  const signLight = new THREE.PointLight(0xffe080, 2.2, 7.0, 1.4);
-  signLight.position.set(equipBoard.cx, terrainHeight(equipBoard.cx, equipBoard.cz) + 2.6, equipBoard.cz + 0.45);
+  const signLight = new THREE.PointLight(0xffe080, 2.2, 8.0, 1.4);
+  signLight.position.set(equipBoard.cx, terrainHeight(equipBoard.cx, equipBoard.cz) + 3.4, equipBoard.cz + 0.45);
   scene.add(signLight);
   /* Save references for the soft pulse animation */
   equipBoard._lights = scene.children.filter(o => o.isPointLight && o.position.distanceTo(
@@ -2536,6 +2683,12 @@ function updateEquipBoardGlow(dt) {
   const pulse = 1.0 + Math.sin(equipBoard.pulsePhase * 1.6) * 0.15;
   for (const lt of equipBoard._lights) lt.intensity = (lt.userData._base || (lt.userData._base = lt.intensity)) * pulse;
   if (equipBoard._glowPlane) equipBoard._glowPlane.material.opacity = 0.13 + (pulse - 1.0) * 0.55;
+  /* W8 — gentle turntable sway on the weapon miniatures so the rack reads as
+   * a live 3D preview. Each is phase-offset by its X so they don't move as one. */
+  for (const s of equipBoard.slots) {
+    if (s.taken || !s.obj || !s._isGun) continue;
+    s.obj.rotation.y = -Math.PI / 2 + Math.sin(equipBoard.pulsePhase * 0.6 + s.x) * 0.18;
+  }
 }
 
 /* === Tiny visual helpers for the equipment board ============================ */
@@ -3235,21 +3388,27 @@ function createAK47() {
   ak.add(fsRiser);
   /* Two OPEN protective ears — tapered, converging slightly at the top.
    * (AKM uses open wings, not a closed hood ring.) */
-  for (const sx of [-0.0125, 0.0125]) {
-    const ear = new THREE.Mesh(new THREE.BoxGeometry(0.0042, 0.044, 0.014), polished);
-    ear.position.set(sx, 0.073, -0.705);
-    ear.rotation.z = sx > 0 ? 0.07 : -0.07;
+  /* Two STRAIGHT vertical protective ears — symmetric, no inward lean.
+   * At viewmodel scale the previous converging ears read as a bent sight;
+   * keeping them perfectly vertical and bridging them with a top hood bar
+   * gives the crisp AKM "tunnel" silhouette instead. */
+  for (const sx of [-0.013, 0.013]) {
+    const ear = new THREE.Mesh(new THREE.BoxGeometry(0.0044, 0.050, 0.015), polished);
+    ear.position.set(sx, 0.074, -0.705);
     ak.add(ear);
   }
-  /* (Removed the half-torus hood + side caps — at viewmodel scale they
-   * read as a metal blob. The open ears above are cleaner and accurate.) */
-  /* Thin crisp front POST — tip bead at y=0.090 so the ADS sight picture
+  /* Top hood bar bridging the two ears (front-sight hood) */
+  const fsHood = new THREE.Mesh(new THREE.BoxGeometry(0.0304, 0.0046, 0.015), polished);
+  fsHood.position.set(0, 0.0975, -0.705);
+  ak.add(fsHood);
+  /* Centered front POST — tip bead at y=0.090 so the ADS sight picture
    * lines it up with the rear notch dead at screen centre (the old 0.080
    * tip projected ~0.8 deg LOW, so the post sat under the notch). */
-  const fsPost = new THREE.Mesh(new THREE.CylinderGeometry(0.0017, 0.0026, 0.046, 12), polished);
-  fsPost.position.set(0, 0.067, -0.705);
+  const fsPost = new THREE.Mesh(new THREE.CylinderGeometry(0.0020, 0.0028, 0.050, 12), polished);
+  fsPost.position.set(0, 0.068, -0.705);
   ak.add(fsPost);
-  /* Bright tip bead for fast acquisition (sits between the ears) */
+  /* Bright tip bead for fast acquisition (centered between the ears,
+   * just below the hood bar) */
   const fsBead = new THREE.Mesh(new THREE.SphereGeometry(0.0030, 10, 8), polished);
   fsBead.position.set(0, 0.090, -0.705);
   ak.add(fsBead);
@@ -3583,12 +3742,22 @@ function createM416() {
   m.add(fwdAssist);
 
   /* Charging handle (T-shape behind the upper) */
+  /* Charging handle + latch wrapped in a BOLT group so the reload
+   * animation's chamber phase racks it back and lets it snap forward
+   * (the existing reload code drives ud.bolt.position.z). */
+  const bolt = new THREE.Group();
   const chHandle = new THREE.Mesh(new THREE.BoxGeometry(0.052, 0.006, 0.012), polished);
   chHandle.position.set(0, 0.052, 0.060);
-  m.add(chHandle);
+  bolt.add(chHandle);
   const chStem = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.006, 0.045), polished);
   chStem.position.set(0, 0.052, 0.030);
-  m.add(chStem);
+  bolt.add(chStem);
+  /* Ambidextrous latch wing on the left of the charging handle (HK416) */
+  const chLatch = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.010, 0.009), polished);
+  chLatch.position.set(-0.024, 0.052, 0.066);
+  bolt.add(chLatch);
+  m.add(bolt);
+  m.userData.bolt = bolt;
 
   /* Dust cover */
   const dustCover = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.004, 0.090), steel);
@@ -3768,6 +3937,476 @@ function createM416() {
  * Each returns a THREE.Group ready to be attached as a child of the weapon
  * model. The dot/reticle is rendered with additive blending so it's always
  * visible on top of the lens. */
+/* ======================================================================
+ * W6 — NEW WEAPONS  (Glock-18, Desert Eagle, AK-74, SCAR-H, MP5)
+ * Same weapon-local convention as createAK47/createM416: grip near origin,
+ * barrel toward -Z, up +Y. Every model exposes the userData contract the
+ * rest of the engine relies on, so reload / muzzle-flash / swap all work
+ * with zero special-casing:
+ *   userData.kind        weapon id
+ *   userData.muzzleZ     local Z of the muzzle (flash + bullet origin)
+ *   userData.bolt        THREE.Group the reload animation racks back
+ *                        (pistol slide / rifle carrier / SMG cocking handle)
+ *   userData.mag         detachable magazine mesh/group
+ *   userData.magHomePos  mag rest position (Vector3)
+ *   userData.magHomeRot  mag rest rotation (Euler)
+ * ==================================================================== */
+function createGlock18() {
+  const g = new THREE.Group();
+  g.userData.kind = 'glock';
+  const poly = new THREE.MeshStandardMaterial({ color: 0x141417, roughness: 0.7, metalness: 0.05 });
+  const steel = new THREE.MeshStandardMaterial({ color: 0x222428, roughness: 0.35, metalness: 0.9 });
+  const polished = new THREE.MeshStandardMaterial({ color: 0x4a4d54, roughness: 0.2, metalness: 1.0 });
+
+  /* --- SLIDE (bolt group; racks on reload) --- */
+  const bolt = new THREE.Group();
+  const slide = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.040, 0.205), steel);
+  slide.position.set(0, 0.052, -0.085);
+  bolt.add(slide);
+  for (let i = 0; i < 6; i++) {
+    const s = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.030, 0.004), polished);
+    s.position.set(0, 0.052, 0.000 + i * 0.007);
+    bolt.add(s);
+  }
+  for (let i = 0; i < 4; i++) {
+    const s = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.030, 0.004), polished);
+    s.position.set(0, 0.052, -0.150 + i * 0.007);
+    bolt.add(s);
+  }
+  const fSight = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.010, 0.006), polished);
+  fSight.position.set(0, 0.076, -0.175);
+  bolt.add(fSight);
+  const rSight = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.010, 0.008), polished);
+  rSight.position.set(0, 0.076, 0.010);
+  bolt.add(rSight);
+  const port = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.016, 0.034), poly);
+  port.position.set(0.018, 0.056, -0.05);
+  bolt.add(port);
+  g.add(bolt);
+  g.userData.bolt = bolt;
+
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.04, 12), polished);
+  barrel.rotation.x = Math.PI / 2;
+  barrel.position.set(0, 0.052, -0.20);
+  g.add(barrel);
+
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(0.030, 0.026, 0.16), poly);
+  frame.position.set(0, 0.028, -0.06);
+  g.add(frame);
+  const guard = new THREE.Mesh(new THREE.TorusGeometry(0.018, 0.0035, 6, 12, Math.PI), poly);
+  guard.rotation.z = Math.PI;
+  guard.position.set(0, 0.006, -0.04);
+  g.add(guard);
+  const trigger = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.016, 0.006), polished);
+  trigger.position.set(0, 0.004, -0.04);
+  g.add(trigger);
+
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.030, 0.115, 0.045), poly);
+  grip.position.set(0, -0.040, 0.010);
+  grip.rotation.x = -0.28;
+  g.add(grip);
+  for (let i = 0; i < 5; i++) {
+    const st = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.004, 0.002), steel);
+    st.position.set(0, -0.020 - i * 0.018, 0.030);
+    st.rotation.x = -0.28;
+    g.add(st);
+  }
+
+  const mag = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.120, 0.040), steel);
+  mag.position.set(0, -0.045, 0.012);
+  mag.rotation.x = -0.28;
+  g.add(mag);
+  g.userData.mag = mag;
+  g.userData.magHomePos = mag.position.clone();
+  g.userData.magHomeRot = mag.rotation.clone();
+
+  g.userData.muzzleZ = -0.225;
+  g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
+  return g;
+}
+
+function createDeagle() {
+  const g = new THREE.Group();
+  g.userData.kind = 'deagle';
+  const steel = new THREE.MeshStandardMaterial({ color: 0x3a3d44, roughness: 0.22, metalness: 1.0 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x17181b, roughness: 0.5, metalness: 0.6 });
+  const polished = new THREE.MeshStandardMaterial({ color: 0x596068, roughness: 0.12, metalness: 1.0 });
+  const gold = new THREE.MeshStandardMaterial({ color: 0xb9962f, roughness: 0.25, metalness: 1.0 });
+  const gripMat = new THREE.MeshStandardMaterial({ color: 0x21130c, roughness: 0.7, metalness: 0.1 });
+  const brass = new THREE.MeshStandardMaterial({ color: 0xc8a050, roughness: 0.32, metalness: 0.9 });
+
+  const bolt = new THREE.Group();
+  const slide = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.055, 0.255), steel);
+  slide.position.set(0, 0.060, -0.10);
+  bolt.add(slide);
+  const rib = new THREE.Mesh(new THREE.BoxGeometry(0.030, 0.012, 0.235), polished);
+  rib.position.set(0, 0.090, -0.105);
+  bolt.add(rib);
+  for (let i = 0; i < 5; i++) {
+    const v = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.013, 0.006), dark);
+    v.position.set(0, 0.090, -0.18 + i * 0.024);
+    bolt.add(v);
+  }
+  for (let i = 0; i < 7; i++) {
+    const s = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.045, 0.004), dark);
+    s.position.set(0, 0.060, 0.000 + i * 0.008);
+    bolt.add(s);
+  }
+  const fSight = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.012, 0.008), polished);
+  fSight.position.set(0, 0.100, -0.205);
+  bolt.add(fSight);
+  const rSight = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.012, 0.010), polished);
+  rSight.position.set(0, 0.090, 0.012);
+  bolt.add(rSight);
+  const port = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.020, 0.040), dark);
+  port.position.set(0.023, 0.064, -0.06);
+  bolt.add(port);
+  const cartridge = new THREE.Mesh(new THREE.CylinderGeometry(0.0065, 0.0065, 0.004, 10), brass);
+  cartridge.rotation.z = Math.PI / 2;
+  cartridge.position.set(0.025, 0.064, -0.06);
+  bolt.add(cartridge);
+  g.add(bolt);
+  g.userData.bolt = bolt;
+
+  const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.03, 12), polished);
+  muzzle.rotation.x = Math.PI / 2;
+  muzzle.position.set(0, 0.078, -0.235);
+  g.add(muzzle);
+
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.030, 0.20), steel);
+  frame.position.set(0, 0.030, -0.07);
+  g.add(frame);
+  const guard = new THREE.Mesh(new THREE.TorusGeometry(0.020, 0.004, 6, 12, Math.PI), steel);
+  guard.rotation.z = Math.PI;
+  guard.position.set(0, 0.006, -0.045);
+  g.add(guard);
+  const trigger = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.018, 0.007), gold);
+  trigger.position.set(0, 0.005, -0.045);
+  g.add(trigger);
+  const hammer = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.018, 0.010), polished);
+  hammer.position.set(0, 0.052, 0.075);
+  g.add(hammer);
+
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.130, 0.050), gripMat);
+  grip.position.set(0, -0.045, 0.020);
+  grip.rotation.x = -0.26;
+  g.add(grip);
+
+  const mag = new THREE.Mesh(new THREE.BoxGeometry(0.030, 0.130, 0.044), steel);
+  mag.position.set(0, -0.045, 0.018);
+  mag.rotation.x = -0.26;
+  g.add(mag);
+  g.userData.mag = mag;
+  g.userData.magHomePos = mag.position.clone();
+  g.userData.magHomeRot = mag.rotation.clone();
+
+  g.userData.muzzleZ = -0.255;
+  g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
+  return g;
+}
+
+function createAK74() {
+  const g = new THREE.Group();
+  g.userData.kind = 'ak74';
+  const steel = new THREE.MeshStandardMaterial({ color: 0x2a2c30, roughness: 0.32, metalness: 0.9 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x16171a, roughness: 0.45, metalness: 0.7 });
+  const polished = new THREE.MeshStandardMaterial({ color: 0x4a4d54, roughness: 0.16, metalness: 1.0 });
+  const plum = new THREE.MeshStandardMaterial({ color: 0x5a2418, roughness: 0.55, metalness: 0.1 });
+  const brass = new THREE.MeshStandardMaterial({ color: 0xc8a050, roughness: 0.32, metalness: 0.9 });
+
+  const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.050, 0.060, 0.26), steel);
+  receiver.position.set(0, 0.030, -0.05);
+  g.add(receiver);
+  const cover = new THREE.Mesh(new THREE.BoxGeometry(0.050, 0.018, 0.20), steel);
+  cover.position.set(0, 0.066, -0.04);
+  g.add(cover);
+
+  const bolt = new THREE.Group();
+  const ch = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.012, 0.05), polished);
+  ch.position.set(0.030, 0.052, 0.020);
+  bolt.add(ch);
+  const chKnob = new THREE.Mesh(new THREE.CylinderGeometry(0.010, 0.010, 0.012, 10), polished);
+  chKnob.rotation.z = Math.PI / 2;
+  chKnob.position.set(0.040, 0.052, 0.020);
+  bolt.add(chKnob);
+  g.add(bolt);
+  g.userData.bolt = bolt;
+  const portCut = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.020, 0.050), dark);
+  portCut.position.set(0.026, 0.045, -0.02);
+  g.add(portCut);
+  const cartridge = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.004, 10), brass);
+  cartridge.rotation.z = Math.PI / 2;
+  cartridge.position.set(0.028, 0.045, -0.02);
+  g.add(cartridge);
+
+  const selector = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.040, 0.014), steel);
+  selector.position.set(0.027, 0.030, 0.045);
+  g.add(selector);
+
+  const handguard = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.046, 0.18), plum);
+  handguard.position.set(0, 0.020, -0.26);
+  g.add(handguard);
+  const gasTube = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.17, 12), steel);
+  gasTube.rotation.x = Math.PI / 2;
+  gasTube.position.set(0, 0.052, -0.25);
+  g.add(gasTube);
+
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.26, 14), dark);
+  barrel.rotation.x = Math.PI / 2;
+  barrel.position.set(0, 0.026, -0.52);
+  g.add(barrel);
+  const fsBlock = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.040, 0.030), steel);
+  fsBlock.position.set(0, 0.040, -0.62);
+  g.add(fsBlock);
+  const frontPost = new THREE.Mesh(new THREE.CylinderGeometry(0.0025, 0.0025, 0.022, 8), polished);
+  frontPost.position.set(0, 0.058, -0.62);
+  g.add(frontPost);
+  const gasBlock = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.034, 0.026), steel);
+  gasBlock.position.set(0, 0.038, -0.46);
+  g.add(gasBlock);
+  const rearSight = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.012, 0.016), polished);
+  rearSight.position.set(0, 0.052, -0.14);
+  g.add(rearSight);
+
+  /* AK-74 signature muzzle brake */
+  const brakeBody = new THREE.Mesh(new THREE.CylinderGeometry(0.020, 0.020, 0.075, 14), dark);
+  brakeBody.rotation.x = Math.PI / 2;
+  brakeBody.position.set(0, 0.026, -0.70);
+  g.add(brakeBody);
+  const brakeFace = new THREE.Mesh(new THREE.CylinderGeometry(0.020, 0.022, 0.012, 14), steel);
+  brakeFace.rotation.x = Math.PI / 2;
+  brakeFace.position.set(0, 0.026, -0.738);
+  g.add(brakeFace);
+  for (const sx of [-1, 1]) {
+    const vent = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.018, 0.030), dark);
+    vent.position.set(sx * 0.018, 0.026, -0.70);
+    g.add(vent);
+  }
+
+  const pgrip = new THREE.Mesh(new THREE.BoxGeometry(0.030, 0.090, 0.040), plum);
+  pgrip.position.set(0, -0.030, 0.020);
+  pgrip.rotation.x = -0.30;
+  g.add(pgrip);
+
+  const mag = new THREE.Group();
+  const magBody = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.115, 0.050), plum);
+  magBody.position.set(0, -0.060, -0.045);
+  magBody.rotation.x = 0.20;
+  mag.add(magBody);
+  g.add(mag);
+  g.userData.mag = mag;
+  g.userData.magHomePos = mag.position.clone();
+  g.userData.magHomeRot = mag.rotation.clone();
+
+  const stock = new THREE.Mesh(new THREE.BoxGeometry(0.030, 0.050, 0.16), plum);
+  stock.position.set(0, 0.020, 0.165);
+  g.add(stock);
+
+  g.userData.muzzleZ = -0.745;
+  g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
+  return g;
+}
+
+function createScarH() {
+  const g = new THREE.Group();
+  g.userData.kind = 'scar';
+  const fde = new THREE.MeshStandardMaterial({ color: 0x6b5a3e, roughness: 0.6, metalness: 0.15 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.5, metalness: 0.5 });
+  const steel = new THREE.MeshStandardMaterial({ color: 0x2a2c30, roughness: 0.3, metalness: 0.9 });
+  const polished = new THREE.MeshStandardMaterial({ color: 0x4a4d54, roughness: 0.16, metalness: 1.0 });
+  const brass = new THREE.MeshStandardMaterial({ color: 0xc8a050, roughness: 0.32, metalness: 0.9 });
+
+  const upper = new THREE.Mesh(new THREE.BoxGeometry(0.050, 0.052, 0.34), fde);
+  upper.position.set(0, 0.045, -0.12);
+  g.add(upper);
+  const rail = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.012, 0.40), dark);
+  rail.position.set(0, 0.078, -0.16);
+  g.add(rail);
+  for (let i = 0; i < 16; i++) {
+    const t = new THREE.Mesh(new THREE.BoxGeometry(0.030, 0.003, 0.014), steel);
+    t.position.set(0, 0.085, -0.34 + i * 0.026);
+    g.add(t);
+  }
+  const lower = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.040, 0.22), dark);
+  lower.position.set(0, 0.012, -0.06);
+  g.add(lower);
+
+  const bolt = new THREE.Group();
+  const ch = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.008, 0.014), polished);
+  ch.position.set(-0.030, 0.058, -0.04);
+  bolt.add(ch);
+  const chKnob = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.014, 0.018), polished);
+  chKnob.position.set(-0.050, 0.058, -0.04);
+  bolt.add(chKnob);
+  g.add(bolt);
+  g.userData.bolt = bolt;
+  const port = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.020, 0.048), steel);
+  port.position.set(0.026, 0.048, -0.05);
+  g.add(port);
+  const cartridge = new THREE.Mesh(new THREE.CylinderGeometry(0.0065, 0.0065, 0.004, 10), brass);
+  cartridge.rotation.z = Math.PI / 2;
+  cartridge.position.set(0.028, 0.048, -0.05);
+  g.add(cartridge);
+
+  const handguard = new THREE.Mesh(new THREE.BoxGeometry(0.050, 0.044, 0.24), fde);
+  handguard.position.set(0, 0.030, -0.34);
+  g.add(handguard);
+  for (const sx of [-1, 1]) {
+    for (let i = 0; i < 4; i++) {
+      const vent = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.020, 0.018), dark);
+      vent.position.set(sx * 0.026, 0.030, -0.28 - i * 0.040);
+      g.add(vent);
+    }
+  }
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.013, 0.22, 14), dark);
+  barrel.rotation.x = Math.PI / 2;
+  barrel.position.set(0, 0.030, -0.56);
+  g.add(barrel);
+  const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 0.05, 12), dark);
+  muzzle.rotation.x = Math.PI / 2;
+  muzzle.position.set(0, 0.030, -0.70);
+  g.add(muzzle);
+  for (let i = 0; i < 3; i++) {
+    const slot = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.004, 0.005), dark);
+    slot.position.set(0, 0.040, -0.69 + i * 0.012);
+    g.add(slot);
+  }
+  const frontPost = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.012, 0.006), polished);
+  frontPost.position.set(0, 0.092, -0.42);
+  g.add(frontPost);
+  const rearAp = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.012, 0.006), polished);
+  rearAp.position.set(0, 0.090, 0.00);
+  g.add(rearAp);
+
+  const pgrip = new THREE.Mesh(new THREE.BoxGeometry(0.030, 0.090, 0.038), fde);
+  pgrip.position.set(0, -0.030, 0.015);
+  pgrip.rotation.x = -0.32;
+  g.add(pgrip);
+
+  const mag = new THREE.Group();
+  const magBody = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.130, 0.052), steel);
+  magBody.position.set(0, -0.070, -0.05);
+  magBody.rotation.x = 0.12;
+  mag.add(magBody);
+  g.add(mag);
+  g.userData.mag = mag;
+  g.userData.magHomePos = mag.position.clone();
+  g.userData.magHomeRot = mag.rotation.clone();
+
+  const stock = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.070, 0.17), fde);
+  stock.position.set(0, 0.030, 0.175);
+  g.add(stock);
+  const cheek = new THREE.Mesh(new THREE.BoxGeometry(0.030, 0.014, 0.10), dark);
+  cheek.position.set(0, 0.072, 0.18);
+  g.add(cheek);
+
+  g.userData.muzzleZ = -0.73;
+  g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
+  return g;
+}
+
+function createMP5() {
+  const g = new THREE.Group();
+  g.userData.kind = 'mp5';
+  const dark = new THREE.MeshStandardMaterial({ color: 0x141417, roughness: 0.5, metalness: 0.4 });
+  const steel = new THREE.MeshStandardMaterial({ color: 0x26282c, roughness: 0.32, metalness: 0.9 });
+  const polished = new THREE.MeshStandardMaterial({ color: 0x4a4d54, roughness: 0.16, metalness: 1.0 });
+  const brass = new THREE.MeshStandardMaterial({ color: 0xc8a050, roughness: 0.32, metalness: 0.9 });
+
+  const receiver = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.22, 16), dark);
+  receiver.rotation.x = Math.PI / 2;
+  receiver.position.set(0, 0.045, -0.06);
+  g.add(receiver);
+  const lower = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.030, 0.13), dark);
+  lower.position.set(0, 0.022, -0.02);
+  g.add(lower);
+  const guard = new THREE.Mesh(new THREE.TorusGeometry(0.018, 0.0035, 6, 12, Math.PI), dark);
+  guard.rotation.z = Math.PI;
+  guard.position.set(0, 0.004, -0.01);
+  g.add(guard);
+  const trigger = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.016, 0.006), polished);
+  trigger.position.set(0, 0.004, -0.01);
+  g.add(trigger);
+  const selector = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.020, 8), polished);
+  selector.rotation.z = Math.PI / 2;
+  selector.position.set(-0.020, 0.030, 0.030);
+  g.add(selector);
+
+  const cockTube = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.18, 12), steel);
+  cockTube.rotation.x = Math.PI / 2;
+  cockTube.position.set(-0.022, 0.066, -0.18);
+  g.add(cockTube);
+  const bolt = new THREE.Group();
+  const cockHandle = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.030, 10), polished);
+  cockHandle.rotation.z = Math.PI / 2;
+  cockHandle.position.set(-0.040, 0.066, -0.12);
+  bolt.add(cockHandle);
+  g.add(bolt);
+  g.userData.bolt = bolt;
+  const port = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.016, 0.034), steel);
+  port.position.set(0.023, 0.052, -0.03);
+  g.add(port);
+  const cartridge = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.003, 10), brass);
+  cartridge.rotation.z = Math.PI / 2;
+  cartridge.position.set(0.025, 0.052, -0.03);
+  g.add(cartridge);
+
+  const handguard = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.14, 14), dark);
+  handguard.rotation.x = Math.PI / 2;
+  handguard.position.set(0, 0.045, -0.24);
+  g.add(handguard);
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.010, 0.010, 0.10, 12), steel);
+  barrel.rotation.x = Math.PI / 2;
+  barrel.position.set(0, 0.045, -0.34);
+  g.add(barrel);
+  const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.013, 0.04, 12), dark);
+  muzzle.rotation.x = Math.PI / 2;
+  muzzle.position.set(0, 0.045, -0.40);
+  g.add(muzzle);
+  const fsHood = new THREE.Mesh(new THREE.TorusGeometry(0.012, 0.0025, 8, 14), steel);
+  fsHood.position.set(0, 0.066, -0.36);
+  g.add(fsHood);
+  const fPost = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.012, 0.004), polished);
+  fPost.position.set(0, 0.060, -0.36);
+  g.add(fPost);
+  const rearDrum = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.014, 14), steel);
+  rearDrum.rotation.z = Math.PI / 2;
+  rearDrum.position.set(0, 0.064, 0.02);
+  g.add(rearDrum);
+
+  const pgrip = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.085, 0.036), dark);
+  pgrip.position.set(0, -0.020, 0.025);
+  pgrip.rotation.x = -0.30;
+  g.add(pgrip);
+
+  const mag = new THREE.Group();
+  for (let i = 0; i < 4; i++) {
+    const seg = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.040, 0.040), steel);
+    seg.position.set(0, -0.025 - i * 0.036, -0.06 - i * 0.012);
+    seg.rotation.x = 0.22;
+    mag.add(seg);
+  }
+  g.add(mag);
+  g.userData.mag = mag;
+  g.userData.magHomePos = mag.position.clone();
+  g.userData.magHomeRot = mag.rotation.clone();
+
+  const stockRod1 = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.16, 8), steel);
+  stockRod1.rotation.x = Math.PI / 2;
+  stockRod1.position.set(-0.012, 0.050, 0.14);
+  g.add(stockRod1);
+  const stockRod2 = stockRod1.clone();
+  stockRod2.position.set(0.012, 0.050, 0.14);
+  g.add(stockRod2);
+  const buttplate = new THREE.Mesh(new THREE.BoxGeometry(0.040, 0.060, 0.016), dark);
+  buttplate.position.set(0, 0.045, 0.225);
+  g.add(buttplate);
+
+  g.userData.muzzleZ = -0.42;
+  g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
+  return g;
+}
+
 function createRedDotSight() {
   /* Aimpoint-style mini reflex sight — built as a HOLLOW tube so the player
    * sees the world straight through both lens openings. The "lens" itself
@@ -3885,6 +4524,59 @@ function createRedDotSight() {
   return g;
 }
 
+function createHoloSight() {
+  /* EOTech-style holographic sight — square open hood + additive circle-dot
+   * reticle. Built hollow (open window) so the player sees straight through
+   * it. The reticle is depthTest:false so it always floats over the view. */
+  const g = new THREE.Group();
+  g.userData.kind = 'holo';
+  const body = new THREE.MeshStandardMaterial({ color: 0x17171a, roughness: 0.5, metalness: 0.7 });
+  /* Rail base clamp */
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.012, 0.075), body);
+  base.position.set(0, -0.006, 0);
+  g.add(base);
+  /* Hood — top bar + two side walls forming an open square window */
+  const top = new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.006, 0.050), body);
+  top.position.set(0, 0.046, 0);
+  g.add(top);
+  for (const sx of [-0.023, 0.023]) {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.046, 0.050), body);
+    wall.position.set(sx, 0.023, 0);
+    g.add(wall);
+  }
+  /* Electronics housing block at the rear of the hood */
+  const hood = new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.022, 0.024), body);
+  hood.position.set(0, 0.020, 0.036);
+  g.add(hood);
+  /* Two control buttons on the housing for silhouette detail */
+  for (const bx of [-0.010, 0.010]) {
+    const btn = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.006, 0.004), body);
+    btn.position.set(bx, 0.026, 0.049);
+    g.add(btn);
+  }
+  /* Reticle — outer ring + center dot, additive overlay on the glassless window. */
+  const ringMat = new THREE.MeshBasicMaterial({
+    color: 0xff2a18, transparent: true, opacity: 0.9,
+    blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false
+  });
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.0095, 0.0120, 24), ringMat);
+  ring.position.set(0, 0.022, 0.014);
+  ring.rotation.y = Math.PI;
+  ring.renderOrder = 99;
+  g.add(ring);
+  const dotMat = new THREE.MeshBasicMaterial({
+    color: 0xff3322, transparent: true, opacity: 1.0,
+    blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false
+  });
+  const dot = new THREE.Mesh(new THREE.CircleGeometry(0.0024, 14), dotMat);
+  dot.position.set(0, 0.022, 0.014);
+  dot.rotation.y = Math.PI;
+  dot.renderOrder = 100;
+  g.add(dot);
+  g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
+  return g;
+}
+
 function createScope3x() {
   const g = new THREE.Group();
   g.userData.kind = 'scope_3x';
@@ -3994,8 +4686,10 @@ function createScope3x() {
 function createHands() {
   const g = new THREE.Group();
   const sleeveMat = new THREE.MeshStandardMaterial({ map: camoTex, roughness: 0.9 });
-  const gloveMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8 });
+  const gloveMat = new THREE.MeshStandardMaterial({ color: 0x1d1d20, roughness: 0.75, metalness: 0.05 });
   const skinMat = new THREE.MeshStandardMaterial({ color: 0xc89878, roughness: 0.7 });
+  const cuffMat = new THREE.MeshStandardMaterial({ color: 0x2a2a24, roughness: 0.85 });
+  const knuckleMat = new THREE.MeshStandardMaterial({ color: 0x141416, roughness: 0.6, metalness: 0.1 });
 
   /* Right arm (on grip) */
   const rArm = new THREE.Group();
@@ -4003,15 +4697,37 @@ function createHands() {
   rSleeve.rotation.x = 1.0;
   rSleeve.position.set(0, -0.05, 0.13);
   rArm.add(rSleeve);
-  const rGlove = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.09, 0.07), gloveMat);
-  rGlove.position.set(0, -0.07, 0.075);
-  rGlove.rotation.x = 0.3;
-  rArm.add(rGlove);
-  /* Thumb */
-  const rThumb = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.05, 0.025), gloveMat);
-  rThumb.position.set(-0.025, -0.05, 0.045);
-  rThumb.rotation.x = -0.3;
-  rArm.add(rThumb);
+  /* Wrist cuff where the sleeve meets the glove */
+  const rCuff = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.05, 0.04, 12), cuffMat);
+  rCuff.rotation.x = 1.0;
+  rCuff.position.set(0, -0.065, 0.095);
+  rArm.add(rCuff);
+  /* Detailed right hand (trigger hand): palm + knuckle guard + four curled
+   * fingers + thumb, anchored where the old single-box glove used to sit. */
+  const rHand = new THREE.Group();
+  rHand.position.set(0, -0.07, 0.075);
+  rHand.rotation.x = 0.3;
+  const rPalm = new THREE.Mesh(new THREE.BoxGeometry(0.052, 0.085, 0.05), gloveMat);
+  rHand.add(rPalm);
+  const rKnuckle = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.02, 0.042), knuckleMat);
+  rKnuckle.position.set(0, 0.012, -0.028);
+  rHand.add(rKnuckle);
+  for (let i = 0; i < 4; i++) {
+    const fx = -0.018 + i * 0.012;
+    const fseg = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.034, 0.020), gloveMat);
+    fseg.position.set(fx, -0.052, -0.020);
+    fseg.rotation.x = 0.55;
+    rHand.add(fseg);
+    const ftip = new THREE.Mesh(new THREE.BoxGeometry(0.009, 0.024, 0.018), gloveMat);
+    ftip.position.set(fx, -0.078, -0.004);
+    ftip.rotation.x = 1.0;
+    rHand.add(ftip);
+  }
+  const rThumb = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.044, 0.020), gloveMat);
+  rThumb.position.set(-0.03, -0.04, 0.01);
+  rThumb.rotation.set(-0.2, 0, 0.4);
+  rHand.add(rThumb);
+  rArm.add(rHand);
   g.add(rArm);
 
   /* Left arm (on handguard) */
@@ -4021,13 +4737,38 @@ function createHands() {
   lSleeve.rotation.z = -0.15;
   lSleeve.position.set(-0.04, -0.10, -0.05);
   lArm.add(lSleeve);
-  const lGlove = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.05, 0.10), gloveMat);
-  lGlove.position.set(-0.005, -0.04, -0.18);
-  lGlove.rotation.x = 0.05;
-  lArm.add(lGlove);
-  const lThumb = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.04, 0.025), gloveMat);
-  lThumb.position.set(0.025, -0.02, -0.20);
-  lArm.add(lThumb);
+  /* Wrist cuff for the support arm */
+  const lCuff = new THREE.Mesh(new THREE.CylinderGeometry(0.057, 0.055, 0.04, 12), cuffMat);
+  lCuff.rotation.x = 1.45;
+  lCuff.rotation.z = -0.15;
+  lCuff.position.set(-0.02, -0.06, -0.11);
+  lArm.add(lCuff);
+  /* Detailed left hand (support hand) gripping the handguard: palm + back
+   * pad + four fingers draping over the far side + thumb on the near side. */
+  const lHand = new THREE.Group();
+  lHand.position.set(-0.005, -0.04, -0.18);
+  lHand.rotation.x = 0.05;
+  const lPalm = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.045, 0.085), gloveMat);
+  lHand.add(lPalm);
+  const lBack = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.016, 0.07), knuckleMat);
+  lBack.position.set(0, 0.026, 0);
+  lHand.add(lBack);
+  for (let i = 0; i < 4; i++) {
+    const fz = -0.03 + i * 0.02;
+    const fseg = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.03, 0.016), gloveMat);
+    fseg.position.set(-0.03, -0.03, fz);
+    fseg.rotation.z = -0.5;
+    lHand.add(fseg);
+    const ftip = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.02, 0.014), gloveMat);
+    ftip.position.set(-0.044, -0.05, fz);
+    ftip.rotation.z = -1.0;
+    lHand.add(ftip);
+  }
+  const lThumb = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.024, 0.04), gloveMat);
+  lThumb.position.set(0.028, -0.018, 0.0);
+  lThumb.rotation.z = 0.5;
+  lHand.add(lThumb);
+  lArm.add(lHand);
   g.add(lArm);
 
   return g;
@@ -4040,11 +4781,30 @@ const hands = createHands();
 weapon.add(hands);
 weapon.add(ak);
 weapon.add(m416);
+/* === W6 — NEW WEAPONS instantiated + registered ===================== */
+const glock  = createGlock18();
+const deagle = createDeagle();
+const ak74   = createAK74();
+const scar   = createScarH();
+const mp5    = createMP5();
+weapon.add(glock);
+weapon.add(deagle);
+weapon.add(ak74);
+weapon.add(scar);
+weapon.add(mp5);
+/* Registry keyed by weapon id. Every system (visibility, muzzle flash,
+ * active-weapon lookup, swap) iterates this instead of hardcoding ak/m416. */
+const WEAPON_OBJS = { ak, m416, glock, deagle, ak74, scar, mp5 };
 /* Both weapons start hidden — the player picks one up at the equipment
  * board next to the spawn cabin. Hands are also hidden when no weapon is
  * equipped (we don't want floating gloves). */
 ak.visible = false;
 m416.visible = false;
+glock.visible = false;
+deagle.visible = false;
+ak74.visible = false;
+scar.visible = false;
+mp5.visible = false;
 hands.visible = false;
 ak.position.z = 0;
 hands.position.z = 0;
@@ -4113,15 +4873,40 @@ function _buildUnderBarrelFlashlight() {
   g.visible = false;             /* hidden until picked up */
   return g;
 }
-const flashlightAk   = _buildUnderBarrelFlashlight();
-const flashlightM416 = _buildUnderBarrelFlashlight();
-/* Mount points under each weapon's barrel.
- *  AK   muzzle ≈ z=-0.83 in weapon-local — place light at z=-0.55, y=-0.06
- *  M416 muzzle ≈ z=-0.78 — slightly lower for the M416 silhouette */
-flashlightAk.position.set(0, -0.06, -0.50);
-flashlightM416.position.set(0, -0.07, -0.45);
-ak.add(flashlightAk);
-m416.add(flashlightM416);
+/* === W7 — UNIVERSAL ATTACHMENT ANCHORS =================================
+ *  Per-weapon LOCAL-space mount points for every attachment class, so the
+ *  flashlight, suppressor, sight rail, laser and foregrip all sit correctly
+ *  on each of the 7 weapons instead of being hard-wired to the AK/M416.
+ *    sight   : [x,y,z] rail group for optics
+ *    opticZ  : ADS distance of a reflex/holo dot from the eye (tuned)
+ *    flash   : [x,y,z] under-barrel flashlight body
+ *    sup     : [x,y,z] suppressor can position
+ *    supR    : [rTop,rBot,len] suppressor can dimensions (barrel-matched)
+ *    laser   : [x,y,z] laser emitter box
+ *    grip    : [x,y,z] vertical foregrip, or null for pistols
+ * ===================================================================== */
+const WEAPON_ATTACH = {
+  ak:     { sight:[0,0.076,-0.075], opticZ:-0.19, flash:[0,-0.06,-0.50], sup:[0,0.018,-0.96], supR:[0.018,0.022,0.18], laser:[0.026,-0.030,-0.55], grip:[0,-0.085,-0.42] },
+  m416:   { sight:[0,0.082,-0.10],  opticZ:-0.10, flash:[0,-0.07,-0.45], sup:[0,0.040,-0.87], supR:[0.013,0.015,0.15], laser:[0.024,-0.028,-0.52], grip:[0,-0.080,-0.40] },
+  glock:  { sight:[0,0.034,-0.02],  opticZ:-0.05, flash:[0,-0.030,-0.16], sup:[0,0.006,-0.34], supR:[0.012,0.014,0.12], laser:[0.012,-0.020,-0.18], grip:null },
+  deagle: { sight:[0,0.040,-0.02],  opticZ:-0.06, flash:[0,-0.032,-0.18], sup:[0,0.008,-0.38], supR:[0.013,0.015,0.13], laser:[0.014,-0.022,-0.20], grip:null },
+  ak74:   { sight:[0,0.074,-0.075], opticZ:-0.19, flash:[0,-0.06,-0.48], sup:[0,0.016,-0.92], supR:[0.016,0.020,0.16], laser:[0.026,-0.030,-0.55], grip:[0,-0.085,-0.42] },
+  scar:   { sight:[0,0.086,-0.10],  opticZ:-0.12, flash:[0,-0.07,-0.46], sup:[0,0.030,-0.86], supR:[0.015,0.018,0.16], laser:[0.024,-0.028,-0.52], grip:[0,-0.080,-0.40] },
+  mp5:    { sight:[0,0.064,-0.06],  opticZ:-0.10, flash:[0,-0.05,-0.30], sup:[0,0.010,-0.56], supR:[0.014,0.016,0.14], laser:[0.020,-0.024,-0.32], grip:[0,-0.060,-0.28] }
+};
+
+/* Under-barrel flashlight body meshes — one per weapon, registry-driven. */
+const flashlightMeshes = {};
+for (const _fwk in WEAPON_OBJS) {
+  const _fa = WEAPON_ATTACH[_fwk]; if (!_fa) continue;
+  const _fm = _buildUnderBarrelFlashlight();
+  _fm.position.set(_fa.flash[0], _fa.flash[1], _fa.flash[2]);
+  WEAPON_OBJS[_fwk].add(_fm);
+  flashlightMeshes[_fwk] = _fm;
+}
+/* Back-compat aliases (still referenced in a couple of spots). */
+const flashlightAk   = flashlightMeshes.ak;
+const flashlightM416 = flashlightMeshes.m416;
 
 /* Update all flashlight-visible state in one place.
  *  - Body meshes shown only when picked up.
@@ -4130,10 +4915,10 @@ m416.add(flashlightM416);
 function _updateFlashlightVisual() {
   const have = !!(player.inv && player.inv.hasFlashlight);
   const on   = have && !!player.flashlightOn;
-  flashlightAk.visible   = have;
-  flashlightM416.visible = have;
   flashlight.intensity   = on ? 9.0 : 0.0;   /* brighter to project across 140m range */
-  for (const fl of [flashlightAk, flashlightM416]) {
+  for (const _fk in flashlightMeshes) {
+    const fl = flashlightMeshes[_fk];
+    fl.visible = have;
     const lm = fl.userData && fl.userData.lensMat;
     if (lm) lm.emissiveIntensity = on ? 1.8 : 0.0;
   }
@@ -4142,39 +4927,52 @@ function _updateFlashlightVisual() {
 /* === SIGHT MOUNT POINTS — each weapon exposes a "sight slot" group on its
  * rail. We instantiate the red-dot and 3x scope ONCE and re-parent them
  * into the active weapon's slot when the player attaches them. */
-const sightMounts = {
-  ak:   new THREE.Group(),
-  m416: new THREE.Group()
-};
-/* AK rail position — slightly above and forward of the rear sight notch */
-sightMounts.ak.position.set(0, 0.076, -0.075);
-/* M416 rail position — atop the picatinny rail, in front of the rear sight */
-sightMounts.m416.position.set(0, 0.082, -0.10);
-ak.add(sightMounts.ak);
-m416.add(sightMounts.m416);
-/* The two optic models — created once, re-parented as needed */
+const sightMounts = {};
+for (const _swk in WEAPON_OBJS) {
+  const _sa = WEAPON_ATTACH[_swk]; if (!_sa) continue;
+  const _sm = new THREE.Group();
+  _sm.position.set(_sa.sight[0], _sa.sight[1], _sa.sight[2]);
+  WEAPON_OBJS[_swk].add(_sm);
+  sightMounts[_swk] = _sm;
+}
+/* The three optic models — created once, re-parented onto the active weapon's
+ * mount. W7 adds the holographic sight beside the red-dot and 3x scope. */
 const redDotSight = createRedDotSight();
 const scope3x = createScope3x();
+const holoSight = createHoloSight();
 redDotSight.visible = false;
 scope3x.visible = false;
-/* Park them off-screen by default — they get attached to a mount when used */
-sightMounts.ak.add(redDotSight);
-const _redDotOnAk = redDotSight;        /* alias for clarity */
-const _scope3xOnAk = scope3x;
-sightMounts.ak.add(scope3x);
+holoSight.visible = false;
+/* Park them on the AK mount by default — re-parented to the active weapon. */
+if (sightMounts.ak) { sightMounts.ak.add(redDotSight); sightMounts.ak.add(scope3x); sightMounts.ak.add(holoSight); }
 
 /* Re-mounts the chosen optic on the chosen weapon. The "iron" choice
  * leaves both optics hidden so the player sees the iron sights cleanly. */
+/* W7 — per-weapon sight accessor (backs the player.inv.sights map). Each of
+ * the 7 weapons remembers its own mounted optic independently. */
+function getSight(w) {
+  if (!w || !player.inv.sights) return 'iron';
+  return player.inv.sights[w] || 'iron';
+}
+function setSight(w, v) {
+  if (!w) return;
+  if (!player.inv.sights) player.inv.sights = {};
+  player.inv.sights[w] = v;
+}
 function applySightToActiveWeapon() {
   if (!player.activeWeapon) return;
   const w = player.activeWeapon;
   const mount = sightMounts[w];
-  /* Move both optics into the active weapon's mount group (no-op if already there) */
+  /* No mount (should not happen now all 7 have rails) → show iron only. */
+  if (!mount) { redDotSight.visible = false; scope3x.visible = false; holoSight.visible = false; return; }
+  /* Move every optic into the active weapon's mount group (no-op if already there) */
   if (redDotSight.parent !== mount) mount.add(redDotSight);
-  if (scope3x.parent !== mount) mount.add(scope3x);
-  const which = (w === 'ak') ? player.inv.sightAk : player.inv.sightM416;
+  if (scope3x.parent !== mount)     mount.add(scope3x);
+  if (holoSight.parent !== mount)   mount.add(holoSight);
+  const which = getSight(w);
   redDotSight.visible = (which === 'red_dot');
-  scope3x.visible = (which === 'scope_3x');
+  holoSight.visible   = (which === 'holo');
+  scope3x.visible     = (which === 'scope_3x');
 }
 
 /* Switches the active weapon (or unequips if name is null/empty hands).
@@ -4187,12 +4985,10 @@ function setActiveWeapon(name) {
     ws.reserve = player.reserve;
   }
   player.activeWeapon = name;
-  /* Hide both, then reveal the chosen one */
-  ak.visible = false;
-  m416.visible = false;
+  /* Hide every weapon, then reveal the chosen one (W6 — registry-driven) */
+  for (const _k in WEAPON_OBJS) WEAPON_OBJS[_k].visible = false;
   hands.visible = (name !== null);
-  if (name === 'ak')   ak.visible = true;
-  if (name === 'm416') m416.visible = true;
+  if (name && WEAPON_OBJS[name]) WEAPON_OBJS[name].visible = true;
   /* Cancel any in-flight reload when swapping */
   player.reloading = false;
   player.reloadPhase = 'done';
@@ -4215,6 +5011,66 @@ function setActiveWeapon(name) {
   }
 }
 
+/* === W5 — CARRY SLOTS & WEAPON SWAP ====================================
+ *  Three carry slots mapped to keys 1/2/3:
+ *    1 — pistol   (sidearm; filled in W6)
+ *    2 — rifle    (ak / m416; cycles if more than one is owned)
+ *    3 — special  (smg/shotgun; filled in W6)
+ *  Each slot remembers the last weapon drawn from it. Drawing routes through
+ *  requestWeaponSwap() so the lower→raise animation always plays. */
+function weaponSlot(name) {
+  return (name && WEAPON_STATS[name]) ? WEAPON_STATS[name].slot : null;
+}
+function playerOwnsWeapon(key) {
+  if (key === 'ak')     return !!player.inv.hasAk;
+  if (key === 'm416')   return !!player.inv.hasM416;
+  if (key === 'glock')  return !!player.inv.hasGlock;
+  if (key === 'deagle') return !!player.inv.hasDeagle;
+  if (key === 'ak74')   return !!player.inv.hasAk74;
+  if (key === 'scar')   return !!player.inv.hasScar;
+  if (key === 'mp5')    return !!player.inv.hasMp5;
+  return false;
+}
+function ownedWeaponsInSlot(slot) {
+  const out = [];
+  for (const key of Object.keys(WEAPON_STATS)) {
+    if (WEAPON_STATS[key].slot === slot && playerOwnsWeapon(key)) out.push(key);
+  }
+  return out;
+}
+function selectSlot(slot) {
+  const owned = ownedWeaponsInSlot(slot);
+  if (owned.length === 0) {
+    showNotice({ pistol:'НЕТ ПИСТОЛЕТА', rifle:'НЕТ ВИНТО��КИ', special:'СПЕЦ-СЛОТ ПУСТ' }[slot] || 'СЛОТ ПУСТ');
+    return;
+  }
+  let target;
+  const cur = player.activeWeapon;
+  if (cur && weaponSlot(cur) === slot) {
+    if (owned.length === 1) return;              /* only option already drawn */
+    const idx = owned.indexOf(cur);
+    target = owned[(idx + 1) % owned.length];    /* cycle within the slot */
+  } else {
+    target = (player.slots[slot] && owned.includes(player.slots[slot]))
+      ? player.slots[slot] : owned[0];
+  }
+  player.slots[slot] = target;
+  requestWeaponSwap(target);
+}
+/* Starts the lower→raise swap animation; the actual model switch happens at
+ * the bottom of the dip (see the swap block in updatePlayer). */
+function requestWeaponSwap(name) {
+  if (!name || name === player.activeWeapon) return;
+  if (player.swapping) return;                   /* ignore during an in-flight swap */
+  player.reloading = false;                      /* swapping cancels a reload */
+  player.reloadPhase = 'done';
+  player.swapping = true;
+  player.swapStart = performance.now() / 1000;
+  player.swapPending = name;
+  player.swapHalfDone = false;
+  player.swapDuration = 0.30;
+}
+
 /* Muzzle flash — the sprite is parented to the ACTIVE weapon. We move it
  * between weapons when the player swaps. */
 const flashMat = new THREE.SpriteMaterial({
@@ -4227,24 +5083,33 @@ flash.position.set(0, 0.018, -0.84);
 const flashLight = new THREE.PointLight(0xffb060, 0, 8, 2);
 flash.add(flashLight);
 function setMuzzleFlashAnchor(weaponName) {
-  const target = (weaponName === 'm416') ? m416 : ak;
+  const target = (weaponName && WEAPON_OBJS[weaponName]) || ak;
   if (flash.parent !== target) target.add(flash);
-  flash.position.set(0, 0.018, (weaponName === 'm416') ? -0.78 : -0.84);
+  /* Each model declares its own muzzle Z; fall back to the AK value. */
+  const mz = (target.userData && typeof target.userData.muzzleZ === 'number')
+    ? target.userData.muzzleZ : -0.84;
+  flash.position.set(0, 0.018, mz);
 }
 
 /* === SUPPRESSOR MESH — cylindrical silencer attached to weapon barrel === */
 const _supMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1e, roughness: 0.3, metalness: 0.9 });
 const _supRingMat = new THREE.MeshStandardMaterial({ color: 0x333338, roughness: 0.3, metalness: 0.8 });
-function _makeSuppressorMesh() {
+function _makeSuppressorMesh(rTop, rBot, len) {
+  /* W7 — parametric so each weapon gets a barrel-matched can. Defaults keep
+   * the original AK-sized silencer for back-compat callers. */
+  rTop = (typeof rTop === 'number') ? rTop : 0.018;
+  rBot = (typeof rBot === 'number') ? rBot : 0.022;
+  len  = (typeof len  === 'number') ? len  : 0.18;
   const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.022, 0.18, 16), _supMat);
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(rTop, rBot, len, 16), _supMat);
   body.rotation.x = Math.PI / 2;
   g.add(body);
-  const r1 = new THREE.Mesh(new THREE.TorusGeometry(0.020, 0.003, 8, 16), _supRingMat);
-  r1.position.z = -0.08;
+  const rr = rTop + 0.002;
+  const r1 = new THREE.Mesh(new THREE.TorusGeometry(rr, 0.0028, 8, 16), _supRingMat);
+  r1.position.z = -len * 0.44;
   g.add(r1);
-  const r2 = new THREE.Mesh(new THREE.TorusGeometry(0.020, 0.003, 8, 16), _supRingMat);
-  r2.position.z = 0.08;
+  const r2 = new THREE.Mesh(new THREE.TorusGeometry(rr, 0.0028, 8, 16), _supRingMat);
+  r2.position.z = len * 0.44;
   g.add(r2);
   g.visible = false;
   return g;
@@ -4280,15 +5145,148 @@ const _supM416 = (function() {
 })();
 _supM416.position.set(0, 0.040, -0.87);
 m416.add(_supM416);
+/* W7 — suppressors for the 5 new weapons (AK/M416 keep their bespoke cans).
+ * Sized and positioned from the universal WEAPON_ATTACH anchor table. */
+const _supExtra = {};
+for (const _supk of ['glock','deagle','ak74','scar','mp5']) {
+  const _spa = WEAPON_ATTACH[_supk];
+  if (!_spa || !WEAPON_OBJS[_supk]) continue;
+  const _sps = _makeSuppressorMesh(_spa.supR[0], _spa.supR[1], _spa.supR[2]);
+  _sps.position.set(_spa.sup[0], _spa.sup[1], _spa.sup[2]);
+  WEAPON_OBJS[_supk].add(_sps);
+  _supExtra[_supk] = _sps;
+}
+/* === W7 — RAIL LASER + FOREGRIP ======================================
+ *  Laser: a small emitter on each weapon's rail (cosmetic) plus a shared,
+ *  scene-space beam and world dot that paint the point of aim. The dot
+ *  uses the same world-collision model as bullets (AABB footprints +
+ *  terrain) so it lands on whatever you point at.
+ *  Foregrip: a vertical grip mesh on rifles/SMG that reduces recoil and
+ *  spread (handled in shoot()/computeSpreadCone()).
+ * ==================================================================== */
+const laserEmitters = {};
+for (const _lk in WEAPON_OBJS) {
+  const _la = WEAPON_ATTACH[_lk]; if (!_la || !_la.laser) continue;
+  const _le = new THREE.Group();
+  const _box = new THREE.Mesh(new THREE.BoxGeometry(0.020, 0.018, 0.045),
+    new THREE.MeshStandardMaterial({ color: 0x16161a, roughness: 0.5, metalness: 0.6 }));
+  _le.add(_box);
+  const _lens = new THREE.Mesh(new THREE.CircleGeometry(0.004, 10),
+    new THREE.MeshBasicMaterial({ color: 0xff3322 }));
+  _lens.position.set(0, 0, -0.023);
+  _le.add(_lens);
+  _le.position.set(_la.laser[0], _la.laser[1], _la.laser[2]);
+  _le.visible = false;
+  WEAPON_OBJS[_lk].add(_le);
+  laserEmitters[_lk] = _le;
+}
+const laserBeam = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.004, 0.004, 1, 6),
+  new THREE.MeshBasicMaterial({ color: 0xff2a18, transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, depthWrite: false }));
+laserBeam.visible = false;
+scene.add(laserBeam);
+const laserDot = new THREE.Mesh(
+  new THREE.SphereGeometry(0.03, 8, 8),
+  new THREE.MeshBasicMaterial({ color: 0xff3322, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
+laserDot.visible = false;
+scene.add(laserDot);
+
+const foregripMeshes = {};
+for (const _gk in WEAPON_OBJS) {
+  const _ga = WEAPON_ATTACH[_gk]; if (!_ga || !_ga.grip) continue;
+  const _gm = new THREE.Group();
+  const _gMat = new THREE.MeshStandardMaterial({ color: 0x15151a, roughness: 0.85, metalness: 0.1 });
+  const _shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.020, 0.11, 10), _gMat);
+  _shaft.position.y = -0.055; _gm.add(_shaft);
+  const _cap = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.02, 10), _gMat);
+  _cap.position.y = -0.108; _gm.add(_cap);
+  _gm.position.set(_ga.grip[0], _ga.grip[1], _ga.grip[2]);
+  _gm.visible = false;
+  WEAPON_OBJS[_gk].add(_gm);
+  foregripMeshes[_gk] = _gm;
+}
+
+const _laserOrigin = new THREE.Vector3();
+const _laserDir = new THREE.Vector3();
+const _laserCamPos = new THREE.Vector3();
+const _laserUp = new THREE.Vector3(0, 1, 0);
+const _laserQuat = new THREE.Quaternion();
+/* March the aim ray against world AABB footprints + terrain. Returns the
+ * hit distance (or maxD if the ray reaches open air). */
+function _laserCast(ox, oy, oz, dx, dy, dz, maxD) {
+  const step = 0.25;
+  for (let t = 0.5; t <= maxD; t += step) {
+    const px = ox + dx * t, py = oy + dy * t, pz = oz + dz * t;
+    if (typeof terrainHeight === 'function' && py <= terrainHeight(px, pz) + 0.02) return t;
+    for (let i = 0; i < colliders.length; i++) {
+      const c = colliders[i];
+      if (px >= c.minX && px <= c.maxX && pz >= c.minZ && pz <= c.maxZ && py < 3.2) return t;
+    }
+  }
+  return maxD;
+}
+function _updateAttachmentsVisual(dt) {
+  const aw = player.activeWeapon;
+  for (const k in foregripMeshes) foregripMeshes[k].visible = !!player.inv.hasForegrip && k === aw;
+  for (const k in laserEmitters)  laserEmitters[k].visible  = !!player.inv.hasLaser   && k === aw;
+  const lslot = document.getElementById('slot-laser');
+  if (lslot) lslot.style.display = player.inv.hasLaser ? '' : 'none';
+  const lst = document.getElementById('laser-status');
+  if (lst) lst.textContent = player.laserOn ? 'ON' : 'OFF';
+  const gslot = document.getElementById('slot-foregrip');
+  if (gslot) gslot.style.display = player.inv.hasForegrip ? '' : 'none';
+  const want = !!(player.inv.hasLaser && player.laserOn && aw);
+  laserBeam.visible = want;
+  laserDot.visible = want;
+  if (!want) return;
+  camera.getWorldPosition(_laserCamPos);
+  camera.getWorldDirection(_laserDir);
+  const dist = _laserCast(_laserCamPos.x, _laserCamPos.y, _laserCamPos.z, _laserDir.x, _laserDir.y, _laserDir.z, 90);
+  laserDot.position.set(
+    _laserCamPos.x + _laserDir.x * dist,
+    _laserCamPos.y + _laserDir.y * dist,
+    _laserCamPos.z + _laserDir.z * dist);
+  /* Beam: start just in front of the eye (world space) toward the dot. */
+  _laserOrigin.set(
+    _laserCamPos.x + _laserDir.x * 0.4,
+    _laserCamPos.y + _laserDir.y * 0.4,
+    _laserCamPos.z + _laserDir.z * 0.4);
+  const bx = laserDot.position.x - _laserOrigin.x;
+  const by = laserDot.position.y - _laserOrigin.y;
+  const bz = laserDot.position.z - _laserOrigin.z;
+  const len = Math.hypot(bx, by, bz) || 0.001;
+  laserBeam.position.set(_laserOrigin.x + bx * 0.5, _laserOrigin.y + by * 0.5, _laserOrigin.z + bz * 0.5);
+  _laserDir.set(bx / len, by / len, bz / len);
+  _laserQuat.setFromUnitVectors(_laserUp, _laserDir);
+  laserBeam.quaternion.copy(_laserQuat);
+  laserBeam.scale.set(1, len, 1);
+}
+
 function _updateSuppressorVisual() {
   _supAk.visible = player.suppressorOn;
   _supM416.visible = player.suppressorOn;
+  for (const _sek in _supExtra) _supExtra[_sek].visible = player.suppressorOn;
   const supSlot = document.getElementById('slot-suppressor');
   if (supSlot) supSlot.style.display = player.inv.hasSuppressor ? '' : 'none';
   const supSt = document.getElementById('sup-status');
   if (supSt) {
     supSt.textContent = player.suppressorOn ? 'ON' : 'OFF';
     supSt.style.color = player.suppressorOn ? '#66ff66' : '#ff6666';
+  }
+}
+
+/* W10 — night-vision goggles: drives the phosphor overlay + HUD chip. The
+ * actual scene brightening is applied in updateDayNight (so it tracks the
+ * day/night value each frame). */
+function _updateNvgVisual() {
+  const ov = document.getElementById('nvg-overlay');
+  if (ov) ov.style.display = (player.inv.hasNVG && player.nvgOn) ? 'block' : 'none';
+  const slot = document.getElementById('slot-nvg');
+  if (slot) slot.style.display = player.inv.hasNVG ? '' : 'none';
+  const st = document.getElementById('nvg-status');
+  if (st) {
+    st.textContent = player.nvgOn ? 'ON' : 'OFF';
+    st.style.color = player.nvgOn ? '#66ff66' : '#ff6666';
   }
 }
 
@@ -4330,9 +5328,12 @@ function createBot(x, z, team = 'red') {
   vest.position.y = 1.2;
   g.add(vest);
 
-  /* Head */
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.30, 0.28), skin);
-  head.position.y = 1.65;
+  /* Head — tapered skull (sphere) instead of a cube, matches the PvP model
+   * silhouette. Stays a single mesh so the headshot hit-test (mesh === bot.head)
+   * keeps working. */
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.145, 12, 10), skin);
+  head.scale.set(1.0, 1.12, 1.05);
+  head.position.y = 1.66;
   g.add(head);
   /* Helmet */
   const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 8, 0, Math.PI*2, 0, Math.PI/2), new THREE.MeshStandardMaterial({ color: 0x3a4030, roughness: 0.85 }));
@@ -4344,40 +5345,57 @@ function createBot(x, z, team = 'red') {
   visor.position.set(0, 1.66, 0.142);
   g.add(visor);
 
-  /* Arms */
-  const armGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.55, 8);
+  /* Arms pivot at the SHOULDER: a group sits at shoulder height and the
+   * cylinder hangs below it, so the walk swing rotates from the shoulder
+   * (not the mid-arm). The cylinder mesh (armL/armR) stays the raycast
+   * hit-target; the group (armLGroup/armRGroup) is what the animator turns. */
+  const armGeo = new THREE.CylinderGeometry(0.075, 0.07, 0.50, 8);
+  const armLGroup = new THREE.Group();
+  armLGroup.position.set(-0.34, 1.42, 0);
   const armL = new THREE.Mesh(armGeo, uniform);
-  armL.position.set(-0.34, 1.15, 0);
-  g.add(armL);
+  armL.position.y = -0.26;
+  armLGroup.add(armL);
+  g.add(armLGroup);
+  const armRGroup = new THREE.Group();
+  armRGroup.position.set(0.34, 1.42, 0);
   const armR = new THREE.Mesh(armGeo, uniform);
-  armR.position.set(0.34, 1.15, 0);
-  g.add(armR);
-  /* Hands */
-  const handGeo = new THREE.SphereGeometry(0.08, 8, 6);
+  armR.position.y = -0.26;
+  armRGroup.add(armR);
+  g.add(armRGroup);
+  /* Hands — parented to the arm groups so they swing with the forearm. */
+  const handGeo = new THREE.SphereGeometry(0.075, 8, 6);
   const handL = new THREE.Mesh(handGeo, dark);
-  handL.position.set(-0.34, 0.85, 0);
-  g.add(handL);
+  handL.position.y = -0.54;
+  armLGroup.add(handL);
   const handR = new THREE.Mesh(handGeo, dark);
-  handR.position.set(0.34, 0.85, 0);
-  g.add(handR);
+  handR.position.y = -0.54;
+  armRGroup.add(handR);
 
-  /* Legs */
-  const legGeo = new THREE.CylinderGeometry(0.10, 0.10, 0.8, 8);
-  const legL = new THREE.Mesh(legGeo, new THREE.MeshStandardMaterial({ color: 0x3a3528, roughness: 0.95 }));
-  legL.position.set(-0.13, 0.40, 0);
-  g.add(legL);
-  const legR = legL.clone();
-  legR.position.x = 0.13;
-  g.add(legR);
-  /* Boots */
+  /* Legs pivot at the HIP: group at hip height, cylinder hangs below, so the
+   * walk cycle swings the whole leg from the hip. legL/legR meshes remain the
+   * raycast hit-targets; legLGroup/legRGroup are animated. */
+  const legGeo = new THREE.CylinderGeometry(0.095, 0.09, 0.78, 8);
+  const legMat = new THREE.MeshStandardMaterial({ color: 0x3a3528, roughness: 0.95 });
   const bootGeo = new THREE.BoxGeometry(0.18, 0.1, 0.28);
   const bootMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.8 });
+  const legLGroup = new THREE.Group();
+  legLGroup.position.set(-0.13, 0.80, 0);
+  const legL = new THREE.Mesh(legGeo, legMat);
+  legL.position.y = -0.39;
+  legLGroup.add(legL);
   const bootL = new THREE.Mesh(bootGeo, bootMat);
-  bootL.position.set(-0.13, 0.05, 0.04);
-  g.add(bootL);
-  const bootR = bootL.clone();
-  bootR.position.x = 0.13;
-  g.add(bootR);
+  bootL.position.set(0, -0.75, 0.04);
+  legLGroup.add(bootL);
+  g.add(legLGroup);
+  const legRGroup = new THREE.Group();
+  legRGroup.position.set(0.13, 0.80, 0);
+  const legR = new THREE.Mesh(legGeo, legMat);
+  legR.position.y = -0.39;
+  legRGroup.add(legR);
+  const bootR = new THREE.Mesh(bootGeo, bootMat);
+  bootR.position.set(0, -0.75, 0.04);
+  legRGroup.add(bootR);
+  g.add(legRGroup);
 
   /* Bot's rifle */
   const botRifle = new THREE.Group();
@@ -4416,6 +5434,7 @@ function createBot(x, z, team = 'red') {
     rifle: botRifle,
     head, torso, helmet, vest,
     legL, legR, armL, armR,
+    legLGroup, legRGroup, armLGroup, armRGroup,
     health: 100,
     maxHealth: 100,
     state: 'wander', /* wander | chase | attack | dead */
@@ -4873,10 +5892,11 @@ function _playSample(buf) {
  * crack/sharper attack/less low-end (5.56 vs 7.62 acoustic profile). */
 function playGunshot() {
   /* Prefer real samples if loaded */
-  if (player.activeWeapon === 'm416') {
-    if (!_playSample(_gunSamples.m416)) playGunshotM416();
-  } else {
+  const _w = player.activeWeapon;
+  if (_w === 'ak' || _w === 'ak74') {
     if (!_playSample(_gunSamples.ak)) playGunshotAk();
+  } else {
+    if (!_playSample(_gunSamples.m416)) playGunshotM416();
   }
   /* E2/H3 — biome-aware reverb tail layered behind the dry gunshot */
   if (!player.suppressorOn) { try { _spawnBiomeReverb(); } catch(_) {} }
@@ -5303,8 +6323,11 @@ function playDrySnap() {
  * Both use small, exponential-decay noise buffers passed through
  * tuned biquad filters. ~0.07 s per click + 0.10 s for bolt sounds. */
 function playReload() {
-  if (player.activeWeapon === 'm416') return playReloadM416();
-  return playReloadAk();
+  /* AK-family (AKM, AK-74) use the heavier AK foley; everything else
+   * (M416, SCAR, MP5, pistols) uses the lighter M416-style foley. */
+  const w = player.activeWeapon;
+  if (w === 'ak' || w === 'ak74') return playReloadAk();
+  return playReloadM416();
 }
 
 /* === RELOAD FOLEY HELPERS ============================================
@@ -5653,7 +6676,7 @@ function getMySpawnYaw() {
  * player.activeWeapon ('ak' | 'm416' | null). When null the player has
  * empty hands (initial spawn). */
 const WEAPON_STATS = {
-  ak:   { name: 'АКМ',   magSize: 30, fireRate: 0.10, reloadDuration: 2.5,
+  ak:   { name: 'АКМ',   slot: 'rifle', magSize: 30, fireRate: 0.10, reloadDuration: 2.5,
           baseDamage: 1.30, reserveStart: 0, recoilVert: 0.024, recoilHoriz: 0.0070,
           /* === REALISTIC SHOOTING METADATA ===
            *  weight: kg (affects ADS time, sprint speed)
@@ -5661,10 +6684,36 @@ const WEAPON_STATS = {
            *  muzzleVel: m/s (used for time-of-flight + drop)
            *  energyJ: kinetic energy at muzzle in joules (B4 — damage by energy)
            *  zeroDist: scope/sight zero distance in metres (B6) */
-          weight: 3.6, adsTime: 0.32, muzzleVel: 715, energyJ: 2010, zeroDist: 100 },
-  m416: { name: 'M416',  magSize: 30, fireRate: 0.085, reloadDuration: 2.2,
+          weight: 3.6, adsTime: 0.32, muzzleVel: 715, energyJ: 2010, zeroDist: 100,
+          adsX: 0, adsY: -0.072, adsZ: -0.050, adsRotX: -0.0255 },
+  m416: { name: 'M416',  slot: 'rifle', magSize: 30, fireRate: 0.085, reloadDuration: 2.2,
           baseDamage: 0.85, reserveStart: 0, recoilVert: 0.017, recoilHoriz: 0.0055,
-          weight: 3.4, adsTime: 0.27, muzzleVel: 880, energyJ: 1796, zeroDist: 100 }
+          weight: 3.4, adsTime: 0.27, muzzleVel: 880, energyJ: 1796, zeroDist: 100,
+          adsX: 0, adsY: -0.0850, adsZ: -0.150, adsRotX: -0.0146 },
+  /* === W6 — NEW WEAPONS ============================================= *
+   * slot: 'pistol' (key 1) | 'rifle' (key 2) | 'special' (key 3)
+   * ads*: aim-down-sights target offset (Vector3) + pitch so the iron
+   *       sights of THIS model land on the screen centre. */
+  glock:  { name: 'Glock-18', slot: 'pistol', magSize: 17, fireRate: 0.12, reloadDuration: 1.7,
+            baseDamage: 0.70, reserveStart: 0, recoilVert: 0.022, recoilHoriz: 0.0065,
+            weight: 0.9, adsTime: 0.15, muzzleVel: 375, energyJ: 520, zeroDist: 25,
+            adsX: 0, adsY: -0.076, adsZ: -0.170, adsRotX: 0 },
+  deagle: { name: 'Desert Eagle', slot: 'pistol', magSize: 9, fireRate: 0.28, reloadDuration: 2.0,
+            baseDamage: 1.80, reserveStart: 0, recoilVert: 0.055, recoilHoriz: 0.013,
+            weight: 2.0, adsTime: 0.22, muzzleVel: 470, energyJ: 1900, zeroDist: 35,
+            adsX: 0, adsY: -0.082, adsZ: -0.180, adsRotX: 0 },
+  ak74:   { name: 'АК-74', slot: 'rifle', magSize: 30, fireRate: 0.092, reloadDuration: 2.4,
+            baseDamage: 1.00, reserveStart: 0, recoilVert: 0.020, recoilHoriz: 0.0060,
+            weight: 3.3, adsTime: 0.30, muzzleVel: 900, energyJ: 1390, zeroDist: 100,
+            adsX: 0, adsY: -0.075, adsZ: -0.055, adsRotX: -0.0260 },
+  scar:   { name: 'SCAR-H', slot: 'rifle', magSize: 20, fireRate: 0.105, reloadDuration: 2.6,
+            baseDamage: 1.50, reserveStart: 0, recoilVert: 0.030, recoilHoriz: 0.0085,
+            weight: 3.8, adsTime: 0.34, muzzleVel: 870, energyJ: 3400, zeroDist: 100,
+            adsX: 0, adsY: -0.090, adsZ: -0.140, adsRotX: -0.0120 },
+  mp5:    { name: 'MP5', slot: 'special', magSize: 30, fireRate: 0.075, reloadDuration: 2.1,
+            baseDamage: 0.65, reserveStart: 0, recoilVert: 0.013, recoilHoriz: 0.0050,
+            weight: 2.5, adsTime: 0.22, muzzleVel: 400, energyJ: 620, zeroDist: 50,
+            adsX: 0, adsY: -0.082, adsZ: -0.100, adsRotX: -0.0140 }
 };
 
 /* === A2 — LOADOUT / CARRY-SLOT MODEL =====================================
@@ -5732,6 +6781,64 @@ const RECOIL_PATTERN_M416 = [
   [ 0.00, 0.02], [ 0.00, 0.02]
 ];
 
+/* === W6 — per-weapon recoil patterns ==================================
+ * AK-74: controllable 5.45 climb (between AKM and M416).
+ * SCAR-H: heavy 7.62 vertical kick, slower to settle.
+ * MP5: light, fast, very controllable 9mm.
+ * Pistols: sharp per-shot snap that resets quickly (semi-auto fire). */
+const RECOIL_PATTERN_AK74 = [
+  [ 0.00, 0.85], [ 0.04, 0.92], [-0.06, 0.98], [ 0.08, 1.00],
+  [-0.10, 1.00], [ 0.12, 0.95], [-0.18, 0.88], [ 0.22, 0.78],
+  [-0.26, 0.66], [ 0.28, 0.55], [-0.28, 0.46], [ 0.24, 0.38],
+  [-0.20, 0.32], [ 0.16, 0.27], [-0.12, 0.22], [ 0.08, 0.18],
+  [-0.06, 0.15], [ 0.05, 0.13], [-0.05, 0.11], [ 0.04, 0.09],
+  [ 0.00, 0.08], [ 0.04, 0.07], [-0.04, 0.06], [ 0.00, 0.05],
+  [ 0.00, 0.04], [ 0.00, 0.04], [ 0.00, 0.03], [ 0.00, 0.03],
+  [ 0.00, 0.02], [ 0.00, 0.02]
+];
+const RECOIL_PATTERN_SCAR = [
+  [ 0.00, 1.35], [ 0.10, 1.45], [-0.18, 1.55], [ 0.26, 1.55],
+  [-0.34, 1.45], [ 0.42, 1.30], [-0.55, 1.10], [ 0.62, 0.92],
+  [-0.70, 0.76], [ 0.72, 0.62], [-0.66, 0.52], [ 0.58, 0.44],
+  [-0.48, 0.38], [ 0.40, 0.32], [-0.32, 0.28], [ 0.26, 0.24],
+  [-0.20, 0.20], [ 0.16, 0.18], [-0.12, 0.15], [ 0.10, 0.13],
+  [-0.08, 0.11], [ 0.06, 0.10], [-0.05, 0.09], [ 0.00, 0.08],
+  [ 0.00, 0.07], [ 0.00, 0.06], [ 0.00, 0.05], [ 0.00, 0.05],
+  [ 0.00, 0.04], [ 0.00, 0.04]
+];
+const RECOIL_PATTERN_MP5 = [
+  [ 0.00, 0.55], [ 0.03, 0.60], [-0.04, 0.64], [ 0.05, 0.66],
+  [-0.06, 0.66], [ 0.07, 0.64], [-0.09, 0.60], [ 0.11, 0.55],
+  [-0.13, 0.50], [ 0.14, 0.44], [-0.14, 0.39], [ 0.12, 0.34],
+  [-0.10, 0.30], [ 0.09, 0.26], [-0.07, 0.23], [ 0.06, 0.20],
+  [-0.05, 0.17], [ 0.04, 0.15], [-0.04, 0.13], [ 0.03, 0.11],
+  [ 0.00, 0.10], [ 0.03, 0.09], [-0.03, 0.08], [ 0.00, 0.07],
+  [ 0.00, 0.06], [ 0.00, 0.05], [ 0.00, 0.05], [ 0.00, 0.04],
+  [ 0.00, 0.04], [ 0.00, 0.03]
+];
+const RECOIL_PATTERN_PISTOL = [
+  [ 0.00, 1.00], [ 0.06, 1.05], [-0.08, 1.05], [ 0.10, 1.00],
+  [-0.12, 0.95], [ 0.14, 0.88], [-0.16, 0.80], [ 0.16, 0.72],
+  [-0.16, 0.66], [ 0.14, 0.60], [-0.12, 0.55], [ 0.10, 0.50],
+  [-0.10, 0.46], [ 0.08, 0.42], [-0.08, 0.40], [ 0.06, 0.38],
+  [-0.06, 0.36], [ 0.05, 0.34], [-0.05, 0.32], [ 0.04, 0.30],
+  [ 0.00, 0.30], [ 0.04, 0.30], [-0.04, 0.30], [ 0.00, 0.30],
+  [ 0.00, 0.30], [ 0.00, 0.30], [ 0.00, 0.30], [ 0.00, 0.30],
+  [ 0.00, 0.30], [ 0.00, 0.30]
+];
+function recoilPatternFor(key) {
+  switch (key) {
+    case 'ak':     return RECOIL_PATTERN_AK;
+    case 'ak74':   return RECOIL_PATTERN_AK74;
+    case 'm416':   return RECOIL_PATTERN_M416;
+    case 'scar':   return RECOIL_PATTERN_SCAR;
+    case 'mp5':    return RECOIL_PATTERN_MP5;
+    case 'glock':
+    case 'deagle': return RECOIL_PATTERN_PISTOL;
+    default:       return RECOIL_PATTERN_M416;
+  }
+}
+
 /* === STATE-DRIVEN CONE-OF-FIRE (A1) ======================================
  *  Returns the half-angle of the bullet dispersion cone in radians, taking
  *  into account stance, ADS, sprint, low stamina, and sustained fire.
@@ -5748,6 +6855,11 @@ function computeSpreadCone(isFirstShot) {
   /* ADS reduces spread by ~6× when fully ADS'd (player.adsT ramps 0→1) */
   const adsBlend = THREE.MathUtils.clamp(player.adsT || 0, 0, 1);
   s *= 1 - adsBlend * 0.83;
+  /* W7 — laser improves HIP-FIRE grouping (you can paint the target). Only
+   * matters when not ADS, since down the optic you don't read the dot. */
+  if (player.inv.hasLaser && player.laserOn && adsBlend < 0.25) s *= 0.72;
+  /* W7 — foregrip steadies the muzzle (less bloom from movement + spray). */
+  if (player.inv.hasForegrip && WEAPON_ATTACH[player.activeWeapon] && WEAPON_ATTACH[player.activeWeapon].grip) s *= 0.85;
   /* Sustained fire — once past shot index 4 the cone widens fast */
   const sprayPenalty = Math.max(0, (player._sprayIndex || 0) - 3);
   s += sprayPenalty * 0.0008;
@@ -5807,19 +6919,43 @@ const player = {
     hasScope3x:   false,
     hasSuppressor: false,
     hasFlashlight: false,
-    /* Which sight is mounted on each weapon. 'iron' | 'red_dot' | 'scope_3x' */
-    sightAk:      'iron',
-    sightM416:    'iron'
+    hasGhillie:   false,   /* W9 — маскхалат: боты хуже видят, в PvP прячет HP-бар */
+    hasRig:       false,   /* W10 — разгрузка: +запасные магазины и гранаты */
+    hasNVG:       false,   /* W10 — ПНВ для ночного цикла */
+    /* W8 — new weapons are now EARNED from the equipment board (walk up, press F) */
+    hasGlock:     false,
+    hasDeagle:    false,
+    hasAk74:      false,
+    hasScar:      false,
+    hasMp5:       false,
+    /* W7 — which sight is mounted on each weapon, one slot per weapon.
+     * Values: 'iron' | 'red_dot' | 'holo' | 'scope_3x'. */
+    sights: { ak:'iron', m416:'iron', glock:'iron', deagle:'iron', ak74:'iron', scar:'iron', mp5:'iron' },
+    /* W7 — universal attachments (off until picked up from the board). */
+    hasHolo:      false,
+    hasLaser:     false,
+    hasForegrip:  false
   },
   /* === A2 — derived slot view over inv flags (see LOADOUT_CAPS above). === */
   loadout: { primaries: [], sidearm: null, melee: 'knife', throwables: [] },
   suppressorOn: false,
   flashlightOn: false,           /* L toggles; requires inv.hasFlashlight */
   activeWeapon: null,           /* 'ak' | 'm416' | null (empty hands) */
+  /* === W5 — carry slots: last weapon drawn from each slot (1/2/3) === */
+  slots: { pistol: null, rifle: null, special: null },
+  swapping: false, swapPending: null, swapHalfDone: false,
+  swapStart: 0, swapDuration: 0.30,
+  _appliedSwapPosY: 0, _appliedSwapRotX: 0,
   /* Per-weapon ammo state (loaded mag + reserve pool) */
   weaponState: {
     ak:   { ammo: 0, reserve: 0 },
-    m416: { ammo: 0, reserve: 0 }
+    m416: { ammo: 0, reserve: 0 },
+    /* W8 — new weapons start EMPTY; ammo is granted when picked up on the board */
+    glock:  { ammo: 0, reserve: 0 },
+    deagle: { ammo: 0, reserve: 0 },
+    ak74:   { ammo: 0, reserve: 0 },
+    scar:   { ammo: 0, reserve: 0 },
+    mp5:    { ammo: 0, reserve: 0 }
   },
   /* Active stats — copied from WEAPON_STATS[activeWeapon] when switching */
   ammo: 0,
@@ -6023,33 +7159,19 @@ window.addEventListener('keydown', e => {
   /* Only accept input when pointer is locked, otherwise menu/devtools may eat keyup */
   keys[e.code] = true;
   if (!controls.isLocked) return;
-  if (e.code === 'KeyR' && !player.reloading && player.activeWeapon &&
+  if (e.code === 'KeyR' && !player.reloading && !player.swapping && player.activeWeapon &&
       player.ammo < player.magSize && player.reserve > 0) {
     startReload();
   }
-  /* === LOADOUT HOTKEYS ===
-   *   1 — switch to AK (if owned)
-   *   2 — switch to M416 (if owned)
-   *   3 — use medkit (if any)
+  /* === LOADOUT HOTKEYS (W5 carry slots) ===
+   *   1 — pistol slot      2 — rifle slot (cycles owned rifles)
+   *   3 — special slot      4 — use medkit (if any)
    *   B — cycle sight on active weapon (iron → red-dot → 3x → iron)
    *   F — interact (board pickup, ammo refill) */
-  if (e.code === 'Digit1') {
-    if (player.inv.hasAk && player.activeWeapon !== 'ak') {
-      setActiveWeapon('ak');
-      showNotice('АКМ');
-    } else if (!player.inv.hasAk) {
-      showNotice('AK НЕ В ИНВЕНТАРЕ');
-    }
-  }
-  if (e.code === 'Digit2') {
-    if (player.inv.hasM416 && player.activeWeapon !== 'm416') {
-      setActiveWeapon('m416');
-      showNotice('M416');
-    } else if (!player.inv.hasM416) {
-      showNotice('M416 НЕ В ИНВЕНТАРЕ');
-    }
-  }
-  if (e.code === 'Digit3') {
+  if (e.code === 'Digit1') selectSlot('pistol');
+  if (e.code === 'Digit2') selectSlot('rifle');
+  if (e.code === 'Digit3') selectSlot('special');
+  if (e.code === 'Digit4') {
     useMedkit();
   }
   if (e.code === 'KeyB') {
@@ -6076,6 +7198,14 @@ window.addEventListener('keydown', e => {
       showNotice(player.suppressorOn ? 'ГЛУШИТЕЛЬ НАДЕТ' : 'ГЛУШИТЕЛЬ СНЯТ');
     }
   }
+  /* T — toggle the rail laser (only if picked up from the board). */
+  if (e.code === 'KeyT') {
+    if (!player.inv.hasLaser) { showNotice('НЕТ ЛАЗЕРА'); }
+    else {
+      player.laserOn = !player.laserOn;
+      showNotice(player.laserOn ? 'ЛАЗЕР ВКЛ' : 'ЛАЗЕР ВЫКЛ');
+    }
+  }
   /* G — throw frag grenade. Y — throw smoke. Both have a 0.6s cooldown so
    * the player doesn't drain the entire stockpile in a single frame. */
   if (e.code === 'KeyG') {
@@ -6083,6 +7213,15 @@ window.addEventListener('keydown', e => {
   }
   if (e.code === 'KeyY') {
     tryThrowGrenade('smoke');
+  }
+  /* N — toggle night-vision goggles (only if picked up from the board). */
+  if (e.code === 'KeyN') {
+    if (!player.inv.hasNVG) { showNotice('НЕТ ПНВ (СНАРЯЖЕНИЕ)'); }
+    else {
+      player.nvgOn = !player.nvgOn;
+      if (typeof _updateNvgVisual === 'function') _updateNvgVisual();
+      showNotice(player.nvgOn ? 'ПНВ ВКЛ' : 'ПНВ ВЫКЛ');
+    }
   }
   /* === Z — TOGGLE PRONE (C2) ========================================
    * Single-tap toggle. Stands up automatically when sprint is engaged
@@ -6437,6 +7576,7 @@ function shoot() {
   const now = performance.now() / 1000;
   /* No weapon equipped → ignore (no animation, no click, no recoil) */
   if (!player.activeWeapon) return;
+  if (player.swapping) return;        /* W5 — no firing mid weapon-swap */
   if (player.reloading) return;
   if (player.bandaging) return;
   /* B2 — can't fire while the gun is still lowered from a tactical sprint.
@@ -6457,7 +7597,7 @@ function shoot() {
   if (typeof _heatLevel !== 'undefined' && _heatLevel > 0.85 && Math.random() < 0.12) {
     player.jamUntil = now + 1.0;
     playDrySnap();
-    if (typeof showNotice === 'function') showNotice('ЗАКЛИНИЛО — ОСТЫТЬ');
+    if (typeof showNotice === 'function') showNotice('ЗАКЛИНИЛО — ОСТЫ��Ь');
     if (typeof pushCamShake === 'function') pushCamShake(0.03);
     player.lastShot = now;
     return;
@@ -6477,13 +7617,12 @@ function shoot() {
    * so that no two sprays are pixel-identical, but the shape is stable. */
   player.recoil = 1;
   const stats = WEAPON_STATS[player.activeWeapon];
-  if (player.activeWeapon === 'ak')   ak.userData.boltKick = 1;
-  if (player.activeWeapon === 'm416') m416.userData.boltKick = 1;
+  { const _wo = activeWeaponObj(); if (_wo && _wo.userData) _wo.userData.boltKick = 1; }
   /* Reset spray index after a short pause (A3 — reset rate). 0.30 s
    * matches the user's "release for 0.3 s to calm the barrel" spec. */
   if (now - player._lastSprayShot > 0.30) player._sprayIndex = 0;
   player._lastSprayShot = now;
-  const pattern = (player.activeWeapon === 'ak') ? RECOIL_PATTERN_AK : RECOIL_PATTERN_M416;
+  const pattern = recoilPatternFor(player.activeWeapon);
   const idx = Math.min(player._sprayIndex, pattern.length - 1);
   const adsScale = player.isAiming ? 0.30 : 1.0;
   /* === A3 — COVER & STANCE RECOIL REDUCTION =========================
@@ -6500,6 +7639,8 @@ function shoot() {
    * action sluggish; bolt slams back with extra force) */
   const dirt = player.barrelDirt || 0;
   if (dirt > 0.4)  stanceMul *= 1.0 + (dirt - 0.4) * 0.5;     /* up to ×1.3 */
+  /* W7 — foregrip soaks ~15% of muzzle climb + horizontal sway. */
+  if (player.inv.hasForegrip && WEAPON_ATTACH[player.activeWeapon] && WEAPON_ATTACH[player.activeWeapon].grip) stanceMul *= 0.85;
   player.coverRecoilMul = stanceMul;
   const [pdx, pdy] = pattern[idx];
   /* tiny jitter so sprays aren't pixel-perfect identical */
@@ -6920,9 +8061,7 @@ function _spawnDroppedMag() {
 
 /* Returns the active weapon's mesh (ak or m416) — null if empty hands. */
 function activeWeaponObj() {
-  if (player.activeWeapon === 'ak')   return ak;
-  if (player.activeWeapon === 'm416') return m416;
-  return null;
+  return (player.activeWeapon && WEAPON_OBJS[player.activeWeapon]) || null;
 }
 
 function startReload() {
@@ -7345,8 +8484,7 @@ function updatePlayer(dt) {
    * The 3x scope only zooms while ADS-ing; outside ADS we stay at 78° so
    * peripheral vision isn't crushed. */
   let activeSight = 'iron';
-  if (player.activeWeapon === 'ak')   activeSight = player.inv.sightAk;
-  if (player.activeWeapon === 'm416') activeSight = player.inv.sightM416;
+  if (player.activeWeapon) activeSight = getSight(player.activeWeapon);
 
   /* === ADS POSE (per-weapon) ============================================
    * For each (weapon × sight) pair we precomputed the gun pose so that
@@ -7376,16 +8514,16 @@ function updatePlayer(dt) {
   } else if (activeSight === 'scope_3x') {
     aimTarget = new THREE.Vector3(0, -0.20, -0.50);    /* hidden anyway */
     aimRotX = 0;
-  } else if (activeSight === 'red_dot') {
-    if (isAk) {
-      /* AK mount Y=0.085 + dot offset Y=0.020 = 0.105 above weapon
-       * → weapon.y = -0.105 puts the dot exactly at eye level. Z=-0.18
-       * keeps the rear flange ~14cm in front (mount.z=-0.06 + weapon.z=-0.18 = -0.24). */
-      aimTarget = new THREE.Vector3(0, -0.096, -0.19);
-    } else {
-      /* M416 mount Y=0.082 + dot offset 0.020 = 0.102 → weapon.y=-0.102 */
-      aimTarget = new THREE.Vector3(0, -0.102, -0.10);
-    }
+  } else if (activeSight === 'red_dot' || activeSight === 'holo') {
+    /* W7 — generic optic ADS for ANY weapon: lower the gun so the optic's
+     * dot sits exactly at eye level. Y = -(rail height + dot height above
+     * rail); Z = each weapon's tuned optic distance. Reproduces the old
+     * AK (-0.096,-0.19) and M416 (-0.102,-0.10) numbers exactly. */
+    const _oa = WEAPON_ATTACH[player.activeWeapon];
+    const _dotY = (activeSight === 'holo') ? 0.022 : 0.020;
+    const _sY = _oa ? _oa.sight[1] : 0.082;
+    const _oz = (_oa && typeof _oa.opticZ === 'number') ? _oa.opticZ : -0.12;
+    aimTarget = new THREE.Vector3(0, -(_sY + _dotY), _oz);
     aimRotX = 0;
   } else {
     /* iron — per-weapon precise alignment.
@@ -7397,7 +8535,13 @@ function updatePlayer(dt) {
      *        15 cm behind it.
      *  M416: rear iron at (0, 0.085, 0.020), front post at (0, 0.092, -0.46).
      *        Slope = -0.0146, gun pulled back so rear sight at world (0,0,-0.13). */
-    if (isAk) {
+    /* W6 — every weapon stores its own iron-sight ADS offset in WEAPON_STATS.
+     * Use it when present; keep the original AK/M416 branches as fallback. */
+    const _adsSt = WEAPON_STATS[player.activeWeapon];
+    if (_adsSt && typeof _adsSt.adsY === 'number') {
+      aimTarget = new THREE.Vector3(_adsSt.adsX || 0, _adsSt.adsY, _adsSt.adsZ);
+      aimRotX   = _adsSt.adsRotX || 0;
+    } else if (isAk) {
       aimTarget = new THREE.Vector3(0, -0.072, -0.050);
       aimRotX   = -0.0255;
     } else {
@@ -7563,12 +8707,17 @@ function updatePlayer(dt) {
 
   /* Bolt slide animation: handle goes back ~3.5cm then snaps forward.
    * boltKick: 1.0 (just fired) -> 0.0 (rest). We model it as half-cosine. */
-  const bolt = ak.userData.bolt;
-  if (bolt) {
-    if (ak.userData.boltKick === undefined) ak.userData.boltKick = 0;
-    ak.userData.boltKick *= Math.pow(0.0001, dt); /* fast decay */
-    const k = ak.userData.boltKick;
-    bolt.position.z = k * 0.038;          /* slide REARWARD (positive Z is back) */
+  /* W7 — per-shot bolt/slide reciprocation for the ACTIVE weapon (was AK-only).
+   * Every weapon model exposes userData.bolt; we drive whichever is in hand. */
+  {
+    const _bwo = (typeof activeWeaponObj === 'function') ? activeWeaponObj() : null;
+    const _bud = _bwo && _bwo.userData;
+    const bolt = _bud && _bud.bolt;
+    if (bolt) {
+      if (_bud.boltKick === undefined) _bud.boltKick = 0;
+      _bud.boltKick *= Math.pow(0.0001, dt); /* fast decay */
+      bolt.position.z = _bud.boltKick * 0.038; /* slide REARWARD (positive Z is back) */
+    }
   }
 
   /* Unified camera Euler: undo last frame's recoil offset so the mouse-driven
@@ -7721,6 +8870,45 @@ function updatePlayer(dt) {
     player._appliedReloadRotZ = rotZ;
     player._appliedReloadPosX = posX;
     player._appliedReloadPosY = posY;
+  }
+
+  /* === WEAPON SWAP ANIMATION (W5) — lower the current gun, switch the model
+   * at the bottom of the dip, then raise the new gun into the ready pose.
+   * Same undo/apply bake pattern as recoil/reload so weapon.position /
+   * rotation never accumulates across frames. */
+  {
+    /* 1. UNDO previous frame's baked swap offset */
+    weapon.position.y -= (player._appliedSwapPosY || 0);
+    weapon.rotation.x -= (player._appliedSwapRotX || 0);
+    let sPosY = 0, sRotX = 0;
+    if (player.swapping) {
+      const st = (performance.now()/1000 - player.swapStart) / player.swapDuration;
+      /* Switch the visible model exactly at the bottom of the dip */
+      if (st >= 0.5 && !player.swapHalfDone) {
+        setActiveWeapon(player.swapPending);
+        player.swapHalfDone = true;
+      }
+      if (st < 0.5) {
+        const f = st / 0.5;                 /* 0→1 going DOWN */
+        const e = f * f;                    /* ease-in */
+        sPosY = -0.20 * e;
+        sRotX = -0.62 * e;
+      } else if (st < 1) {
+        const f = (st - 0.5) / 0.5;         /* 0→1 coming UP */
+        const e = 1 - Math.pow(1 - f, 2);   /* ease-out */
+        sPosY = -0.20 * (1 - e);
+        sRotX = -0.62 * (1 - e);
+      } else {
+        player.swapping = false;
+        player.swapPending = null;
+      }
+    }
+    /* 3. APPLY this frame's offset */
+    weapon.position.y += sPosY;
+    weapon.rotation.x += sRotX;
+    /* 4. REMEMBER for next frame's undo */
+    player._appliedSwapPosY = sPosY;
+    player._appliedSwapRotX = sRotX;
   }
 
   /* muzzle flash decay */
@@ -7919,7 +9107,9 @@ function updateBots(dt) {
       return;
     }
 
-    const losPlayer = (dist < 90) && hasLineOfSight(bp, playerPos);
+    /* W9 — ghillie shrinks the range at which a bot can acquire the player. */
+    const detectRange = 90 * ghillieStealth();
+    const losPlayer = (dist < detectRange) && hasLineOfSight(bp, playerPos);
 
     /* === R4 TARGET ACQUISITION ===========================================
      * Track CONTINUOUS line-of-sight. A freshly-spotted player triggers a
@@ -7934,7 +9124,9 @@ function updateBots(dt) {
       bot.spottedAt = -1;
       bot.aimSettle = Math.max(0, bot.aimSettle - dt * aiInterval * 2.0);
     }
-    const reacted = bot.spottedAt >= 0 && (now - bot.spottedAt) >= bot.reactionTime;
+    /* W9 — effective ghillie also buys extra reaction delay before bots fire. */
+    const ghillieReact = (player.inv.hasGhillie && ghillieStealth() < 0.6) ? 0.4 : 0;
+    const reacted = bot.spottedAt >= 0 && (now - bot.spottedAt) >= (bot.reactionTime + ghillieReact);
 
     /* === REACTIVE COVER-SEEKING ============================================
      * If the bot took damage since the last AI tick, kick it into a panic
@@ -8149,12 +9341,12 @@ function updateBots(dt) {
     const isMoving = (vx*vx + vz*vz) > 0.5;
     if (isMoving) {
       bot.walkPhase += dt * 8;
-      bot.legL.rotation.x = Math.sin(bot.walkPhase) * 0.5;
-      bot.legR.rotation.x = -Math.sin(bot.walkPhase) * 0.5;
-      bot.armL.rotation.x = -Math.sin(bot.walkPhase) * 0.3;
+      bot.legLGroup.rotation.x = Math.sin(bot.walkPhase) * 0.5;
+      bot.legRGroup.rotation.x = -Math.sin(bot.walkPhase) * 0.5;
+      bot.armLGroup.rotation.x = -Math.sin(bot.walkPhase) * 0.3;
     } else {
-      bot.legL.rotation.x *= 0.9;
-      bot.legR.rotation.x *= 0.9;
+      bot.legLGroup.rotation.x *= 0.9;
+      bot.legRGroup.rotation.x *= 0.9;
     }
 
     /* === FIRING ===
@@ -8198,6 +9390,21 @@ function updateBots(dt) {
     bot.hbFg.position.x = -(1 - hpRatio) * 0.39;
     bot.hbFg.material.color.setHSL(hpRatio * 0.33, 1, 0.5);
   });
+}
+
+/* W9 — ghillie suit stealth. Returns a multiplier (<1) applied to a bot's
+ * detection range while the маскхалат is worn. Most effective when moving
+ * slowly and not shooting; sprinting or a recent muzzle flash largely
+ * defeats the camouflage so it never becomes an invisibility cloak. */
+function ghillieStealth() {
+  if (!player.inv || !player.inv.hasGhillie) return 1.0;
+  const spd = player.velocity ? player.velocity.length() : 0;
+  const sinceShot = (performance.now() / 1000) - (player.lastShot || -99);
+  let mul = 0.42;                         /* still & silent: ~58% range cut */
+  if (spd > 5)      mul = 0.85;           /* sprinting: almost no benefit */
+  else if (spd > 2) mul = 0.62;           /* walking: partial benefit */
+  if (sinceShot < 1.2) mul = Math.max(mul, 0.9);  /* just fired: exposed */
+  return mul;
 }
 
 function hasLineOfSight(from, to) {
@@ -8653,8 +9860,8 @@ function updateHUD() {
       weaponEl.style.color = '#9a8260';
     } else {
       const w = WEAPON_STATS[player.activeWeapon];
-      const sk = (player.activeWeapon === 'ak') ? player.inv.sightAk : player.inv.sightM416;
-      const sightTxt = ({iron:'• ЖЕЛ.', red_dot:'• КОЛЛИМ.', scope_3x:'• 3X'}[sk] || '');
+      const sk = getSight(player.activeWeapon);
+      const sightTxt = ({iron:'• ЖЕЛ.', red_dot:'• КОЛЛИМ.', holo:'• ГОЛО', scope_3x:'• 3X'}[sk] || '');
       weaponEl.textContent = w.name + ' ' + sightTxt;
       weaponEl.style.color = '#ffd66a';
     }
@@ -8678,7 +9885,7 @@ function updateHUD() {
   if (gearEl) {
     const parts = [];
     if (player.inv.hasHelmet)   parts.push('<span style="color:#a0c0ff">ШЛЕМ</span>');
-    if (player.inv.hasArmor)    parts.push('<span style="color:#a0ffa0">БРОНЯ</span>');
+    if (player.inv.hasArmor)    parts.push('<span style="color:#a0ffa0">��РОНЯ</span>');
     if (player.inv.hasBackpack) parts.push('<span style="color:#ffd066">РЮКЗАК</span>');
     gearEl.innerHTML = parts.join(' · ');
   }
@@ -8787,7 +9994,7 @@ function pickUpFromBoard(slot) {
       showNotice('ПОЛУЧЕНО: АКМ');
       break;
     case 'm416':
-      if (player.inv.hasM416) { showNotice('M416 УЖЕ В ИНВЕНТАРЕ'); return; }
+      if (player.inv.hasM416) { showNotice('M416 УЖ�� В ИНВЕНТ��РЕ'); return; }
       if (!canCarryAnotherPrimary('m416')) { showNotice('ЛИМИТ ОРУЖИЯ — ОСВОБОДИ СЛОТ'); return; }
       player.inv.hasM416 = true;
       player.weaponState.m416.ammo = WEAPON_STATS.m416.magSize;
@@ -8795,6 +10002,56 @@ function pickUpFromBoard(slot) {
       if (!player.activeWeapon) setActiveWeapon('m416');
       syncLoadoutFromInv();
       showNotice('ПОЛУЧЕНО: M416');
+      break;
+    case 'glock':
+      if (player.inv.hasGlock) { showNotice('GLOCK УЖЕ В ИНВЕНТАРЕ'); return; }
+      player.inv.hasGlock = true;
+      player.weaponState.glock.ammo = WEAPON_STATS.glock.magSize;
+      player.weaponState.glock.reserve = 68;
+      player.slots.pistol = 'glock';
+      if (!player.activeWeapon) setActiveWeapon('glock');
+      syncLoadoutFromInv();
+      showNotice('ПОЛУЧЕНО: GLOCK-18 (клавиша 1)');
+      break;
+    case 'deagle':
+      if (player.inv.hasDeagle) { showNotice('DEAGLE УЖЕ В ИНВЕНТАРЕ'); return; }
+      player.inv.hasDeagle = true;
+      player.weaponState.deagle.ammo = WEAPON_STATS.deagle.magSize;
+      player.weaponState.deagle.reserve = 45;
+      player.slots.pistol = 'deagle';
+      if (!player.activeWeapon) setActiveWeapon('deagle');
+      syncLoadoutFromInv();
+      showNotice('ПОЛУЧЕНО: DESERT EAGLE (клавиша 1)');
+      break;
+    case 'ak74':
+      if (player.inv.hasAk74) { showNotice('АК-74 УЖЕ В ИНВЕНТАРЕ'); return; }
+      player.inv.hasAk74 = true;
+      player.weaponState.ak74.ammo = WEAPON_STATS.ak74.magSize;
+      player.weaponState.ak74.reserve = 120;
+      player.slots.rifle = 'ak74';
+      if (!player.activeWeapon) setActiveWeapon('ak74');
+      syncLoadoutFromInv();
+      showNotice('ПОЛУЧЕНО: АК-74 (клавиша 2)');
+      break;
+    case 'scar':
+      if (player.inv.hasScar) { showNotice('SCAR-H УЖЕ В ИНВЕНТАРЕ'); return; }
+      player.inv.hasScar = true;
+      player.weaponState.scar.ammo = WEAPON_STATS.scar.magSize;
+      player.weaponState.scar.reserve = 100;
+      player.slots.rifle = 'scar';
+      if (!player.activeWeapon) setActiveWeapon('scar');
+      syncLoadoutFromInv();
+      showNotice('ПОЛУЧЕНО: SCAR-H (клавиша 2)');
+      break;
+    case 'mp5':
+      if (player.inv.hasMp5) { showNotice('MP5 УЖЕ В ИНВЕНТАРЕ'); return; }
+      player.inv.hasMp5 = true;
+      player.weaponState.mp5.ammo = WEAPON_STATS.mp5.magSize;
+      player.weaponState.mp5.reserve = 120;
+      player.slots.special = 'mp5';
+      if (!player.activeWeapon) setActiveWeapon('mp5');
+      syncLoadoutFromInv();
+      showNotice('ПОЛУЧЕНО: MP5 (клавиша 3)');
       break;
     case 'armor':
       if (player.inv.hasArmor) { showNotice('БРОНЯ УЖЕ НАДЕТА'); return; }
@@ -8810,21 +10067,25 @@ function pickUpFromBoard(slot) {
       if (player.inv.hasHelmet) { showNotice('ШЛЕМ УЖЕ НАДЕТ'); return; }
       player.inv.hasHelmet = true;
       player.plates.helmet = player.plateMax.helmet;
-      showNotice('ШЛЕМ — ЗАЩИТА ГОЛОВЫ');
+      showNotice('��ЛЕМ — ЗАЩИТА ГОЛОВЫ');
       break;
     case 'backpack':
-      if (player.inv.hasBackpack) { showNotice('РЮКЗАК УЖЕ НАДЕТ'); return; }
+      if (player.inv.hasBackpack) { showNotice('РЮКЗАК У��Е НАДЕТ'); return; }
       player.inv.hasBackpack = true;
       player.reserveCap = 220;
       /* Allow player to carry more right now if they had a partial reserve */
       showNotice('РЮКЗАК +100 ПАТРОНОВ К ЗАПАСУ');
       break;
+    case 'ghillie':
+      if (player.inv.hasGhillie) { showNotice('МАСКХАЛАТ УЖЕ НАДЕТ'); return; }
+      player.inv.hasGhillie = true;
+      showNotice('МАСКХАЛАТ — БОТЫ ХУЖЕ ВАС ВИДЯТ (не бегите/не стреляйте)');
+      break;
     case 'red_dot':
       if (player.inv.hasRedDot) { showNotice('КОЛЛИМАТОР УЖЕ В ИНВЕНТАРЕ'); return; }
       player.inv.hasRedDot = true;
       /* Auto-mount on currently active weapon if it has iron sights */
-      if (player.activeWeapon === 'ak' && player.inv.sightAk === 'iron')   player.inv.sightAk   = 'red_dot';
-      if (player.activeWeapon === 'm416' && player.inv.sightM416 === 'iron') player.inv.sightM416 = 'red_dot';
+      if (player.activeWeapon && getSight(player.activeWeapon) === 'iron') setSight(player.activeWeapon, 'red_dot');
       applySightToActiveWeapon();
       showNotice('КОЛЛИМАТОР (B - переключить)');
       break;
@@ -8832,6 +10093,43 @@ function pickUpFromBoard(slot) {
       if (player.inv.hasScope3x) { showNotice('ПРИЦЕЛ 3X УЖЕ В ИНВЕНТАРЕ'); return; }
       player.inv.hasScope3x = true;
       showNotice('ПРИЦЕЛ 3X (B - переключить)');
+      break;
+    case 'holo':
+      if (player.inv.hasHolo) { showNotice('ГОЛОГРАФ. ПРИЦЕЛ УЖЕ В ИНВЕНТАРЕ'); return; }
+      player.inv.hasHolo = true;
+      if (player.activeWeapon && getSight(player.activeWeapon) === 'iron') setSight(player.activeWeapon, 'holo');
+      applySightToActiveWeapon();
+      showNotice('ГОЛОГРАФ. ПРИЦЕЛ (B - переключить)');
+      break;
+    case 'laser':
+      if (player.inv.hasLaser) { showNotice('ЛАЗЕР УЖЕ В ИНВЕНТАРЕ'); return; }
+      player.inv.hasLaser = true;
+      player.laserOn = true;
+      showNotice('ЛАЗЕР (T — вкл/выкл)');
+      break;
+    case 'foregrip':
+      if (player.inv.hasForegrip) { showNotice('РУКОЯТКА УЖЕ УСТАНОВЛЕНА'); return; }
+      player.inv.hasForegrip = true;
+      showNotice('ПЕРЕДНЯЯ РУКОЯТКА — МЕНЬШЕ ОТДАЧИ');
+      break;
+    case 'rig':
+      /* W10 — chest rig: bigger ammo reserve + grenade capacity, tops both up */
+      if (player.inv.hasRig) { showNotice('РАЗГРУЗКА УЖЕ НАДЕТА'); return; }
+      player.inv.hasRig = true;
+      player.reserveCap = Math.max(player.reserveCap, 260);
+      player.reserve = Math.min(player.reserveCap, player.reserve + 90);
+      player.fragMax = 4; player.smokeMax = 6;
+      player.frag = player.fragMax; player.smoke = player.smokeMax;
+      { const rs = document.getElementById('slot-rig'); if (rs) rs.style.display = ''; }
+      showNotice('РАЗГРУЗКА — +ЗАПАСНЫЕ МАГАЗИНЫ И ГРАНАТЫ');
+      break;
+    case 'nvg':
+      /* W10 — night-vision goggles: passive item, toggled with N. Auto-on if night. */
+      if (player.inv.hasNVG) { showNotice('ПНВ УЖЕ В ИНВЕНТАРЕ'); return; }
+      player.inv.hasNVG = true;
+      player.nvgOn = (typeof dayNight !== 'undefined' && dayNight.daylight < 0.4);
+      if (typeof _updateNvgVisual === 'function') _updateNvgVisual();
+      showNotice('ПНВ (N — вкл/выкл) — для ночи');
       break;
     case 'suppressor':
       if (player.inv.hasSuppressor) { showNotice('ГЛУШИТЕЛЬ УЖЕ В ИНВЕНТАРЕ'); return; }
@@ -8886,20 +10184,20 @@ function pickUpFromBoard(slot) {
  *   iron → red_dot (if owned) → scope_3x (if owned) → iron */
 function cycleSight() {
   if (!player.activeWeapon) { showNotice('НЕТ ОРУЖИЯ'); return; }
-  const slot = (player.activeWeapon === 'ak') ? 'sightAk' : 'sightM416';
-  const cur = player.inv[slot];
-  let next;
-  if (cur === 'iron') {
-    next = player.inv.hasRedDot ? 'red_dot' : (player.inv.hasScope3x ? 'scope_3x' : 'iron');
-  } else if (cur === 'red_dot') {
-    next = player.inv.hasScope3x ? 'scope_3x' : 'iron';
-  } else {
-    /* scope_3x */
-    next = 'iron';
-  }
-  player.inv[slot] = next;
+  const w = player.activeWeapon;
+  /* Build the cycle from what the player owns. Iron is always available;
+   * each optic only joins the rotation once it is in the inventory. */
+  const order = ['iron'];
+  if (player.inv.hasRedDot)  order.push('red_dot');
+  if (player.inv.hasHolo)    order.push('holo');
+  if (player.inv.hasScope3x) order.push('scope_3x');
+  if (order.length === 1) { showNotice('НЕТ ОПТИКИ В ИНВЕНТАРЕ'); return; }
+  let idx = order.indexOf(getSight(w));
+  if (idx < 0) idx = 0;
+  const next = order[(idx + 1) % order.length];
+  setSight(w, next);
   applySightToActiveWeapon();
-  showNotice('ПРИЦЕЛ: ' + ({iron:'ЖЕЛЕЗНЫЙ', red_dot:'КОЛЛИМАТОР', scope_3x:'3X ОПТИКА'}[next] || next));
+  showNotice('ПРИЦЕЛ: ' + ({iron:'ЖЕЛЕЗНЫЙ', red_dot:'КОЛЛИМАТОР', holo:'ГОЛОГРАФИЯ', scope_3x:'3X ОПТИКА'}[next] || next));
 }
 
 /* Single F-key handler: pick from board first, fall back to ammo refill. */
@@ -8909,7 +10207,7 @@ function tryInteract() {
   if (slot) { pickUpFromBoard(slot); return; }
   const crate = nearestAmmoCrate();
   if (!crate) {
-    showNotice('ПОДОЙДИ К ДОСКЕ ИЛИ ЯЩИКУ');
+    showNotice('ПОДОЙДИ К ��ОСКЕ ИЛИ ЯЩИКУ');
     return;
   }
   const now = performance.now() / 1000;
@@ -8930,7 +10228,7 @@ function tryInteract() {
   /* Refill grenades and smokes too — ammo crates are full re-supply now */
   let extras = [];
   if (player.frag < player.fragMax) {
-    extras.push('+' + (player.fragMax - player.frag) + ' гранат');
+    extras.push('+' + (player.fragMax - player.frag) + ' гра��ат');
     player.frag = player.fragMax;
   }
   if (player.smoke < player.smokeMax) {
@@ -9175,6 +10473,22 @@ function updateDayNight() {
   }
   /* Disable expensive sun shadow map at night (sun barely contributes) */
   sun.castShadow = dl > 0.18;
+  /* W10 — NIGHT-VISION amplification. When goggles are on, pump ambient/hemi
+   * light and push the fog back so the dark battlefield becomes navigable.
+   * Effect scales with darkness (full at midnight, ~0 at noon) and washes
+   * everything in the classic green phosphor tint. Restores neutral when off. */
+  if (player.inv && player.inv.hasNVG && player.nvgOn) {
+    const boost = 1 - dl;
+    ambient.intensity += 0.85 * boost;
+    hemi.intensity    += 0.45 * boost;
+    ambient.color.setRGB(0.45 + 0.55 * dl, 1.0, 0.5 + 0.5 * dl);
+    if (scene.fog) {
+      scene.fog.near = THREE.MathUtils.lerp(scene.fog.near, 80,  boost);
+      scene.fog.far  = THREE.MathUtils.lerp(scene.fog.far,  320, boost);
+    }
+  } else {
+    ambient.color.setRGB(1, 1, 1);
+  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -10143,6 +11457,7 @@ function animate() {
   updateBleedAndSlow(dt);
   updateLowHpVeil();
   updateBarrelSmoke(dt);
+  if (typeof _updateAttachmentsVisual === 'function') _updateAttachmentsVisual(dt);
   updateBandage(dt);
   updateRealismHUD();
   /* HUD updates every other frame (text changes) — saves DOM writes */
@@ -10601,11 +11916,16 @@ if (PVP_MODE) {
   function pvpAutoEquip() {
     player.inv.hasAk = true;
     player.inv.hasM416 = true;
+    /* W8 — PvP grants the FULL arsenal so both players can use every weapon. */
+    player.inv.hasGlock = true;
+    player.inv.hasDeagle = true;
+    player.inv.hasAk74 = true;
+    player.inv.hasScar = true;
+    player.inv.hasMp5 = true;
     player.inv.hasArmor = true;
     player.inv.hasHelmet = true;
     player.inv.hasBackpack = true;
-    player.inv.sightAk = 'iron';
-    player.inv.sightM416 = 'iron';
+    player.inv.sights = { ak:'iron', m416:'iron', glock:'iron', deagle:'iron', ak74:'iron', scar:'iron', mp5:'iron' };
     syncLoadoutFromInv();
     player.armor = 100;
     player.armorMax = 100;
@@ -10624,6 +11944,13 @@ if (PVP_MODE) {
     player.weaponState.ak.reserve = 120;
     player.weaponState.m416.ammo = WEAPON_STATS.m416.magSize;
     player.weaponState.m416.reserve = 120;
+    /* W8 — load up the new weapons too and pre-fill the pistol/special slots. */
+    for (const _w of ['glock','deagle','ak74','scar','mp5']) {
+      player.weaponState[_w].ammo = WEAPON_STATS[_w].magSize;
+      player.weaponState[_w].reserve = 120;
+    }
+    player.slots.pistol = 'glock';
+    player.slots.special = 'mp5';
     if (typeof setActiveWeapon === 'function') setActiveWeapon('ak');
     player.ammo = WEAPON_STATS.ak.magSize;
     player.reserve = 120;
@@ -10776,7 +12103,7 @@ if (PVP_MODE) {
       }
     }
     else if (msg.type === 'opponent_left') {
-      showNotice('ПРОТИВНИК ОТКЛЮЧИЛСЯ');
+      showNotice('ПРОТИВНИК ОТКЛЮЧ��ЛСЯ');
       _pvpRoundActive = false;
       const rmsg = document.getElementById('pvp-round-msg');
       if (rmsg) rmsg.textContent = 'ПРОТИВНИК ПОКИНУЛ ИГРУ';
@@ -10797,7 +12124,8 @@ if (PVP_MODE) {
       rx: fwd.x, ry: fwd.y, rz: fwd.z,
       w: player.activeWeapon || '',
       aim: player.isAiming ? 1 : 0,
-      hp: player.health
+      hp: player.health,
+      gh: player.inv.hasGhillie ? 1 : 0   /* W9 — ghillie hides our HP bar from them */
     });
   }
 
@@ -10881,6 +12209,10 @@ if (PVP_MODE) {
         _pvpOpp.hbFg.material.color.setHex(ratio > 0.5 ? 0x44ff44 : (ratio > 0.25 ? 0xffaa00 : 0xff3333));
       }
       /* Billboard health bar + label */
+      /* W9 — a ghillied opponent hides their overhead HP bar from you. */
+      const oppGhillie = (r.gh === 1);
+      _pvpOpp.hbBg.visible = !oppGhillie;
+      _pvpOpp.hbFg.visible = !oppGhillie;
       _pvpOpp.hbBg.lookAt(camera.position);
       _pvpOpp.hbFg.lookAt(camera.position);
       _pvpOpp.label.lookAt(camera.position);
@@ -11683,7 +13015,7 @@ if (PVP_MODE) {
     if (ctrl) ctrl.innerHTML =
       '<b>WASD</b> — двигаться | <b>SHIFT</b> — бежать | <b>SPACE</b> — прыжок | <b>CTRL</b> — присесть | <b>Q / E</b> — наклон<br>' +
       '<b>МЫШЬ</b> — обзор | <b>ЛКМ</b> — стрелять | <b>ПКМ</b> — прицелиться | <b>R</b> — перезарядка<br>' +
-      '<b>1</b> — АКМ | <b>2</b> — M416 | <b>3</b> — аптечка | <b>B</b> — прицел | <b>O</b> — глушитель<br><br>' +
+      '<b>1</b> — пистолет | <b>2</b> — винтовка | <b>3</b> — спец | <b>4</b> — аптечка | <b>B</b> — прицел | <b>O</b> — глушитель<br><br>' +
       '<span style="color:#ff6040">РЕЖИМ:</span> PVP 1 на 1 с игроком <b style="color:#ff6040">' + PVP_OPPONENT + '</b><br>' +
       '<span style="color:#ffd060">СНАРЯЖЕНИЕ:</span> АКМ, M416, брон��, шлем, рюкзак — выдаётся автоматически<br>' +
       '<span style="color:#ff8a8a">ПРАВИЛА:</span> убейте противника. Респавн через 5 секунд. Раунды бесконечны.<br>' +
@@ -11695,14 +13027,14 @@ if (PVP_MODE) {
       const h1 = menuEl2.querySelector('h1');
       if (h1) h1.textContent = 'КОМАНДНАЯ АРЕНА';
       const sub = menuEl2.querySelector('.subtitle');
-      if (sub) sub.textContent = 'до 5 на 5 · командный бой';
+      if (sub) sub.textContent = 'до 5 на 5 · командный ��ой';
       const ctrl = menuEl2.querySelector('.controls');
       const myColor = (TEAM_SIDE === 'A') ? '#44ddff' : '#ff5040';
       const myName  = (TEAM_SIDE === 'A') ? 'СИНИЕ' : 'КРАСНЫЕ';
       if (ctrl) ctrl.innerHTML =
         '<b>WASD</b> — двигаться | <b>SHIFT</b> — бежать | <b>SPACE</b> — прыжок | <b>CTRL</b> — присесть | <b>Q / E</b> — наклон<br>' +
         '<b>МЫШЬ</b> — обзор | <b>ЛКМ</b> — стрелять | <b>ПКМ</b> — прицелиться | <b>R</b> — перезарядка<br>' +
-        '<b>1</b> — АКМ | <b>2</b> — M416 | <b>3</b> — аптечка | <b>B</b> — прицел | <b>O</b> — глушитель<br><br>' +
+        '<b>1</b> — пистолет | <b>2</b> — винтовка | <b>3</b> — спец | <b>4</b> — аптечка | <b>B</b> — прицел | <b>O</b> — глушитель<br><br>' +
         '<span style="color:' + myColor + '">КОМАНДА:</span> <b style="color:' + myColor + '">' + myName + '</b><br>' +
         '<span style="color:#ffd060">СНАРЯЖЕНИЕ:</span> АКМ, M416, броня, шлем — выдаётся автоматически<br>' +
         '<span style="color:#ff8a8a">ПРАВИЛА:</span> убивайте противников. Огонь по своим выключен. Респавн через 5 сек.<br>' +

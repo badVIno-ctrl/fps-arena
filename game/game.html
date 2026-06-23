@@ -3412,6 +3412,7 @@ function createAK47() {
   const fsBead = new THREE.Mesh(new THREE.SphereGeometry(0.0030, 10, 8), polished);
   fsBead.position.set(0, 0.090, -0.705);
   ak.add(fsBead);
+  ak.userData.frontSight = fsBead;
   /* Adjustment screw on the side of the base */
   const fsScrew = new THREE.Mesh(new THREE.CylinderGeometry(0.0032, 0.0032, 0.006, 8), polished);
   fsScrew.rotation.z = Math.PI / 2;
@@ -4024,6 +4025,7 @@ function createGlock18() {
   const fSight = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.010, 0.006), polished);
   fSight.position.set(0, 0.076, -0.175);
   bolt.add(fSight);
+  g.userData.frontSight = fSight;
   const rSight = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.010, 0.008), polished);
   rSight.position.set(0, 0.076, 0.010);
   bolt.add(rSight);
@@ -4107,6 +4109,9 @@ function createDeagle() {
   const rib = new THREE.Mesh(new THREE.BoxGeometry(0.030, 0.012, 0.235), polished);
   rib.position.set(0, 0.090, -0.105);
   bolt.add(rib);
+  /* Phase 3c — iconic Mark XIX top picatinny rail (cross teeth) */
+  for (let i = 0; i < 9; i++) { const tth = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.006, 0.006), dark); tth.position.set(0, 0.100, -0.205 + i * 0.022); bolt.add(tth); }
+  const railSide = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.010, 0.215), steel); railSide.position.set(0, 0.094, -0.105); bolt.add(railSide);
   for (let i = 0; i < 5; i++) {
     const v = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.013, 0.006), dark);
     v.position.set(0, 0.090, -0.18 + i * 0.024);
@@ -4120,6 +4125,7 @@ function createDeagle() {
   const fSight = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.012, 0.008), polished);
   fSight.position.set(0, 0.100, -0.205);
   bolt.add(fSight);
+  g.userData.frontSight = fSight;
   const rSight = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.012, 0.010), polished);
   rSight.position.set(0, 0.090, 0.012);
   bolt.add(rSight);
@@ -4145,7 +4151,7 @@ function createDeagle() {
   guard.rotation.z = Math.PI;
   guard.position.set(0, 0.006, -0.045);
   g.add(guard);
-  const trigger = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.018, 0.007), gold);
+  const trigger = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.018, 0.007), polished);
   trigger.position.set(0, 0.005, -0.045);
   g.add(trigger);
   const hammer = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.018, 0.012), polished);
@@ -4173,7 +4179,7 @@ function createDeagle() {
   const dRdL = new THREE.Mesh(new THREE.CircleGeometry(0.0017, 10), dWhite); dRdL.position.set(-0.009, 0.090, 0.0165); bolt.add(dRdL);
   const dRdR = dRdL.clone(); dRdR.position.set(0.009, 0.090, 0.0165); bolt.add(dRdR);
   const dCrown = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.012, 0.010, 14), polished); dCrown.rotation.x = Math.PI / 2; dCrown.position.set(0, 0.078, -0.250); g.add(dCrown);
-  const dSafety = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.012, 0.020), gold); dSafety.position.set(-0.024, 0.066, 0.020); g.add(dSafety);
+  const dSafety = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.012, 0.020), steel); dSafety.position.set(-0.024, 0.066, 0.020); g.add(dSafety);
   for (const sx of [-0.020, 0.020]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.002, 0.095, 0.040), dCheck); p.position.set(sx, 0.000, 0.002); grip.add(p); }
   const dMed = new THREE.Mesh(new THREE.CircleGeometry(0.008, 16), gold); dMed.position.set(0.0202, -0.01, 0.004); dMed.rotation.y = Math.PI / 2; grip.add(dMed);
   const dFloor = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.014, 0.048), steel); dFloor.position.set(0, -0.070, 0); mag.add(dFloor);
@@ -4239,6 +4245,7 @@ function createAK74() {
   const frontPost = new THREE.Mesh(new THREE.CylinderGeometry(0.0025, 0.0025, 0.022, 8), polished);
   frontPost.position.set(0, 0.058, -0.62);
   g.add(frontPost);
+  g.userData.frontSight = frontPost;
   const gasBlock = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.034, 0.026), steel);
   gasBlock.position.set(0, 0.038, -0.46);
   g.add(gasBlock);
@@ -4365,6 +4372,7 @@ function createScarH() {
   const frontPost = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.012, 0.006), polished);
   frontPost.position.set(0, 0.092, -0.42);
   g.add(frontPost);
+  g.userData.frontSight = frontPost;
   const rearAp = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.012, 0.006), polished);
   rearAp.position.set(0, 0.090, 0.00);
   g.add(rearAp);
@@ -4500,12 +4508,19 @@ function createMP5() {
   muzzle.rotation.x = Math.PI / 2;
   muzzle.position.set(0, 0.045, -0.40);
   g.add(muzzle);
+  /* Phase 3c — HK tri-lug suppressor mount ring at the muzzle */
+  const triLug = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 0.020, 3), polished);
+  triLug.rotation.x = Math.PI / 2; triLug.position.set(0, 0.045, -0.392); g.add(triLug);
+  /* Classic wide "tropical" handguard — bottom heat-shield slab + side cheeks */
+  const hsh = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.024, 0.150), dark); hsh.position.set(0, 0.024, -0.245); g.add(hsh);
+  for (const sx of [-1, 1]) { const cheek = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.040, 0.150), dark); cheek.position.set(sx * 0.024, 0.040, -0.245); g.add(cheek); }
   const fsHood = new THREE.Mesh(new THREE.TorusGeometry(0.012, 0.0025, 8, 14), steel);
   fsHood.position.set(0, 0.066, -0.36);
   g.add(fsHood);
   const fPost = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.012, 0.004), polished);
   fPost.position.set(0, 0.060, -0.36);
   g.add(fPost);
+  g.userData.frontSight = fPost;
   const rearDrum = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.014, 14), steel);
   rearDrum.rotation.z = Math.PI / 2;
   rearDrum.position.set(0, 0.064, 0.02);
@@ -4935,13 +4950,13 @@ function createHands() {
   rBack.position.set(0, 0.014, -0.026); rHand.add(rBack);
   /* three curled fingers (middle / ring / pinky) wrap the FRONT of the grip */
   const rFingers = [];
-  const rLens = [[0.030, 0.026], [0.032, 0.028], [0.026, 0.022]];
+  const rLens = [[0.038, 0.034], [0.042, 0.038], [0.034, 0.030]];
   for (let i = 0; i < 3; i++) {
     const fx = -0.004 + i * 0.014;
     const f = _makeFinger(gloveMat, knuckMat, rLens[i][0], rLens[i][1], 0.012);
     f.position.set(fx, -0.030, -0.026);
-    f.rotation.x = 1.15;                  /* curl around the grip front */
-    f.userData.joint.rotation.x = 1.05;
+    f.rotation.x = 0.92;                  /* relaxed curl around the grip front */
+    f.userData.joint.rotation.x = 0.82;
     rHand.add(f); rFingers.push(f);
   }
   /* index = trigger finger (kept straighter; animated on fire) */
@@ -4977,10 +4992,10 @@ function createHands() {
   const lFingers = [];
   for (let i = 0; i < 4; i++) {
     const fz = -0.03 + i * 0.02;
-    const f = _makeFinger(gloveMat, knuckMat, 0.024, 0.020, 0.012);
+    const f = _makeFinger(gloveMat, knuckMat, 0.032, 0.028, 0.011);
     f.position.set(-0.026, -0.018, fz);
-    f.rotation.z = -1.15;                 /* wrap down the far side */
-    f.userData.joint.rotation.z = -1.0;
+    f.rotation.z = -0.92;                 /* wrap down the far side */
+    f.userData.joint.rotation.z = -0.80;
     lHand.add(f); lFingers.push(f);
   }
   const lThumb = _makeFinger(gloveMat, knuckMat, 0.020, 0.016, 0.014);
@@ -5182,7 +5197,7 @@ const WEAPON_ATTACH = {
   deagle: { sight:[0,0.040,-0.02],  opticZ:-0.06, flash:[0,-0.032,-0.18], sup:[0,0.008,-0.38], supR:[0.013,0.015,0.13], laser:[0.014,-0.022,-0.20], grip:null },
   ak74:   { sight:[0,0.074,-0.075], opticZ:-0.19, flash:[0,-0.06,-0.48], sup:[0,0.016,-0.92], supR:[0.016,0.020,0.16], laser:[0.026,-0.030,-0.55], grip:[0,-0.085,-0.42] },
   scar:   { sight:[0,0.086,-0.10],  opticZ:-0.12, flash:[0,-0.07,-0.46], sup:[0,0.030,-0.86], supR:[0.015,0.018,0.16], laser:[0.024,-0.028,-0.52], grip:[0,-0.080,-0.40] },
-  mp5:    { sight:[0,0.064,-0.06],  opticZ:-0.10, flash:[0,-0.05,-0.30], sup:[0,0.010,-0.56], supR:[0.014,0.016,0.14], laser:[0.020,-0.024,-0.32], grip:[0,-0.060,-0.28] }
+  mp5:    { sight:[0,0.064,-0.06],  opticZ:-0.10, flash:[0,-0.05,-0.30], sup:[0,0.045,-0.46], supR:[0.014,0.016,0.14], laser:[0.020,-0.024,-0.32], grip:[0,-0.060,-0.28] }
 };
 
 /* Under-barrel flashlight body meshes — one per weapon, registry-driven. */
@@ -5555,7 +5570,10 @@ function _updateAttachmentsVisual(dt) {
   if (!want) return;
   camera.getWorldPosition(_laserCamPos);
   camera.getWorldDirection(_laserDir);
-  const dist = _laserCast(_laserCamPos.x, _laserCamPos.y, _laserCamPos.z, _laserDir.x, _laserDir.y, _laserDir.z, 90);
+  const _laserMax = 280;
+  const dist = _laserCast(_laserCamPos.x, _laserCamPos.y, _laserCamPos.z, _laserDir.x, _laserDir.y, _laserDir.z, _laserMax);
+  const _laserHit = dist < _laserMax - 0.5;
+  laserDot.visible = _laserHit;   /* hide false dot over open sky (NVG fix) */
   laserDot.position.set(
     _laserCamPos.x + _laserDir.x * dist,
     _laserCamPos.y + _laserDir.y * dist,
@@ -6284,11 +6302,66 @@ function _playSample(buf) {
  * Routes to the per-weapon sound layer based on the player's active gun.
  * Each layer is hand-tuned: AK has more bass/punch, M416 has higher
  * crack/sharper attack/less low-end (5.56 vs 7.62 acoustic profile). */
+/* === Phase 3c — per-weapon gunshot synthesis =========================
+ * One parametric broadband synth so each weapon sounds distinct:
+ *   pistol -> sharp mid snap | deagle -> huge .50 boom | mp5 -> fast 9mm
+ *   crack  | scar -> deep 7.62 punch. Filtered white-noise transients + a
+ * short sine boom, routed through the same deaf/tinnitus bus as other SFX. */
+function _shotNoiseBuf(ctx, dur, decay) {
+  const buf = ctx.createBuffer(1, Math.max(1, Math.floor(ctx.sampleRate * dur)), ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) { const t = i / ctx.sampleRate; d[i] = (Math.random()*2-1) * Math.exp(-t * decay); }
+  return buf;
+}
+function playGunshotSynth(p) {
+  if (!audioCtx) return;
+  const ctx = audioCtx; const now = ctx.currentTime;
+  const master = ctx.createGain();
+  master.gain.value = (p.vol != null ? p.vol : 0.6) * _suppressorGain();
+  master.connect(audioBus ? audioBus.preMaster : ctx.destination);
+  /* L1 — initial crack */
+  { const dur = p.crackDur || 0.016; const src = ctx.createBufferSource(); src.buffer = _shotNoiseBuf(ctx, dur, 300);
+    const hp = ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value = p.crackHp || 2000;
+    const pk = ctx.createBiquadFilter(); pk.type='peaking'; pk.frequency.value = p.crackFreq || 7000; pk.Q.value=1.4; pk.gain.value=16;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(p.crackGain || 1.1, now+0.0006); g.gain.exponentialRampToValueAtTime(0.001, now+dur);
+    src.connect(hp).connect(pk).connect(g).connect(master); src.start(now); src.stop(now+dur+0.005); }
+  /* L2 — body punch */
+  { const dur = p.bodyDur || 0.045; const src = ctx.createBufferSource(); src.buffer = _shotNoiseBuf(ctx, dur, 95);
+    const bp = ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value = p.bodyFreq || 650; bp.Q.value = p.bodyQ || 0.8;
+    const g = ctx.createGain(); g.gain.setValueAtTime(p.bodyGain || 0.8, now); g.gain.exponentialRampToValueAtTime(0.001, now+dur);
+    src.connect(bp).connect(g).connect(master); src.start(now); src.stop(now+dur+0.005); }
+  /* L3 — bright ring */
+  if (p.ringGain) { const dur = p.ringDur || 0.07; const src = ctx.createBufferSource(); src.buffer = _shotNoiseBuf(ctx, dur, 40);
+    const hp = ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value = 1400;
+    const pk = ctx.createBiquadFilter(); pk.type='peaking'; pk.frequency.value = p.ringFreq || 3200; pk.Q.value=1.8; pk.gain.value=10;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(p.ringGain, now+0.001); g.gain.exponentialRampToValueAtTime(0.001, now+dur);
+    src.connect(hp).connect(pk).connect(g).connect(master); src.start(now); src.stop(now+dur+0.005); }
+  /* L4 — barrel boom */
+  if (p.boomGain) { const osc = ctx.createOscillator(); osc.type='sine';
+    const bd = p.boomDur || 0.08;
+    osc.frequency.setValueAtTime(p.boomF0 || 120, now); osc.frequency.exponentialRampToValueAtTime(p.boomF1 || 55, now+bd);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(p.boomGain, now+0.002); g.gain.exponentialRampToValueAtTime(0.001, now+bd+0.01);
+    osc.connect(g).connect(master); osc.start(now); osc.stop(now+bd+0.02); }
+}
+function playGunshotPistol() { playGunshotSynth({ vol:0.50, crackFreq:6500, crackGain:0.9,  bodyFreq:800, bodyQ:0.9, bodyGain:0.70, ringGain:0.22, ringFreq:3000, boomGain:0.30, boomF0:140, boomF1:70, boomDur:0.05 }); }
+function playGunshotDeagle() { playGunshotSynth({ vol:0.85, crackFreq:5200, crackGain:1.1,  bodyFreq:430, bodyQ:0.7, bodyGain:0.95, ringGain:0.30, ringFreq:2300, boomGain:0.80, boomF0:115, boomF1:42, boomDur:0.14 }); }
+function playGunshotMp5()    { playGunshotSynth({ vol:0.55, crackDur:0.013, crackFreq:7200, crackGain:0.95, bodyFreq:780, bodyQ:1.0, bodyGain:0.62, ringGain:0.18, ringFreq:3400, boomGain:0.28, boomF0:130, boomF1:66, boomDur:0.05 }); }
+function playGunshotScar()   { playGunshotSynth({ vol:0.72, crackFreq:6000, crackGain:1.05, bodyFreq:520, bodyQ:0.8, bodyGain:0.85, ringGain:0.26, ringFreq:2700, boomGain:0.60, boomF0:118, boomF1:50, boomDur:0.11 }); }
 function playGunshot() {
   /* Prefer real samples if loaded */
   const _w = player.activeWeapon;
   if (_w === 'ak' || _w === 'ak74') {
     if (!_playSample(_gunSamples.ak)) playGunshotAk();
+  } else if (_w === 'm416') {
+    if (!_playSample(_gunSamples.m416)) playGunshotM416();
+  } else if (_w === 'glock') {
+    playGunshotPistol();
+  } else if (_w === 'deagle') {
+    playGunshotDeagle();
+  } else if (_w === 'mp5') {
+    playGunshotMp5();
+  } else if (_w === 'scar') {
+    playGunshotScar();
   } else {
     if (!_playSample(_gunSamples.m416)) playGunshotM416();
   }
@@ -7873,13 +7946,51 @@ function spawnBlood(point) {
 const shells = [];
 const _shellGeo = new THREE.CylinderGeometry(0.005, 0.005, 0.022, 8);
 const _shellMat = new THREE.MeshStandardMaterial({ color: 0xc09040, metalness: 0.85, roughness: 0.4 });
+/* Phase 4 — per-weapon ejection-port offsets (local to the weapon model).
+ * Right side of the receiver near the bolt; pistols eject closer/forward. */
+const _SHELL_PORTS = {
+  ak:     [0.045, 0.040,  0.000],
+  ak74:   [0.045, 0.050, -0.020],
+  m416:   [0.050, 0.045, -0.050],
+  scar:   [0.050, 0.050, -0.050],
+  mp5:    [0.040, 0.050, -0.100],
+  glock:  [0.030, 0.040, -0.050],
+  deagle: [0.035, 0.050, -0.050]
+};
+/* Small metallic brass 'tink' when an ejected casing hits the ground. */
+function playShellTink() {
+  if (!audioCtx) return;
+  const ctx = audioCtx; const now = ctx.currentTime;
+  const out = ctx.createGain();
+  out.gain.value = 0.10;
+  out.connect(audioBus ? audioBus.preMaster : ctx.destination);
+  for (const part of [[3200, 0.9], [5300, 0.5]]) {
+    const o = ctx.createOscillator(); o.type = 'triangle';
+    o.frequency.setValueAtTime(part[0] * (0.96 + Math.random() * 0.08), now);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(part[1], now + 0.001);
+    g.gain.exponentialRampToValueAtTime(0.0008, now + 0.09);
+    o.connect(g).connect(out); o.start(now); o.stop(now + 0.10);
+  }
+}
+/* Phase 4 (W12) — recent-gunshot blips for the minimap. */
+const _gunPings = [];
+function addGunPing(x, z, enemy) {
+  _gunPings.push({ x: x, z: z, t: performance.now() / 1000, enemy: !!enemy });
+  if (_gunPings.length > 40) _gunPings.shift();
+}
 function spawnShell() {
   /* Spawn a brass shell at the ejection port (right side of receiver) and
    * give it velocity to the right & slightly up, with a bit of spin. */
   const shell = new THREE.Mesh(_shellGeo, _shellMat);
-  /* compute world position of ejection port (right side of receiver) */
-  const portLocal = new THREE.Vector3(0.045, 0.04, 0.0);
-  ak.localToWorld(portLocal);
+  /* compute world position of the ejection port on the ACTIVE weapon (was
+   * hard-coded to the AK before — brass now flies from whatever you hold). */
+  const _wObj = (typeof activeWeaponObj === 'function') ? activeWeaponObj() : null;
+  const _portSrc = _wObj || ak;
+  const _po = _SHELL_PORTS[player.activeWeapon] || [0.045, 0.04, 0.0];
+  const portLocal = new THREE.Vector3(_po[0], _po[1], _po[2]);
+  _portSrc.localToWorld(portLocal);
   shell.position.copy(portLocal);
   shell.rotation.z = Math.PI / 2;
   scene.add(shell);
@@ -9029,6 +9140,25 @@ function updatePlayer(dt) {
   weapon.position.lerp(tgtBlended, 1 - Math.pow(0.0001, dt));
   weapon.rotation.x += (tgtRotX - weapon.rotation.x) * (1 - Math.pow(0.0001, dt));
 
+  /* === IRON-SIGHT AUTO-ZERO (Phase 3c, all weapons) =====================
+   * Bullets are spawned at the muzzle and travel toward screen centre, so
+   * the iron sight picture must sit on that exact point or "мушка ниже линии
+   * огня". Instead of hand-tuning adsY per gun, we read the modelled front
+   * sight's world position every frame while ADS and shift the whole weapon
+   * so the sight lands on the crosshair. Self-correcting for every weapon. */
+  if (player.adsT > 0.2 && activeSight === 'iron' && player.activeWeapon &&
+      WEAPON_OBJS[player.activeWeapon]) {
+    const _fsObj = WEAPON_OBJS[player.activeWeapon].userData.frontSight;
+    if (_fsObj) {
+      weapon.updateWorldMatrix(true, true);
+      const _fsW = _fsObj.getWorldPosition(new THREE.Vector3());
+      const _fsL = camera.worldToLocal(_fsW);   /* weapon is a child of camera */
+      const _k = Math.min(1, player.adsT);
+      weapon.position.x -= _fsL.x * _k;
+      weapon.position.y -= _fsL.y * _k;
+    }
+  }
+
   const adsFov = (activeSight === 'scope_3x') ? 24 : 55;
   /* Use adsT for FOV — heavy weapons take longer to scope in */
   const targetFov = THREE.MathUtils.lerp(78, adsFov, player.adsT);
@@ -9345,6 +9475,7 @@ function updatePlayer(dt) {
     const groundY = terrainHeight(sh.obj.position.x, sh.obj.position.z) + 0.011;
     if (sh.obj.position.y < groundY) {
       sh.obj.position.y = groundY;
+      if (!sh.tinked && sh.vel.y < -1.5) { sh.tinked = true; playShellTink(); }
       sh.vel.y = -sh.vel.y * 0.35;
       sh.vel.x *= 0.6;
       sh.vel.z *= 0.6;
@@ -9863,6 +9994,8 @@ function botShoot(bot, dist) {
   spawnTracer(muzzlePos, target);
   /* E4 — pass position so the shot is stereo-localized */
   playEnemyShot(dist, muzzlePos);
+  /* W12 — drop a fading red blip on the minimap so the player can locate fire */
+  addGunPing(muzzlePos.x, muzzlePos.z, true);
   /* E1 — sub-sonic CRACK / supersonic boom: when an enemy bullet's flight
    * path passes within 1.5m of the player, play a short whip sound. This
    * gives crucial directional/spatial feedback for shots that miss close. */
@@ -10184,7 +10317,34 @@ function drawMinimap() {
       ctx.fill();
     }
   }
-  /* recent gunshots — fade highlights */
+  /* recent gunshots — fade highlights (W12): enemy fire blooms a red ring
+   * that fades over ~2.5s. Off-edge fire is clamped to the rim as a tick so
+   * distant shooters still register a direction. */
+  if (_gunPings.length) {
+    const nowP = performance.now() / 1000;
+    const PING_LIFE = 2.5;
+    const rmax = W / 2 - 5;
+    for (let i = _gunPings.length - 1; i >= 0; i--) {
+      const p = _gunPings[i];
+      const age = nowP - p.t;
+      if (age > PING_LIFE) { _gunPings.splice(i, 1); continue; }
+      const fade = 1 - age / PING_LIFE;
+      let [px, py] = w2m(p.x, p.z);
+      const ddx = px - cx, ddy = py - cy;
+      const dlen = Math.hypot(ddx, ddy) || 1;
+      let rim = false;
+      if (dlen > rmax) { px = cx + ddx / dlen * rmax; py = cy + ddy / dlen * rmax; rim = true; }
+      const col = p.enemy ? '255,70,60' : '230,230,230';
+      if (!rim) {
+        const rr = 2 + (1 - fade) * 7;
+        ctx.strokeStyle = 'rgba(' + col + ',' + fade.toFixed(3) + ')';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(px, py, rr, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.fillStyle = 'rgba(' + col + ',' + (fade * 0.9).toFixed(3) + ')';
+      ctx.beginPath(); ctx.arc(px, py, rim ? 3 : 1.6, 0, Math.PI * 2); ctx.fill();
+    }
+  }
   /* player triangle — pointed in facing direction */
   const facing = new THREE.Vector3();
   camera.getWorldDirection(facing);

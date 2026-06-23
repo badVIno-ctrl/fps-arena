@@ -685,7 +685,7 @@ renderer.toneMappingExposure = 1.05;
   scene.environment = envTex;
   /* Keep IBL subtle: 0.4 prevents fatigue/wood materials from looking
    * waxy / over-lit. Metallic surfaces still pick up clear reflections. */
-  if ('environmentIntensity' in scene) scene.environmentIntensity = 0.4;
+  if ('environmentIntensity' in scene) scene.environmentIntensity = 0.6;   /* phase 2: richer IBL reflections (was 0.4) */
   pmrem.dispose();
 }
 
@@ -1149,7 +1149,7 @@ function updateStorm(dt) {
     if (_storm.flash > 0) scene.fog.color.copy(_storm._fogBase).lerp(_WHITE, _storm.flash * 0.7);
     else scene.fog.color.copy(_storm._fogBase);
   }
-  renderer.toneMappingExposure = 1.05 + _storm.flash * 0.55;
+  renderer.toneMappingExposure = (_storm.baseExposure != null ? _storm.baseExposure : 1.05) + _storm.flash * 0.55;
 }
 
 /* Update rain — recycle drops back up when they fall below ground.
@@ -1269,6 +1269,52 @@ const concreteTex = tex(makeNoiseCanvas(128, () => {
 }), 1);
 
 /* ========================================================================
+   PHASE 2 — PROCEDURAL NORMAL MAPS
+   ------------------------------------------------------------------------
+   Surfaces above had albedo (color) only and no normal maps, so every
+   wall / crate / floor was flat-shaded → the "plastic toy" look. We derive
+   tangent-space normal maps from a smooth height function (Sobel gradient).
+   Normal maps MUST stay linear (NoColorSpace) or lighting breaks.
+   ======================================================================== */
+const _nh = (x, y) => { const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return s - Math.floor(s); };
+function _vnoise(x, y) {
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+  const u = xf*xf*(3-2*xf), v = yf*yf*(3-2*yf);
+  const a = _nh(xi,yi), b = _nh(xi+1,yi), c = _nh(xi+1,yi+1), d = _nh(xi,yi+1);
+  return a*(1-u)*(1-v) + b*u*(1-v) + d*(1-u)*v + c*u*v;
+}
+const _fbm = (x, y) => _vnoise(x, y)*0.6 + _vnoise(x*2.1, y*2.1)*0.3 + _vnoise(x*4.3, y*4.3)*0.1;
+function makeNormalCanvas(size, heightFn, strength = 1.0) {
+  const h = new Float32Array(size * size);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) h[y*size+x] = heightFn(x, y, size);
+  const at = (x, y) => { const xx = ((x % size)+size)%size; const yy = ((y % size)+size)%size; return h[yy*size+xx]; };
+  const cv = document.createElement('canvas'); cv.width = cv.height = size;
+  const ctx = cv.getContext('2d'); const img = ctx.createImageData(size, size);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const dx = (at(x-1,y) - at(x+1,y)) * strength;
+      const dy = (at(x,y-1) - at(x,y+1)) * strength;
+      let nx = dx, ny = dy, nz = 1.0;
+      const len = Math.hypot(nx, ny, nz) || 1; nx/=len; ny/=len; nz/=len;
+      const i = (y*size+x)*4;
+      img.data[i] = (nx*0.5+0.5)*255; img.data[i+1] = (ny*0.5+0.5)*255; img.data[i+2] = (nz*0.5+0.5)*255; img.data[i+3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0); return cv;
+}
+function normTex(canvas, repeat = 1) {
+  const t = new THREE.CanvasTexture(canvas);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat, repeat);
+  t.colorSpace = THREE.NoColorSpace; t.anisotropy = 8; return t;
+}
+const concreteNormal = normTex(makeNormalCanvas(128, (x,y)=> _fbm(x*0.10,y*0.10) + (_nh(Math.floor(x*0.5),Math.floor(y*0.5))<0.04?-0.6:0), 2.2), 1);
+const metalNormal    = normTex(makeNormalCanvas(128, (x,y)=> _fbm(x*0.06,y*0.5)*0.7, 1.0), 1);
+const woodNormal     = normTex(makeNormalCanvas(128, (x,y)=> (Math.sin(y*0.18+Math.sin(x*0.05)*2)*0.5+0.5)*0.7 + _fbm(x*0.2,y*0.2)*0.3, 1.6), 1);
+const barkNormal     = normTex(makeNormalCanvas(128, (x,y)=> (Math.sin(y*0.4)*0.5+0.5)*0.7 + _fbm(x*0.3,y*0.15)*0.3, 2.2), 2);
+const dirtNormal     = normTex(makeNormalCanvas(128, (x,y)=> _fbm(x*0.12,y*0.12), 1.4), 40);
+const grassNormal    = normTex(makeNormalCanvas(256, (x,y)=> _fbm(x*0.05,y*0.05), 1.0), 60);
+
+/* ========================================================================
    TERRAIN
    ======================================================================== */
 const TERRAIN_SIZE = 400;
@@ -1379,6 +1425,9 @@ for (let i = 0; i < tPos.count; i++) {
 terrainGeo.computeVertexNormals();
 const terrainMat = new THREE.MeshStandardMaterial({ map: grassTex, roughness: 0.9, metalness: 0 });
 terrainMat.envMapIntensity = 0.85;
+/* phase 2: micro-relief on the ground so it stops reading as flat plastic */
+terrainMat.normalMap = grassNormal;
+terrainMat.normalScale = new THREE.Vector2(0.5, 0.5);
 /* STAGE 7 — crisp the ground at grazing angles with full GPU anisotropy. */
 try {
   const _maxAniso = renderer.capabilities.getMaxAnisotropy();
@@ -4093,6 +4142,11 @@ function createAK47() {
   const rsRightFin = new THREE.Mesh(fin, darkMetal);
   rsRightFin.position.set( 0.013, 0.075, -0.118);
   ak.add(rsRightFin);
+  /* Phase 4: rear-notch anchor (between the fins) for iron-sight auto-align */
+  const rsAnchorAk = new THREE.Object3D();
+  rsAnchorAk.position.set(0, 0.075, -0.118);
+  ak.add(rsAnchorAk);
+  ak.userData.rearSight = rsAnchorAk;
 
   /* Magazine ��� curved banana shape (5 segments, increasing curve).
    * Wrapped in a Group so it can be DETACHED during the reload animation.
@@ -4669,6 +4723,7 @@ function createGlock18() {
   const rSight = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.010, 0.008), polished);
   rSight.position.set(0, 0.076, 0.010);
   bolt.add(rSight);
+  g.userData.rearSight = rSight;   /* Phase 4: iron-sight auto-align anchor */
   const port = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.016, 0.034), poly);
   port.position.set(0.018, 0.056, -0.05);
   bolt.add(port);
@@ -4769,6 +4824,7 @@ function createDeagle() {
   const rSight = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.012, 0.010), polished);
   rSight.position.set(0, 0.090, 0.012);
   bolt.add(rSight);
+  g.userData.rearSight = rSight;   /* Phase 4: iron-sight auto-align anchor */
   const port = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.020, 0.040), dark);
   port.position.set(0.023, 0.064, -0.06);
   bolt.add(port);
@@ -4892,6 +4948,7 @@ function createAK74() {
   const rearSight = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.012, 0.016), polished);
   rearSight.position.set(0, 0.052, -0.14);
   g.add(rearSight);
+  g.userData.rearSight = rearSight;   /* Phase 4: iron-sight auto-align anchor */
 
   /* AK-74 signature muzzle brake */
   const brakeBody = new THREE.Mesh(new THREE.CylinderGeometry(0.020, 0.020, 0.075, 14), dark);
@@ -5016,6 +5073,7 @@ function createScarH() {
   const rearAp = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.012, 0.006), polished);
   rearAp.position.set(0, 0.090, 0.00);
   g.add(rearAp);
+  g.userData.rearSight = rearAp;   /* Phase 4: iron-sight auto-align anchor */
 
   const pgrip = new THREE.Mesh(new THREE.BoxGeometry(0.030, 0.090, 0.038), fde);
   pgrip.position.set(0, -0.030, 0.015);
@@ -5165,6 +5223,7 @@ function createMP5() {
   rearDrum.rotation.z = Math.PI / 2;
   rearDrum.position.set(0, 0.064, 0.02);
   g.add(rearDrum);
+  g.userData.rearSight = rearDrum;   /* Phase 4: iron-sight auto-align anchor */
 
   const pgrip = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.085, 0.036), dark);
   pgrip.position.set(0, -0.020, 0.025);
@@ -6230,7 +6289,11 @@ function _updateAttachmentsVisual(dt) {
   if (lst) lst.textContent = player.laserOn ? 'ON' : 'OFF';
   const gslot = document.getElementById('slot-foregrip');
   if (gslot) gslot.style.display = player.inv.hasForegrip ? '' : 'none';
-  const want = !!(player.inv.hasLaser && player.laserOn && aw);
+  /* Phase 4: while sprinting (or when the gun is lowered to avoid clipping)
+   * the emitter swings off the bore axis, so the beam visibly "уводит". Hide
+   * it then — a laser only reads correctly in a ready/aim stance. */
+  const _laserStable = !((player._sprintLowT || 0) > 0.2) && !((player._weaponLowT || 0) > 0.4);
+  const want = !!(player.inv.hasLaser && player.laserOn && aw) && _laserStable;
   laserBeam.visible = want;
   laserDot.visible = want;
   if (!want) return;
@@ -6921,11 +6984,12 @@ function triggerDeafTone(t0) {
   /* Subtle muffle — only lows-mids slightly ducked, recovers in 0.45s */
   f.setValueAtTime(2400, t0);
   f.exponentialRampToValueAtTime(16000, t0 + 0.45);
-  /* Tinnitus ring — quieter (0.006 vs 0.020 before) and decays in 0.6s
-   * instead of 1.4s. Almost subliminal; doesn't overpower the gunshot. */
+  /* phase 3: REMOVED the 5500Hz tinnitus sine — it read as an electronic
+   * "писк"/beep layered over every shot. We keep ONLY the brief low-pass
+   * muffle above (a realistic ear-duck); the tinnitus gain is forced to
+   * stay fully silent. */
+  tg.cancelScheduledValues(t0);
   tg.setValueAtTime(0.0, t0);
-  tg.linearRampToValueAtTime(0.006, t0 + 0.015);
-  tg.exponentialRampToValueAtTime(0.0001, t0 + 0.6);
 }
 
 /* === REAL GUNSHOT SAMPLES (optional) ================================
@@ -6988,7 +7052,7 @@ function playGunshotSynth(p) {
   /* L1 — initial crack */
   { const dur = p.crackDur || 0.016; const src = ctx.createBufferSource(); src.buffer = _shotNoiseBuf(ctx, dur, 300);
     const hp = ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value = p.crackHp || 2000;
-    const pk = ctx.createBiquadFilter(); pk.type='peaking'; pk.frequency.value = p.crackFreq || 7000; pk.Q.value=1.4; pk.gain.value=16;
+    const pk = ctx.createBiquadFilter(); pk.type='peaking'; pk.frequency.value = p.crackFreq || 7000; pk.Q.value=1.0; pk.gain.value=8;   /* phase 3b: broadened (was Q1.4/+16) — a narrow high-gain peak on noise rings like a bell; this was the shared "колокольчик" on SCAR/MP5/pistol */
     const g = ctx.createGain(); g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(p.crackGain || 1.1, now+0.0006); g.gain.exponentialRampToValueAtTime(0.001, now+dur);
     src.connect(hp).connect(pk).connect(g).connect(master); src.start(now); src.stop(now+dur+0.005); }
   /* L2 — body punch */
@@ -6999,7 +7063,7 @@ function playGunshotSynth(p) {
   /* L3 — bright ring */
   if (p.ringGain) { const dur = p.ringDur || 0.07; const src = ctx.createBufferSource(); src.buffer = _shotNoiseBuf(ctx, dur, 40);
     const hp = ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value = 1400;
-    const pk = ctx.createBiquadFilter(); pk.type='peaking'; pk.frequency.value = p.ringFreq || 3200; pk.Q.value=1.8; pk.gain.value=10;
+    const pk = ctx.createBiquadFilter(); pk.type='peaking'; pk.frequency.value = p.ringFreq || 3200; pk.Q.value=0.9; pk.gain.value=5;   /* phase 3: broadened (was Q1.8/+10) so the noise ring is broadband, not a tonal "колокольчик" */
     const g = ctx.createGain(); g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(p.ringGain, now+0.001); g.gain.exponentialRampToValueAtTime(0.001, now+dur);
     src.connect(hp).connect(pk).connect(g).connect(master); src.start(now); src.stop(now+dur+0.005); }
   /* L4 — barrel boom */
@@ -7172,7 +7236,7 @@ function playGunshotAk() {
     const hp = ctx.createBiquadFilter(); hp.type = 'highpass';
     hp.frequency.value = 1800;
     const peak = ctx.createBiquadFilter();
-    peak.type = 'peaking'; peak.frequency.value = 5000; peak.Q.value = 1.6; peak.gain.value = 14;
+    peak.type = 'peaking'; peak.frequency.value = 5000; peak.Q.value = 1.0; peak.gain.value = 8;   /* phase 3b: broadened (was Q1.6/+14) — killed the AK/AK74 crack "ting" */
     const g = ctx.createGain();
     g.gain.setValueAtTime(0.0, now);
     g.gain.linearRampToValueAtTime(1.05, now + 0.001);
@@ -7181,21 +7245,23 @@ function playGunshotAk() {
     src.start(now); src.stop(now + dur + 0.005);
   }
 
-  /* 2) METALLIC SHIMMER — звонкость! Two short triangle oscillators
-   *    around 7-8 kHz that emulate the ring of phosphated steel. */
+  /* 2) MECHANICAL TOP-END — phase 3: replaced the 7.4/9.2 kHz triangle
+   *    oscillators (they rang like a BELL / "колокольчик"). Now a very
+   *    short high-passed white-noise burst → broadband metallic "tick" of
+   *    the bolt/action with NO tonal ring. */
   {
-    [7400, 9200].forEach((f, idx) => {
-      const osc = ctx.createOscillator();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(f, now);
-      osc.frequency.exponentialRampToValueAtTime(f * 0.7, now + 0.06);
-      const g = ctx.createGain();
-      g.gain.setValueAtTime(0.0, now);
-      g.gain.linearRampToValueAtTime(0.16 - idx * 0.03, now + 0.0008);
-      g.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
-      osc.connect(g).connect(master);
-      osc.start(now); osc.stop(now + 0.08);
-    });
+    const dur = 0.028;
+    const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) { const t = i / ctx.sampleRate; d[i] = (Math.random()*2-1) * Math.exp(-t * 140); }
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 4200;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0, now);
+    g.gain.linearRampToValueAtTime(0.13, now + 0.0008);
+    g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+    src.connect(hp).connect(g).connect(master);
+    src.start(now); src.stop(now + dur + 0.005);
   }
 
   /* 3) SNAP — band-pass click around 1.2kHz, gives definition to the pop */
@@ -7209,7 +7275,7 @@ function playGunshotAk() {
     }
     const src = ctx.createBufferSource(); src.buffer = buf;
     const bp = ctx.createBiquadFilter();
-    bp.type = 'bandpass'; bp.frequency.value = 1200; bp.Q.value = 1.4;
+    bp.type = 'bandpass'; bp.frequency.value = 1200; bp.Q.value = 0.9;   /* phase 3b: widened (was Q1.4) so the AK snap is a click, not a metallic ring */
     const g = ctx.createGain();
     g.gain.setValueAtTime(0.85, now);
     g.gain.exponentialRampToValueAtTime(0.001, now + dur);
@@ -7324,7 +7390,7 @@ function playGunshotM416() {
     const src = ctx.createBufferSource(); src.buffer = buf;
     const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2200;
     const peak = ctx.createBiquadFilter();
-    peak.type = 'peaking'; peak.frequency.value = 7800; peak.Q.value = 1.4; peak.gain.value = 18;
+    peak.type = 'peaking'; peak.frequency.value = 7800; peak.Q.value = 1.0; peak.gain.value = 9;   /* phase 3b: broadened (was Q1.4/+18) — killed the M416 crack "ting" */
     const g = ctx.createGain();
     g.gain.setValueAtTime(0.0, now);
     g.gain.linearRampToValueAtTime(1.20, now + 0.0006);
@@ -7366,9 +7432,9 @@ function playGunshotM416() {
     const src = ctx.createBufferSource(); src.buffer = buf;
     const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1500;
     const peak = ctx.createBiquadFilter();
-    peak.type = 'peaking'; peak.frequency.value = 3000; peak.Q.value = 1.6; peak.gain.value = 10;
+    peak.type = 'peaking'; peak.frequency.value = 3000; peak.Q.value = 0.9; peak.gain.value = 6;   /* phase 3: broadened (was Q1.6/+10) to kill the tonal ring */
     const peak2 = ctx.createBiquadFilter();
-    peak2.type = 'peaking'; peak2.frequency.value = 5500; peak2.Q.value = 2.0; peak2.gain.value = 7;
+    peak2.type = 'peaking'; peak2.frequency.value = 5500; peak2.Q.value = 1.0; peak2.gain.value = 4;   /* phase 3: broadened (was Q2.0/+7) */
     const g = ctx.createGain();
     g.gain.setValueAtTime(0.0, now);
     g.gain.linearRampToValueAtTime(0.42, now + 0.001);
@@ -9726,9 +9792,30 @@ function updatePlayer(dt) {
     /* W6 — every weapon stores its own iron-sight ADS offset in WEAPON_STATS.
      * Use it when present; keep the original AK/M416 branches as fallback. */
     const _adsSt = WEAPON_STATS[player.activeWeapon];
+    /* Phase 4: derive ADS pitch from the modelled rear+front sight so the
+     * sight LINE is parallel to the view axis (a proper sight picture). The
+     * hand-tuned adsRotX constants had the WRONG SIGN on several guns
+     * (AK/AK74/SCAR) and 0 on the Deagle, which tilted the receiver up into
+     * view ("смотришь в само оружие"). We read the real geometry once and
+     * cancel the rear→front slope; validated against M416's good -0.0146. */
+    let _ironRotX = null;
+    const _wIron = WEAPON_OBJS[player.activeWeapon];
+    if (_wIron && _wIron.userData.frontSight && _wIron.userData.rearSight) {
+      if (typeof _wIron.userData._ironSlope !== 'number') {
+        _wIron.updateWorldMatrix(true, true);
+        const _fW = _wIron.userData.frontSight.getWorldPosition(new THREE.Vector3());
+        const _rW = _wIron.userData.rearSight.getWorldPosition(new THREE.Vector3());
+        const _fL = _wIron.worldToLocal(_fW.clone());
+        const _rL = _wIron.worldToLocal(_rW.clone());
+        const _ddz = _fL.z - _rL.z;
+        _wIron.userData._ironSlope = (Math.abs(_ddz) > 1e-5)
+          ? -Math.atan((_fL.y - _rL.y) / _ddz) : 0;
+      }
+      _ironRotX = _wIron.userData._ironSlope;
+    }
     if (_adsSt && typeof _adsSt.adsY === 'number') {
       aimTarget = new THREE.Vector3(_adsSt.adsX || 0, _adsSt.adsY, _adsSt.adsZ);
-      aimRotX   = _adsSt.adsRotX || 0;
+      aimRotX   = (_ironRotX !== null) ? _ironRotX : (_adsSt.adsRotX || 0);
     } else if (isAk) {
       aimTarget = new THREE.Vector3(0, -0.072, -0.050);
       aimRotX   = -0.0255;
@@ -11690,9 +11777,10 @@ function updateSkyGradient() {
   const horRD = Math.round(220 - warmth * 50);
   const horGD = Math.round(180 - warmth * 30);
   const horBD = Math.round(160 + warmth * 60);
-  /* Night palette — deep blue, very dark */
-  const topRN = 8,  topGN = 12, topBN = 30;
-  const horRN = 18, horGN = 22, horBN = 42;
+  /* Night palette — moonlit blue (phase 1: lifted from near-black so the
+   * night reads as navigable dusk-blue instead of a flat dark-blue void). */
+  const topRN = 22, topGN = 30, topBN = 54;
+  const horRN = 40, horGN = 48, horBN = 72;
   /* Blend between night (d=0) and day (d=1) */
   const lerp = (a, b) => Math.round(a + (b - a) * d);
   const topR = lerp(topRN, topRD), topG = lerp(topGN, topGD), topB = lerp(topBN, topBD);
@@ -11722,7 +11810,13 @@ const dayNight = {
   nightLen: 120,        /* 2 min of full night */
   dawnLen:  30,         /* sunrise transition in seconds */
   duskLen:  30,         /* sunset transition in seconds */
-  t0: performance.now() / 1000,
+  /* FIX (phase 0): start 90s INTO the day so the game opens at full
+   * daylight. Previously t0 = now put the very first frame at t≈0, which
+   * falls in the dawn ramp (dl=smoothstep(0)=0) — i.e. the player spawned
+   * at midnight: deep-blue sky, near-zero light, fog pulled to 18m. That
+   * read as a "blue/black screen" right after spawn. 90s sits safely in
+   * the flat daytime plateau [dawnLen .. dayLen-duskLen] = [30 .. 570]. */
+  t0: performance.now() / 1000 - 90,
   daylight: 1,
   isNight: false
 };
@@ -11772,26 +11866,31 @@ function updateDayNight() {
   );
   sun.target.position.set(cx, 0, cz);
   /* Light intensities */
-  sun.intensity     = THREE.MathUtils.lerp(0.0,  0.95, dl);
-  hemi.intensity    = THREE.MathUtils.lerp(0.08, 0.85, dl);
-  ambient.intensity = THREE.MathUtils.lerp(0.06, 0.62, dl);
+  sun.intensity     = THREE.MathUtils.lerp(0.16, 0.95, dl);   /* phase 1: soft "moonlight" directional at night (was 0.0) */
+  hemi.intensity    = THREE.MathUtils.lerp(0.32, 0.85, dl);   /* phase 1: lifted night floor (was 0.08) */
+  ambient.intensity = THREE.MathUtils.lerp(0.30, 0.62, dl);   /* phase 1: lifted night floor (was 0.06) */
+  /* Phase 1: adaptive exposure — open the night up so the moonlit scene
+   * reads without crushing to black; neutral 1.05 in full day. Stored on
+   * _storm so the lightning pass layers its flash on top of this base. */
+  const _nightExposure = THREE.MathUtils.lerp(1.28, 1.05, dl);
+  renderer.toneMappingExposure = _nightExposure;
   /* Hemi sky color blends from deep night-blue to overcast grey */
   hemi.color.setRGB(
-    THREE.MathUtils.lerp(0.06, 0.71, dl),
-    THREE.MathUtils.lerp(0.08, 0.76, dl),
-    THREE.MathUtils.lerp(0.18, 0.81, dl)
+    THREE.MathUtils.lerp(0.20, 0.71, dl),
+    THREE.MathUtils.lerp(0.24, 0.76, dl),
+    THREE.MathUtils.lerp(0.34, 0.81, dl)
   );
   hemi.groundColor.setRGB(
-    THREE.MathUtils.lerp(0.04, 0.31, dl),
-    THREE.MathUtils.lerp(0.04, 0.29, dl),
-    THREE.MathUtils.lerp(0.06, 0.24, dl)
+    THREE.MathUtils.lerp(0.12, 0.31, dl),
+    THREE.MathUtils.lerp(0.12, 0.29, dl),
+    THREE.MathUtils.lerp(0.16, 0.24, dl)
   );
   /* Fog near/far: at night, pull fog in MUCH closer so visibility is
    * cut to ~30m — matches the user's "20-80m fog" spec and lets the
    * flashlight beam read prominently. */
   if (scene.fog) {
-    scene.fog.near = THREE.MathUtils.lerp(18, 60, dl);
-    scene.fog.far  = THREE.MathUtils.lerp(70, 220, dl);
+    scene.fog.near = THREE.MathUtils.lerp(45, 60, dl);   /* phase 1: was 18 — night fog no longer chokes visibility to ~30m */
+    scene.fog.far  = THREE.MathUtils.lerp(150, 220, dl); /* phase 1: was 70 */
   }
   /* Disable expensive sun shadow map at night (sun barely contributes) */
   sun.castShadow = dl > 0.18;
@@ -11812,7 +11911,7 @@ function updateDayNight() {
     ambient.color.setRGB(1, 1, 1);
   }
   /* W13 — snapshot the clean base light so the storm flash layers on top */
-  if (typeof _storm !== 'undefined') { _storm.baseAmb = ambient.intensity; _storm.baseHemi = hemi.intensity; }
+  if (typeof _storm !== 'undefined') { _storm.baseAmb = ambient.intensity; _storm.baseHemi = hemi.intensity; _storm.baseExposure = _nightExposure; }
 }
 
 /* ---------------------------------------------------------------------------
@@ -12850,6 +12949,30 @@ function animate() {
     renderer.autoClear = _ac;
   }
 }
+
+/* === PHASE 2 — attach procedural normal maps to all static surfaces =====
+ * One-time traversal: any mesh whose albedo .map is one of our shared
+ * textures gets the matching normal map. Adds real surface relief under
+ * the moving sun/flashlight — the biggest single anti-"cartoon" win. Guarded
+ * so a failure here can never block the render loop. */
+function _applyDetailNormals() {
+  if (typeof scene === 'undefined') return;
+  const lookup = [
+    [concreteTex, concreteNormal], [metalTex, metalNormal], [woodTex, woodNormal],
+    [barkTex, barkNormal], [dirtTex, dirtNormal], [grassTex, grassNormal]
+  ];
+  scene.traverse((o) => {
+    if (!o.isMesh || !o.material) return;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    for (const m of mats) {
+      if (!m || !m.map || m.normalMap) continue;
+      for (const pair of lookup) {
+        if (m.map === pair[0]) { m.normalMap = pair[1]; m.normalScale = new THREE.Vector2(0.55, 0.55); m.needsUpdate = true; break; }
+      }
+    }
+  });
+}
+try { _applyDetailNormals(); } catch (_) {}
 animate();
 
 /* === DEBUG HOOKS === Expose key game state on window so DevTools console
@@ -14367,7 +14490,7 @@ if (PVP_MODE) {
       '<b>1</b> — пистолет | <b>2</b> — винтовка | <b>3</b> — спец | <b>4</b> — аптечка | <b>B</b> — прицел | <b>O</b> — глушитель<br><br>' +
       '<span style="color:#ff6040">РЕЖИМ:</span> PVP 1 на 1 с игроком <b style="color:#ff6040">' + PVP_OPPONENT + '</b><br>' +
       '<span style="color:#ffd060">СНАРЯЖЕНИЕ:</span> АКМ, M416, броня, шлем, рюкзак — выдаётся автоматически<br>' +
-      '<span style="color:#ff8a8a">ПРАВИЛА:</span> убейте противника. Респавн через 5 секунд. Раунды бесконечны.<br>' +
+      '<span style="color:#ff8a8a">ПРАВИЛА:</span> убейте противника. Респавн чере�� 5 секунд. Раунды бесконечны.<br>' +
       '<span style="color:#90ff90">СЧЁТ:</span> побеждает тот, кто убил противника. Счёт отображается в правом верхнем углу.';
   }
   if (TEAM_MODE) {
@@ -14382,7 +14505,7 @@ if (PVP_MODE) {
       const myName  = (TEAM_SIDE === 'A') ? 'СИНИЕ' : 'КРАСНЫЕ';
       if (ctrl) ctrl.innerHTML =
         '<b>WASD</b> — двигаться | <b>SHIFT</b> — бежать | <b>SPACE</b> — прыжок | <b>CTRL</b> — присесть | <b>Q / E</b> — наклон<br>' +
-        '<b>МЫ��Ь</b> — обзор | <b>ЛКМ</b> — стрелять | <b>ПКМ</b> — прицелиться | <b>R</b> — перезарядка<br>' +
+        '<b>МЫ��Ь</b> — обзор | <b>ЛКМ</b> — стрелять | <b>ПКМ</b> — прицелиться | <b>R</b> — перез��рядка<br>' +
         '<b>1</b> — пистолет | <b>2</b> — винтовка | <b>3</b> — спец | <b>4</b> — аптечка | <b>B</b> — прицел | <b>O</b> — глушитель<br><br>' +
         '<span style="color:' + myColor + '">КОМАНДА:</span> <b style="color:' + myColor + '">' + myName + '</b><br>' +
         '<span style="color:#ffd060">СНАРЯЖЕНИЕ:</span> АКМ, M416, броня, шлем — выдаётся автоматически<br>' +

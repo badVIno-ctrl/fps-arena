@@ -459,7 +459,7 @@
   <h1>OPERATION RIFLE</h1>
   <div class="subtitle">A K M&nbsp;·&nbsp;M 4 1 6&nbsp;·&nbsp;F P S</div>
   <div class="controls">
-    <b>WASD</b> — двигаться &nbsp;|&nbsp; <b>SHIFT</b> — бежать &nbsp;|&nbsp; <b>SPACE</b> — прыжок &nbsp;|&nbsp; <b>CTRL</b> — присесть &nbsp;|&nbsp; <b>Q / E</b> — наклон<br>
+    <b>WASD</b> — двигаться &nbsp;|&nbsp; <b>SHIFT</b> — бежать &nbsp;|&nbsp; <b>SPACE</b> — прыжок &nbsp;|&nbsp; <b>CTRL</b> — присесть &nbsp;|&nbsp; <b>Q / E</b> — накл��н<br>
     <b>МЫШЬ</b> — обзор &nbsp;|&nbsp; <b>ЛКМ</b> — стрелять &nbsp;|&nbsp; <b>ПКМ</b> — прицелиться &nbsp;|&nbsp; <b>R</b> — перезарядка<br>
     <b>1</b> — пистолет &nbsp;|&nbsp; <b>2</b> — винтовка &nbsp;|&nbsp; <b>3</b> — спец &nbsp;|&nbsp; <b>4</b> — аптечка &nbsp;|&nbsp; <b>B</b> — переключить прицел &nbsp;|&nbsp; <b>O</b> — глушитель &nbsp;|&nbsp; <b>F</b> — взять / пополнить &nbsp;|&nbsp; <b>ESC</b> — пауза<br><br>
     <span style="color:#ffd060">СТАРТ:</span> у тебя <b>пусто</b> (нет оружия, патронов, брони). У сруба — <b>ДОСКА СНАРЯЖЕНИЯ</b>. Подойди и нажми <b>F</b>, чтобы взять: <span style="color:#ffd066">АКМ</span>, <span style="color:#ffd066">M416</span>, <span style="color:#a0ffa0">бронежилет</span>, <span style="color:#a0c0ff">шлем</span>, <span style="color:#ffd066">рюкзак</span>, <span style="color:#ff7080">коллиматор</span>, <span style="color:#ff7080">прицел 3X</span>.<br>
@@ -584,8 +584,8 @@ canvas.addEventListener('webglcontextrestored', () => {
 
 const scene = new THREE.Scene();
 /* Overcast/rainy sky — desaturated, cool grey/blue */
-scene.background = new THREE.Color(0x8a929a);
-scene.fog = new THREE.Fog(0x8a929a, 60, 220);
+scene.background = new THREE.Color(0x7e858c);
+scene.fog = new THREE.Fog(0x7e858c, 48, 195);
 
 /* PMREM env was removed — added pressure on GPU texture memory and was
  * implicated in browser-tab crashes on lower-end machines. We rely on
@@ -625,13 +625,16 @@ window.addEventListener('resize', () => {
         1 / (window.innerHeight * pr)
       );
     }
+    if (typeof lensRainPass !== 'undefined') {
+      lensRainPass.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
+    }
   }
 });
 
 /* ========================================================================
    LIGHTING — overcast / stormy: soft hemi, very weak diffuse "sun-through-cloud"
    ======================================================================== */
-const hemi = new THREE.HemisphereLight(0xb6c2cf, 0x504a3e, 0.85);
+const hemi = new THREE.HemisphereLight(0x9aa4ad, 0x423d2e, 0.72);
 scene.add(hemi);
 
 /* Sun: cool diffuse light (sun-behind-clouds) — bright enough to see your gun.
@@ -658,7 +661,7 @@ scene.add(sun);
 scene.add(sun.target);
 
 /* Ambient — high enough that nothing goes pitch-black against the overcast sky */
-const ambient = new THREE.AmbientLight(0xaab0b6, 0.62);
+const ambient = new THREE.AmbientLight(0x9aa0a6, 0.42);
 scene.add(ambient);
 
 /* Tone mapping exposure: comfortable mid-range so weapon and bots are visible */
@@ -706,9 +709,9 @@ composer.addPass(new RenderPass(scene, camera));
  * not "blown-out" look. Muzzle flashes & sky highlights pop, walls don't. */
 const bloomPass = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
-  _urlParams.get('mode')==='team' ? 0.25 : 0.45,   /* strength */
-  0.60,   /* radius   */
-  0.85    /* threshold */
+  _urlParams.get('mode')==='team' ? 0.16 : 0.26,   /* strength */
+  0.55,   /* radius   */
+  0.90    /* threshold */
 );
 composer.addPass(bloomPass);
 /* FXAA — single pass, sub-pixel edge smoothing */
@@ -768,6 +771,104 @@ const BodycamShader = {
 };
 const bodycamPass = new ShaderPass(BodycamShader);
 composer.addPass(bodycamPass);
+/* === STAGE-1 COLOR GRADE — cinematic war-film look =======================
+ * Pulls overall saturation down (kills the cartoon palette), trims the
+ * green channel slightly, lifts contrast a touch, and applies a split-tone:
+ * cold teal in the shadows + warm desaturated tan in the highlights. Runs
+ * in linear space before OutputPass so it composes with bloom + ACES. One
+ * cheap full-screen pass — negligible GPU cost. Tunable via uniforms. */
+const ColorGradeShader = {
+  uniforms: {
+    tDiffuse:    { value: null },
+    uSaturation: { value: 0.80 },
+    uContrast:   { value: 1.06 },
+    uGreenTrim:  { value: 0.97 },
+    uTintAmt:    { value: 0.12 },
+    uShadowTint: { value: new THREE.Color(0x2b3a3e) },  /* cold teal  */
+    uHighTint:   { value: new THREE.Color(0x6e5d40) }   /* warm tan   */
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float uSaturation, uContrast, uGreenTrim, uTintAmt;
+    uniform vec3 uShadowTint, uHighTint;
+    varying vec2 vUv;
+    void main(){
+      vec3 col = texture2D(tDiffuse, vUv).rgb;
+      float l = dot(col, vec3(0.2126, 0.7152, 0.0722));
+      /* desaturate toward luminance */
+      col = mix(vec3(l), col, uSaturation);
+      /* tame leftover cartoon green */
+      col.g *= uGreenTrim;
+      /* mild contrast around mid-grey */
+      col = (col - 0.5) * uContrast + 0.5;
+      /* split-tone: shadows cold, highlights warm */
+      vec3 tint = mix(uShadowTint, uHighTint, smoothstep(0.0, 1.0, l));
+      col = mix(col, col + (tint - 0.5), uTintAmt);
+      gl_FragColor = vec4(max(col, 0.0), 1.0);
+    }
+  `
+};
+const colorGradePass = new ShaderPass(ColorGradeShader);
+composer.addPass(colorGradePass);
+/* === STAGE 3 — LENS RAIN — droplets on the camera "lens" ==================
+ * Procedural refracting raindrops clinging to the bodycam glass: each drop
+ * magnifies/warps the image beneath it and slowly creeps downward before
+ * resetting, with a faint wet-sheen highlight. One full-screen pass, a single
+ * texture fetch — negligible GPU cost. Sits just before OutputPass so it warps
+ * the final graded image like real glass. */
+const LensRainShader = {
+  uniforms: {
+    tDiffuse:    { value: null },
+    uTime:       { value: 0 },
+    uIntensity:  { value: 0.85 },
+    uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float uTime, uIntensity;
+    uniform vec2 uResolution;
+    varying vec2 vUv;
+    float h21(vec2 p){ p = fract(p * vec2(123.34, 345.45)); p += dot(p, p + 34.345); return fract(p.x * p.y); }
+    void main(){
+      float aspect = uResolution.x / max(uResolution.y, 1.0);
+      vec2 uv = vUv;
+      vec2 off = vec2(0.0);
+      float dropMask = 0.0;
+      for (float layer = 0.0; layer < 2.0; layer += 1.0){
+        float scale = 9.0 + layer * 7.0;
+        vec2 gv = vec2(uv.x * aspect, uv.y) * scale;
+        vec2 id = floor(gv);
+        vec2 f  = fract(gv) - 0.5;
+        float rnd = h21(id + layer * 51.7);
+        if (rnd > 0.5){
+          vec2 c = (vec2(h21(id + 2.1), h21(id + 7.3)) - 0.5) * 0.55;
+          float slide = fract(uTime * (0.04 + rnd * 0.06) + rnd);
+          c.y += 0.5 - slide;                 /* drop slowly creeps down, then resets */
+          float d = length(f - c);
+          float r = 0.10 + rnd * 0.14;
+          float drop = smoothstep(r, r * 0.25, d);
+          off += (f - c) * drop * 0.9;        /* lens refraction toward drop centre */
+          dropMask = max(dropMask, drop);
+          float trail = smoothstep(0.045, 0.0, abs(f.x - c.x)) * smoothstep(0.0, 0.4, c.y - f.y) * drop;
+          dropMask = max(dropMask, trail * 0.5);
+        }
+      }
+      vec3 col = texture2D(tDiffuse, uv + off * 0.06 * uIntensity).rgb;
+      col += dropMask * 0.06 * uIntensity;    /* faint wet sheen on the glass */
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `
+};
+const lensRainPass = new ShaderPass(LensRainShader);
+composer.addPass(lensRainPass);
 /* Final tonemap + sRGB blit (handled by OutputPass since the composer
  * internally uses linear half-float buffers when toneMapping is set on
  * the renderer). */
@@ -1016,17 +1117,23 @@ function tex(canvas, repeat = 1) {
 
 const grassTex = tex(makeNoiseCanvas(256, (x, y) => {
   const v = Math.random();
-  const dirt = Math.random() < 0.04;
-  if (dirt) return [80 + Math.random()*30, 60 + Math.random()*15, 40, 255];
-  const r = 50 + v * 30;
-  const g = 95 + v * 50;
-  const b = 35 + v * 20;
+  /* Trampled, rain-soaked field: mostly mud, sparse drab olive grass.
+   * Heavy dirt coverage + low-saturation khaki kills the cartoon-green look. */
+  const dirt = Math.random() < 0.30;
+  if (dirt) {
+    const m = Math.random();
+    return [54 + m*26, 43 + m*18, 30 + m*12, 255];   /* clay / wet mud */
+  }
+  const r = 60 + v * 22;
+  const g = 64 + v * 26;   /* was 95+50 — pulled way down toward olive */
+  const b = 40 + v * 12;
   return [r, g, b, 255];
 }), 60);
 
 const dirtTex = tex(makeNoiseCanvas(128, () => {
   const v = Math.random();
-  return [90 + v*40, 70 + v*30, 45 + v*20, 255];
+  /* Darker, browner, wetter dirt — reads as churned battlefield earth. */
+  return [62 + v*30, 47 + v*22, 32 + v*16, 255];
 }), 40);
 
 const woodTex = tex(makeNoiseCanvas(128, (x, y) => {
@@ -1056,7 +1163,9 @@ const barkTex = tex(makeNoiseCanvas(128, (x, y) => {
 
 const concreteTex = tex(makeNoiseCanvas(128, () => {
   const v = Math.random();
-  return [120 + v*40, 120 + v*38, 115 + v*35, 255];
+  /* Grimy grey-brown concrete with occasional dark stains — no more near-white. */
+  const stain = Math.random() < 0.14 ? -20 : 0;
+  return [80 + v*26 + stain, 78 + v*24 + stain, 72 + v*22 + stain, 255];
 }), 1);
 
 /* ========================================================================
@@ -1168,7 +1277,22 @@ for (let i = 0; i < tPos.count; i++) {
   tPos.setY(i, terrainHeight(x, z));
 }
 terrainGeo.computeVertexNormals();
-const terrainMat = new THREE.MeshStandardMaterial({ map: grassTex, roughness: 0.95, metalness: 0 });
+const terrainMat = new THREE.MeshStandardMaterial({ map: grassTex, roughness: 0.9, metalness: 0 });
+terrainMat.envMapIntensity = 0.85;
+/* === STAGE 2 — WET GROUND shader injection ============================
+ * Low-lying ground (trench + crater floors, y < ~0) darkens and turns
+ * glossy so it reads as rain-soaked mud that mirrors the overcast sky.
+ * Pure shader math driven by world-space height + noise — no extra
+ * textures, geometry, or per-frame cost. */
+terrainMat.onBeforeCompile = (shader) => {
+  shader.vertexShader = shader.vertexShader
+    .replace('#include <common>', '#include <common>\nvarying vec3 vWetPos;')
+    .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vWetPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+  shader.fragmentShader = shader.fragmentShader
+    .replace('#include <common>', '#include <common>\nvarying vec3 vWetPos;\nfloat _wetAt(vec3 p){ float w = smoothstep(0.5, -1.3, p.y); float n = sin(p.x*0.6)*sin(p.z*0.55)*0.5+0.5; return clamp(w*(0.55+0.45*n), 0.0, 1.0); }')
+    .replace('#include <map_fragment>', '#include <map_fragment>\n  diffuseColor.rgb *= mix(1.0, 0.4, _wetAt(vWetPos));')
+    .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n  roughnessFactor = mix(roughnessFactor, 0.1, _wetAt(vWetPos));');
+};
 const terrain = new THREE.Mesh(terrainGeo, terrainMat);
 terrain.receiveShadow = true;
 scene.add(terrain);
@@ -1177,7 +1301,7 @@ scene.add(terrain);
 const bladeGeo = new THREE.PlaneGeometry(0.18, 0.55);
 bladeGeo.translate(0, 0.275, 0);
 const bladeMat = new THREE.MeshStandardMaterial({
-  color: 0x4a7a30, side: THREE.DoubleSide, roughness: 1, transparent: true, alphaTest: 0.5
+  color: 0x5a5832, side: THREE.DoubleSide, roughness: 1, transparent: true, alphaTest: 0.5
 });
 /* simple alpha map shaped like a blade */
 const aCv = document.createElement('canvas'); aCv.width = aCv.height = 32;
@@ -1891,6 +2015,314 @@ addSandbagWall(-15, -115, 0, 7);
 addSandbagWall( 12, -125, 0.3, 5);
 addSandbagWall(-25, -132, 1.0, 5);
 addSandbagWall( 30, -125, 0.6, 5);
+
+/* ====================================================================
+   STAGE 2 — WET BATTLEFIELD: reflective puddles, damp mud patches, rain
+   ripples, footstep splashes, and "sticky" slowed movement in the muck.
+   Self-contained: arrays + factories + a single updateMud(dt) tick called
+   from animate(). Puddles reuse the scene env for reflections, so they
+   mirror the grey sky and read convincingly wet.
+   ==================================================================== */
+const MUD_ZONES = [];   /* {x,z,r,slow,puddle} — drives movement + footstep FX */
+const _puddles  = [];   /* {x,z,r,y} — ripple spawn targets */
+const _ripples  = [];   /* live expanding rain rings */
+const _splashes = [];   /* live footstep splash droplets */
+const _puddleGeoCache = new THREE.CircleGeometry(1, 30);
+const _rippleGeo = new THREE.RingGeometry(0.85, 1.0, 20);
+const _splashGeo = new THREE.SphereGeometry(0.035, 5, 4);
+
+function addMudPatch(cx, cz, radius, register = 0.6) {
+  const y = terrainHeight(cx, cz) + 0.012;
+  const mat = new THREE.MeshStandardMaterial({
+    map: dirtTex, color: 0x2c241a, roughness: 0.55, metalness: 0.0,
+    envMapIntensity: 0.7, transparent: true, opacity: 0.85, depthWrite: false
+  });
+  const mesh = new THREE.Mesh(_puddleGeoCache, mat);
+  mesh.scale.set(radius, radius, radius);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.set(cx, y, cz);
+  mesh.renderOrder = 1;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  if (register > 0) MUD_ZONES.push({ x: cx, z: cz, r: radius, slow: register, puddle: false });
+}
+
+function addPuddle(cx, cz, radius) {
+  const y = terrainHeight(cx, cz) + 0.02;
+  addMudPatch(cx, cz, radius * 1.5, 0.0);   /* darker wet-mud halo around the rim */
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0x0b0e0a, roughness: 0.06, metalness: 0.0,
+    envMapIntensity: 1.35, transparent: true, opacity: 0.9, depthWrite: false
+  });
+  const mesh = new THREE.Mesh(_puddleGeoCache, mat);
+  mesh.scale.set(radius, radius, radius);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.set(cx, y, cz);
+  mesh.renderOrder = 2;
+  scene.add(mesh);
+  _puddles.push({ x: cx, z: cz, r: radius, y });
+  MUD_ZONES.push({ x: cx, z: cz, r: radius, slow: 0.85, puddle: true });
+}
+
+function spawnRipple(x, y, z, scale0 = 0.12) {
+  const mat = new THREE.MeshBasicMaterial({
+    color: 0xb4bec6, transparent: true, opacity: 0.5,
+    side: THREE.DoubleSide, depthWrite: false
+  });
+  const m = new THREE.Mesh(_rippleGeo, mat);
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(x, y + 0.006, z);
+  m.scale.setScalar(scale0);
+  scene.add(m);
+  _ripples.push({ m, t: 0, life: 1.0 + Math.random() * 0.5, max: 0.5 + Math.random() * 0.7 });
+}
+
+function spawnSplash(x, y, z, n = 6, muddy = true) {
+  for (let i = 0; i < n; i++) {
+    const mat = new THREE.MeshBasicMaterial({
+      color: muddy ? 0x35291b : 0x97a4ac, transparent: true, opacity: 0.9, depthWrite: false
+    });
+    const m = new THREE.Mesh(_splashGeo, mat);
+    m.position.set(x, y + 0.03, z);
+    scene.add(m);
+    const a = Math.random() * Math.PI * 2;
+    const sp = 0.6 + Math.random() * 1.4;
+    _splashes.push({
+      m, vx: Math.cos(a) * sp, vz: Math.sin(a) * sp,
+      vy: 1.6 + Math.random() * 1.8, y0: y + 0.01, t: 0, life: 0.5 + Math.random() * 0.3
+    });
+  }
+}
+
+function playSquelch() {
+  if (!audioCtx) return;
+  const ctx = audioCtx, now = ctx.currentTime;
+  const dur = 0.18;
+  const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) { const t = i / ctx.sampleRate; d[i] = (Math.random() * 2 - 1) * Math.exp(-t * 14); }
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass';
+  bp.frequency.setValueAtTime(420, now);
+  bp.frequency.exponentialRampToValueAtTime(170, now + dur);
+  bp.Q.value = 1.4;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0, now);
+  g.gain.linearRampToValueAtTime(0.30, now + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+  src.connect(bp).connect(g).connect(audioBus ? audioBus.preMaster : ctx.destination);
+  src.start(now); src.stop(now + dur + 0.02);
+}
+
+let _mudOverlay = null, _mudOverlayAmt = 0;
+function _initMudOverlay() {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 512;
+  const x = cv.getContext('2d');
+  for (let i = 0; i < 110; i++) {
+    const px = Math.random() * 512, py = Math.random() * 512;
+    const edge = Math.min(px, py, 512 - px, 512 - py) / 256;
+    if (Math.random() < edge * 0.7) continue;   /* bias splatter to the frame edges */
+    const r = 4 + Math.random() * 34;
+    const a = 0.25 + Math.random() * 0.5;
+    const br = 28 + Math.random() * 22;
+    const g = x.createRadialGradient(px, py, 0, px, py, r);
+    g.addColorStop(0, 'rgba(' + (br|0) + ',' + ((br*0.8)|0) + ',' + ((br*0.55)|0) + ',' + a + ')');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = g; x.beginPath(); x.arc(px, py, r, 0, Math.PI * 2); x.fill();
+  }
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:5;opacity:0;'
+    + 'transition:opacity .25s ease-out;mix-blend-mode:multiply;'
+    + 'background-image:url(' + cv.toDataURL() + ');background-size:cover';
+  document.body.appendChild(el);
+  _mudOverlay = el;
+}
+function triggerMudScreen(amount = 0.85) {
+  if (!_mudOverlay) _initMudOverlay();
+  _mudOverlayAmt = Math.min(1, _mudOverlayAmt + amount);
+}
+
+let _rippleAcc = 0;
+function updateMud(dt) {
+  if (typeof player === 'undefined') return;
+  /* spawn rain ripples on puddles near the player */
+  if (_puddles.length) {
+    _rippleAcc += dt;
+    while (_rippleAcc >= 0.045) {
+      _rippleAcc -= 0.045;
+      let best = null, bestD = 1e9;
+      for (let k = 0; k < 6; k++) {
+        const p = _puddles[(Math.random() * _puddles.length) | 0];
+        const dx = p.x - player.position.x, dz = p.z - player.position.z;
+        const d = dx * dx + dz * dz;
+        if (d < bestD) { bestD = d; best = p; }
+      }
+      if (best && bestD < 900) {
+        const a = Math.random() * Math.PI * 2;
+        const rr = Math.sqrt(Math.random()) * best.r * 0.9;
+        spawnRipple(best.x + Math.cos(a) * rr, best.y, best.z + Math.sin(a) * rr);
+      }
+    }
+  }
+  for (let i = _ripples.length - 1; i >= 0; i--) {
+    const r = _ripples[i]; r.t += dt;
+    const f = r.t / r.life;
+    if (f >= 1) { scene.remove(r.m); r.m.material.dispose(); _ripples.splice(i, 1); continue; }
+    r.m.scale.setScalar(0.1 + r.max * f);
+    r.m.material.opacity = 0.5 * (1 - f);
+  }
+  for (let i = _splashes.length - 1; i >= 0; i--) {
+    const s = _splashes[i]; s.t += dt; s.vy -= 9.0 * dt;
+    s.m.position.x += s.vx * dt; s.m.position.z += s.vz * dt; s.m.position.y += s.vy * dt;
+    if (s.t >= s.life || s.m.position.y <= s.y0) { scene.remove(s.m); s.m.material.dispose(); _splashes.splice(i, 1); }
+  }
+  if (_mudOverlay) {
+    _mudOverlayAmt = Math.max(0, _mudOverlayAmt - dt * 0.5);
+    _mudOverlay.style.opacity = (_mudOverlayAmt * 0.7).toFixed(3);
+  }
+}
+
+/* Puddles in every trench floor (deepest, wettest spots) */
+for (let i = 0; i < TRENCH_RECTS.length; i++) {
+  const t = TRENCH_RECTS[i];
+  addPuddle(t.cx, t.cz, Math.min(t.halfX, t.halfZ) * 0.9 + 0.4);
+}
+/* Puddles in craters (negative-amp terrain bumps) */
+for (let i = 0; i < TERRAIN_BUMPS.length; i++) {
+  const b = TERRAIN_BUMPS[i];
+  if (b.amp < 0) addPuddle(b.cx, b.cz, Math.min(b.r * 0.4, 3.2));
+}
+/* Hand-placed puddles + churned mud along the advance corridor */
+const _CORRIDOR_PUDDLES = [
+  [3,-50,2.0],[-18,-42,1.6],[22,-38,1.8],[0,-65,2.2],[-22,-72,1.6],
+  [14,-90,1.7],[4,-110,2.0],[-18,-118,1.5],[20,-118,1.6],[0,-132,1.8],
+  [-8,-10,1.4],[18,5,1.3]
+];
+for (let i = 0; i < _CORRIDOR_PUDDLES.length; i++) { const p = _CORRIDOR_PUDDLES[i]; addPuddle(p[0], p[1], p[2]); }
+const _MUD_TRAILS = [[0,-25,5],[0,-55,5],[0,-80,6],[0,-108,5],[0,-125,5],[6,-15,4],[-6,-95,4]];
+for (let i = 0; i < _MUD_TRAILS.length; i++) { const m = _MUD_TRAILS[i]; addMudPatch(m[0], m[1], m[2], 0.5); }
+
+/* ====================================================================
+   STAGE 3 — BATTLEFIELD DEBRIS: low-poly scatter that breaks up the bare
+   ground and sells "aftermath of fighting" — splintered planks & posts,
+   smashed crates, helmets, rubble, plus instanced brass shell casings
+   clustered around the fighting positions. Shared geometries/materials and
+   one InstancedMesh keep the draw-call/cost budget tiny. Cosmetic only
+   (no colliders) so they never snag player movement.
+   ==================================================================== */
+function scatterBattlefieldDebris() {
+  const woodMat     = new THREE.MeshStandardMaterial({ map: woodTex, color: 0x5a4226, roughness: 0.95 });
+  const darkWoodMat = new THREE.MeshStandardMaterial({ map: woodTex, color: 0x3a2c1a, roughness: 1.0 });
+  const metalMat    = new THREE.MeshStandardMaterial({ map: metalTex, color: 0x55504a, roughness: 0.7, metalness: 0.45 });
+  const rockMat     = new THREE.MeshStandardMaterial({ color: 0x4a443d, roughness: 1.0, flatShading: true });
+  const helmetMat   = new THREE.MeshStandardMaterial({ color: 0x394038, roughness: 0.85, metalness: 0.2 });
+
+  const plankGeo  = new THREE.BoxGeometry(1.4, 0.08, 0.22);
+  const postGeo   = new THREE.CylinderGeometry(0.07, 0.09, 1.6, 6);
+  const crateGeo  = new THREE.BoxGeometry(0.7, 0.5, 0.45);
+  const rockGeo   = new THREE.IcosahedronGeometry(0.25, 0);
+  const helmetGeo = new THREE.SphereGeometry(0.22, 10, 8, 0, Math.PI * 2, 0, Math.PI * 0.55);
+
+  function place(geo, mat, x, z, yOff, scl) {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, terrainHeight(x, z) + yOff, z);
+    m.rotation.set((Math.random() - 0.5) * 0.5, Math.random() * Math.PI * 2, (Math.random() - 0.5) * 0.5);
+    if (scl) m.scale.setScalar(scl);
+    m.castShadow = true; m.receiveShadow = true;
+    scene.add(m);
+    return m;
+  }
+
+  for (let i = 0; i < 30; i++) {
+    const x = (Math.random() - 0.5) * 84;
+    const z = 12 - Math.random() * 152;
+    const t = Math.random();
+    if (t < 0.32) {
+      const m = place(plankGeo, Math.random() < 0.5 ? woodMat : darkWoodMat, x, z, 0.04);
+      m.rotation.x = -Math.PI / 2 + (Math.random() - 0.5) * 0.3;   /* lying flat-ish */
+    } else if (t < 0.5) {
+      const m = place(postGeo, darkWoodMat, x, z, 0.18);
+      m.rotation.z = Math.PI / 2 + (Math.random() - 0.5) * 0.7;    /* toppled post */
+      m.rotation.x = (Math.random() - 0.5) * 0.6;
+    } else if (t < 0.7) {
+      place(rockGeo, rockMat, x, z, 0.10, 0.6 + Math.random() * 1.3);
+    } else if (t < 0.85) {
+      place(crateGeo, Math.random() < 0.7 ? woodMat : metalMat, x, z, 0.25);
+    } else {
+      place(helmetGeo, helmetMat, x, z, 0.09);
+    }
+  }
+
+  /* Brass shell casings — instanced, clustered around the fighting positions */
+  const casingGeo = new THREE.CylinderGeometry(0.018, 0.018, 0.09, 6);
+  const casingMat = new THREE.MeshStandardMaterial({ color: 0xb8904a, roughness: 0.35, metalness: 0.8 });
+  const CASINGS = 240;
+  const casingMesh = new THREE.InstancedMesh(casingGeo, casingMat, CASINGS);
+  casingMesh.castShadow = false; casingMesh.receiveShadow = false;
+  const _cd = new THREE.Object3D();
+  let ci = 0;
+  const clusters = [];
+  for (let i = 0; i < TRENCH_RECTS.length; i++) clusters.push({ x: TRENCH_RECTS[i].cx, z: TRENCH_RECTS[i].cz });
+  clusters.push({ x: 0, z: -30 }, { x: -15, z: -95 }, { x: 18, z: -115 }, { x: 0, z: 5 }, { x: -25, z: -60 });
+  for (let c = 0; c < clusters.length && ci < CASINGS; c++) {
+    const cl = clusters[c];
+    const n = Math.min(CASINGS - ci, 14 + ((Math.random() * 12) | 0));
+    for (let k = 0; k < n; k++) {
+      const ang = Math.random() * Math.PI * 2, rad = Math.random() * 2.4;
+      const x = cl.x + Math.cos(ang) * rad, z = cl.z + Math.sin(ang) * rad;
+      _cd.position.set(x, terrainHeight(x, z) + 0.03, z);
+      _cd.rotation.set(Math.PI / 2, Math.random() * Math.PI * 2, (Math.random() - 0.5) * 0.4);
+      _cd.updateMatrix();
+      casingMesh.setMatrixAt(ci++, _cd.matrix);
+    }
+  }
+  casingMesh.count = ci;
+  casingMesh.instanceMatrix.needsUpdate = true;
+  scene.add(casingMesh);
+}
+scatterBattlefieldDebris();
+
+/* === STAGE 3 — GROUND MIST — drifting low fog banks ====================
+ * Soft camera-facing fog sprites hugging the ground that slowly drift and
+ * breathe, then recycle around the player so the mist follows the action.
+ * Adds depth + atmosphere to the overcast battlefield for ~14 sprites. */
+const _mist = [];
+function _initMist() {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128;
+  const x = cv.getContext('2d');
+  const g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, 'rgba(150,158,166,0.5)');
+  g.addColorStop(1, 'rgba(150,158,166,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+  for (let i = 0; i < 14; i++) {
+    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.15, depthWrite: false, fog: false });
+    const spr = new THREE.Sprite(mat);
+    const x0 = (Math.random() - 0.5) * 120, z0 = 12 - Math.random() * 150;
+    spr.position.set(x0, terrainHeight(x0, z0) + 0.8 + Math.random() * 0.7, z0);
+    const sc = 8 + Math.random() * 11;
+    spr.scale.set(sc, sc * 0.5, 1);
+    scene.add(spr);
+    _mist.push({ spr, vx: (Math.random() - 0.5) * 0.35, vz: (Math.random() - 0.5) * 0.35, phase: Math.random() * 6.28 });
+  }
+}
+_initMist();
+function updateMist(dt) {
+  if (typeof player === 'undefined' || !_mist.length) return;
+  const t = performance.now() / 1000;
+  for (let i = 0; i < _mist.length; i++) {
+    const m = _mist[i];
+    m.spr.position.x += m.vx * dt;
+    m.spr.position.z += m.vz * dt;
+    m.spr.material.opacity = 0.12 + 0.06 * Math.sin(t * 0.5 + m.phase);
+    const dx = m.spr.position.x - player.position.x, dz = m.spr.position.z - player.position.z;
+    if (dx * dx + dz * dz > 8100) {   /* recycle banks that drift >90m away */
+      const ang = Math.random() * Math.PI * 2, rad = 30 + Math.random() * 45;
+      const nx = player.position.x + Math.cos(ang) * rad, nz = player.position.z + Math.sin(ang) * rad;
+      m.spr.position.set(nx, terrainHeight(nx, nz) + 0.8 + Math.random() * 0.7, nz);
+    }
+  }
+}
 
 /* Bunkers spread through the corridor */
 addBunker(-35, -75);
@@ -3550,7 +3982,7 @@ function createAK47() {
   rsRightFin.position.set( 0.013, 0.075, -0.118);
   ak.add(rsRightFin);
 
-  /* Magazine — curved banana shape (5 segments, increasing curve).
+  /* Magazine ��� curved banana shape (5 segments, increasing curve).
    * Wrapped in a Group so it can be DETACHED during the reload animation.
    * Uses iconic orange-amber bakelite for a premium look. */
   const mag = new THREE.Group();
@@ -9000,6 +9432,14 @@ function updatePlayer(dt) {
     /* Up to 50% slowdown when legSlow=1; cannot sprint when significantly hurt */
     speed *= Math.max(0.5, 1 - player.legSlow * 0.5);
   }
+  /* === STAGE 2 — MUD STICK: puddles and churned mud slow you ("липнет") === */
+  player.inMud = 0;
+  for (let mi = 0; mi < MUD_ZONES.length; mi++) {
+    const mz = MUD_ZONES[mi];
+    const mdx = player.position.x - mz.x, mdz = player.position.z - mz.z;
+    if (mdx * mdx + mdz * mdz < mz.r * mz.r && mz.slow > player.inMud) player.inMud = mz.slow;
+  }
+  if (player.inMud > 0 && player.onGround) speed *= (1 - 0.45 * player.inMud);
 
   const wishDir = new THREE.Vector3();
   wishDir.addScaledVector(tmpDir, forward).addScaledVector(tmpRight, strafe);
@@ -9075,7 +9515,15 @@ function updatePlayer(dt) {
 
   /* footsteps */
   if (moving && performance.now() / 1000 - player.lastFootstep > (sprinting ? 0.32 : 0.45)) {
-    playFootstep();
+    if (player.inMud > 0) {
+      playSquelch();
+      const fy = player.position.y - player.eyeHeight;
+      spawnSplash(player.position.x, fy, player.position.z, player.inMud >= 0.8 ? 7 : 4, true);
+      if (player.inMud >= 0.8) spawnRipple(player.position.x, fy, player.position.z, 0.2);
+      if (sprinting && player.inMud >= 0.8) triggerMudScreen(0.55);
+    } else {
+      playFootstep();
+    }
     player.lastFootstep = performance.now() / 1000;
   }
 
@@ -10550,7 +10998,7 @@ function updateHUD() {
     const parts = [];
     if (player.inv.hasHelmet)   parts.push('<span style="color:#a0c0ff">ШЛЕМ</span>');
     if (player.inv.hasArmor)    parts.push('<span style="color:#a0ffa0">БРОНЯ</span>');
-    if (player.inv.hasBackpack) parts.push('<span style="color:#ffd066">РЮКЗАК</span>');
+    if (player.inv.hasBackpack) parts.push('<span style="color:#ffd066">РЮК��АК</span>');
     gearEl.innerHTML = parts.join(' · ');
   }
 
@@ -12178,6 +12626,8 @@ function animate() {
     if (TEAM_MODE && typeof updateKillcam === 'function') updateKillcam();
   }
   updateRain(dt);
+  if (typeof updateMud === 'function') updateMud(dt);   /* STAGE 2 — puddles/mud FX */
+  if (typeof updateMist === 'function') updateMist(dt); /* STAGE 3 — ground mist */
   /* R5 — distant battlefield ambience (smoke columns, far gunfire, booms) */
   if (typeof _battlefield !== 'undefined' && _battlefield) _battlefield._tick(dt);
   updateBullets(dt);                  /* B1/B2/B4 — physics projectiles */
@@ -12239,6 +12689,8 @@ function animate() {
     u.uVignette.value   = 0.34 + _camFX.hurt * 0.18;
     u.uDamage.value     = _camFX.hurt;
   }
+  /* STAGE 3 — advance the lens-rain droplet animation clock */
+  if (typeof lensRainPass !== 'undefined') lensRainPass.uniforms.uTime.value = _camFX.time;
   /* Route through the post-processing composer (bloom → FXAA → bodycam → tonemap). */
   composer.render(dt);
 }
@@ -13774,7 +14226,7 @@ if (PVP_MODE) {
       const myName  = (TEAM_SIDE === 'A') ? 'СИНИЕ' : 'КРАСНЫЕ';
       if (ctrl) ctrl.innerHTML =
         '<b>WASD</b> — двигаться | <b>SHIFT</b> — бежать | <b>SPACE</b> — прыжок | <b>CTRL</b> — присесть | <b>Q / E</b> — наклон<br>' +
-        '<b>МЫШЬ</b> — обзор | <b>ЛКМ</b> — стрелять | <b>ПКМ</b> — прицелиться | <b>R</b> — перезарядка<br>' +
+        '<b>МЫ��Ь</b> — обзор | <b>ЛКМ</b> — стрелять | <b>ПКМ</b> — прицелиться | <b>R</b> — перезарядка<br>' +
         '<b>1</b> — пистолет | <b>2</b> — винтовка | <b>3</b> — спец | <b>4</b> — аптечка | <b>B</b> — прицел | <b>O</b> — глушитель<br><br>' +
         '<span style="color:' + myColor + '">КОМАНДА:</span> <b style="color:' + myColor + '">' + myName + '</b><br>' +
         '<span style="color:#ffd060">СНАРЯЖЕНИЕ:</span> АКМ, M416, броня, шлем — выдаётся автоматически<br>' +

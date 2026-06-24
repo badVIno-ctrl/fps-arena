@@ -459,7 +459,7 @@
   <h1>OPERATION RIFLE</h1>
   <div class="subtitle">A K M&nbsp;·&nbsp;M 4 1 6&nbsp;·&nbsp;F P S</div>
   <div class="controls">
-    <b>WASD</b> — двигаться &nbsp;|&nbsp; <b>SHIFT</b> — бежать &nbsp;|&nbsp; <b>SPACE</b> — прыжок &nbsp;|&nbsp; <b>CTRL</b> — присесть &nbsp;|&nbsp; <b>Q / E</b> — накл��н<br>
+    <b>WASD</b> — двигаться &nbsp;|&nbsp; <b>SHIFT</b> — бежать &nbsp;|&nbsp; <b>SPACE</b> — прыжок &nbsp;|&nbsp; <b>CTRL</b> — присесть &nbsp;|&nbsp; <b>Q / E</b> — наклон<br>
     <b>МЫШЬ</b> — обзор &nbsp;|&nbsp; <b>ЛКМ</b> — стрелять &nbsp;|&nbsp; <b>ПКМ</b> — прицелиться &nbsp;|&nbsp; <b>R</b> — перезарядка<br>
     <b>1</b> — пистолет &nbsp;|&nbsp; <b>2</b> — винтовка &nbsp;|&nbsp; <b>3</b> — спец &nbsp;|&nbsp; <b>4</b> — аптечка &nbsp;|&nbsp; <b>B</b> — переключить прицел &nbsp;|&nbsp; <b>O</b> — глушитель &nbsp;|&nbsp; <b>F</b> — взять / пополнить &nbsp;|&nbsp; <b>ESC</b> — пауза<br><br>
     <span style="color:#ffd060">СТАРТ:</span> у тебя <b>пусто</b> (нет оружия, патронов, брони). У сруба — <b>ДОСКА СНАРЯЖЕНИЯ</b>. Подойди и нажми <b>F</b>, чтобы взять: <span style="color:#ffd066">АКМ</span>, <span style="color:#ffd066">M416</span>, <span style="color:#a0ffa0">бронежилет</span>, <span style="color:#a0c0ff">шлем</span>, <span style="color:#ffd066">рюкзак</span>, <span style="color:#ff7080">коллиматор</span>, <span style="color:#ff7080">прицел 3X</span>.<br>
@@ -669,7 +669,7 @@ scene.add(ambient);
  * window.setTimeOfDay('day'|'dusk'|'night') swaps the whole lighting rig at
  * runtime (sky, fog, sun, fill, ambient, exposure) in one call. */
 const TIME_PRESETS = {
-  day:   { sky:0xb4cfe6, fog:[0xc3d8ea,90,360], hemi:[0xcfe6ff,0x5b5240,1.05], sun:[0xfff3da,2.0],  amb:[0xb9c6d2,0.55], exp:1.16 },
+  day:   { sky:0xc2dcef, fog:[0xd0e2f0,120,460], hemi:[0xdcefff,0x6f6450,1.55], sun:[0xfff6e6,2.7],  amb:[0xc8d4de,0.90], exp:1.34 },
   dusk:  { sky:0x8a7f8f, fog:[0x9a8c84,55,250], hemi:[0xc9b8c0,0x4a3d33,0.70], sun:[0xffcaa0,1.20], amb:[0x9a93a0,0.40], exp:1.05 },
   night: { sky:0x10131c, fog:[0x12151f,30,150], hemi:[0x2a3550,0x100f0c,0.35], sun:[0x9fb4d8,0.35], amb:[0x2c3340,0.25], exp:0.95 }
 };
@@ -4010,7 +4010,7 @@ function createAK47() {
   rsRightFin.position.set( 0.013, 0.075, -0.118);
   ak.add(rsRightFin);
 
-  /* Magazine ��� curved banana shape (5 segments, increasing curve).
+  /* Magazine — curved banana shape (5 segments, increasing curve).
    * Wrapped in a Group so it can be DETACHED during the reload animation.
    * Uses iconic orange-amber bakelite for a premium look. */
   const mag = new THREE.Group();
@@ -6976,39 +6976,56 @@ playGunshotScar   = function () { _gunFireV2(_WPROF.scar); };
 playGunshotAk     = function () { _gunFireV2(player.activeWeapon === 'ak74' ? Object.assign({}, _WPROF.ak, { power: 0.52, crack: 0.85, boomFreq: 90 }) : _WPROF.ak); };
 playGunshotM416   = function () { _gunFireV2(_WPROF.m416); };
 
-/* ════ v3.6 — gunshot engine V3 (distinct per-gun, NO tonal ring) ════ */
-function _gunFireV3(p){
+/* ════ v3.8 — gunshot engine V4 (truly distinct per-weapon timbre) ════
+ * Each gun = layered: (T) mechanical transient click, (C) supersonic crack
+ * via highpassed noise, (B) BODY = bandpass-noise blast at a weapon formant,
+ * (R) resonant pitch-drop tail (gives "voice"), (L) low boom + optional sub.
+ * Profiles differ in brightness, formant, tail pitch, decay AND layer mix so
+ * each weapon is recognisable by ear. */
+function _gunFireV4(p){
   if(!audioCtx) return;
   const ctx=audioCtx, now=ctx.currentTime;
-  const master=ctx.createGain();
-  master.gain.value=(p.vol||0.8)*_suppressorGain();
-  master.connect(audioBus?audioBus.preMaster:ctx.destination);
+  const out=ctx.createGain();
+  out.gain.value=(p.vol||0.85)*_suppressorGain();
+  out.connect(audioBus?audioBus.preMaster:ctx.destination);
   if(!player.suppressorOn && typeof triggerDeafTone==='function') triggerDeafTone(now);
-  function noise(dur,dec){const n=Math.max(1,(ctx.sampleRate*dur)|0);const buf=ctx.createBuffer(1,n,ctx.sampleRate);const d=buf.getChannelData(0);for(let i=0;i<n;i++){const t=i/n;d[i]=(Math.random()*2-1)*Math.pow(1-t,dec||2);}return buf;}
-  /* supersonic crack */
-  {const dur=0.05;const src=ctx.createBufferSource();src.buffer=noise(dur,2.4);const hp=ctx.createBiquadFilter();hp.type='highpass';hp.frequency.value=p.crackHz||2600;const g=ctx.createGain();g.gain.setValueAtTime(p.crackVol||0.7,now);g.gain.exponentialRampToValueAtTime(0.001,now+dur);src.connect(hp).connect(g).connect(master);src.start(now);src.stop(now+dur+0.01);}
-  /* body */
-  {const dur=p.bodyDur||0.09;const src=ctx.createBufferSource();src.buffer=noise(dur,1.5);const bp=ctx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=p.bodyHz||500;bp.Q.value=0.6;const g=ctx.createGain();g.gain.setValueAtTime(p.bodyVol||0.7,now);g.gain.exponentialRampToValueAtTime(0.001,now+dur);src.connect(bp).connect(g).connect(master);src.start(now);src.stop(now+dur+0.01);}
-  /* boom (low end, weapon-specific) */
-  {const f0=p.boomHz||110;const dur=p.boomDur||0.14;const osc=ctx.createOscillator();osc.type='sine';osc.frequency.setValueAtTime(f0*2.2,now);osc.frequency.exponentialRampToValueAtTime(f0,now+dur*0.7);const g=ctx.createGain();const bg=p.boomVol||0.6;g.gain.setValueAtTime(0.0001,now);g.gain.linearRampToValueAtTime(bg,now+0.004);g.gain.exponentialRampToValueAtTime(0.001,now+dur);osc.connect(g).connect(master);osc.start(now);osc.stop(now+dur+0.02);
-    if(p.sub){const so=ctx.createOscillator();so.type='sine';so.frequency.setValueAtTime(f0*0.55,now);const sg=ctx.createGain();sg.gain.setValueAtTime(0.0001,now);sg.gain.linearRampToValueAtTime(bg*0.7,now+0.006);sg.gain.exponentialRampToValueAtTime(0.001,now+dur*1.4);so.connect(sg).connect(master);so.start(now);so.stop(now+dur*1.4+0.02);}}
+  const mkNoise=(dur,dec)=>{const n=Math.max(1,(ctx.sampleRate*dur)|0);const b=ctx.createBuffer(1,n,ctx.sampleRate);const d=b.getChannelData(0);for(let i=0;i<n;i++){const t=i/n;d[i]=(Math.random()*2-1)*Math.pow(1-t,dec);}return b;};
+  /* T — mechanical action click (very short, dry) */
+  {const d=0.012;const sc=ctx.createBufferSource();sc.buffer=mkNoise(d,3);const bp=ctx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=p.clickHz||1800;bp.Q.value=1.2;const gg=ctx.createGain();gg.gain.setValueAtTime((p.clickVol||0.25),now);gg.gain.exponentialRampToValueAtTime(0.001,now+d);sc.connect(bp).connect(gg).connect(out);sc.start(now);sc.stop(now+d+0.005);}
+  /* C — supersonic crack (highpass noise) */
+  if(p.crackVol>0){const d=0.045;const sc=ctx.createBufferSource();sc.buffer=mkNoise(d,p.crackDec||2.5);const hp=ctx.createBiquadFilter();hp.type='highpass';hp.frequency.value=p.crackHz||2600;const gg=ctx.createGain();gg.gain.setValueAtTime(p.crackVol,now);gg.gain.exponentialRampToValueAtTime(0.001,now+d);sc.connect(hp).connect(gg).connect(out);sc.start(now);sc.stop(now+d+0.01);}
+  /* B — body blast (bandpass noise at weapon formant), the main "voice" */
+  {const d=p.bodyDur||0.10;const sc=ctx.createBufferSource();sc.buffer=mkNoise(d,p.bodyDec||1.6);const bp=ctx.createBiquadFilter();bp.type='bandpass';bp.frequency.setValueAtTime((p.bodyHz||500)*1.5,now);bp.frequency.exponentialRampToValueAtTime(p.bodyHz||500,now+d*0.6);bp.Q.value=p.bodyQ||0.7;const gg=ctx.createGain();gg.gain.setValueAtTime(p.bodyVol||0.8,now);gg.gain.exponentialRampToValueAtTime(0.001,now+d);sc.connect(bp).connect(gg).connect(out);sc.start(now);sc.stop(now+d+0.01);}
+  /* R — resonant pitch-drop tail: filtered noise through a high-Q peak that
+   * sweeps down → gives the gun a recognisable "throat" without a bell tone */
+  if(p.resVol>0){const d=p.resDur||0.13;const sc=ctx.createBufferSource();sc.buffer=mkNoise(d,1.1);const pk=ctx.createBiquadFilter();pk.type='bandpass';pk.Q.value=p.resQ||5;pk.frequency.setValueAtTime(p.resHz||300,now);pk.frequency.exponentialRampToValueAtTime((p.resHz||300)*0.5,now+d);const gg=ctx.createGain();gg.gain.setValueAtTime(p.resVol,now);gg.gain.exponentialRampToValueAtTime(0.001,now+d);sc.connect(pk).connect(gg).connect(out);sc.start(now);sc.stop(now+d+0.02);}
+  /* L — low boom (sine punch) + optional sub */
+  {const f0=p.boomHz||110,d=p.boomDur||0.14;const o=ctx.createOscillator();o.type='sine';o.frequency.setValueAtTime(f0*2.4,now);o.frequency.exponentialRampToValueAtTime(f0,now+d*0.7);const gg=ctx.createGain();const bg=p.boomVol||0.6;gg.gain.setValueAtTime(0.0001,now);gg.gain.linearRampToValueAtTime(bg,now+0.004);gg.gain.exponentialRampToValueAtTime(0.001,now+d);o.connect(gg).connect(out);o.start(now);o.stop(now+d+0.02);
+    if(p.sub){const so=ctx.createOscillator();so.type='sine';so.frequency.setValueAtTime(f0*0.5,now);const sg=ctx.createGain();sg.gain.setValueAtTime(0.0001,now);sg.gain.linearRampToValueAtTime(bg*0.8,now+0.006);sg.gain.exponentialRampToValueAtTime(0.001,now+d*1.5);so.connect(sg).connect(out);so.start(now);so.stop(now+d*1.5+0.02);}}
 }
 const _GUNAUDIO={
-  glock:  {vol:0.62, crackHz:3000, crackVol:0.50, bodyHz:540, bodyVol:0.50, bodyDur:0.07, boomHz:150, boomVol:0.35, boomDur:0.10},
-  mp5:    {vol:0.60, crackHz:3500, crackVol:0.60, bodyHz:620, bodyVol:0.45, bodyDur:0.06, boomHz:175, boomVol:0.30, boomDur:0.08},
-  m416:   {vol:0.82, crackHz:3000, crackVol:0.85, bodyHz:700, bodyVol:0.70, bodyDur:0.09, boomHz:120, boomVol:0.55, boomDur:0.14},
-  ak74:   {vol:0.82, crackHz:3200, crackVol:0.90, bodyHz:640, bodyVol:0.68, bodyDur:0.09, boomHz:110, boomVol:0.50, boomDur:0.12},
-  ak:     {vol:0.86, crackHz:2200, crackVol:0.75, bodyHz:430, bodyVol:0.92, bodyDur:0.11, boomHz:85,  boomVol:0.90, boomDur:0.21, sub:true},
-  scar:   {vol:0.90, crackHz:2000, crackVol:0.80, bodyHz:360, bodyVol:0.98, bodyDur:0.13, boomHz:72,  boomVol:1.05, boomDur:0.27, sub:true},
-  deagle: {vol:0.95, crackHz:1800, crackVol:0.70, bodyHz:320, bodyVol:0.95, bodyDur:0.12, boomHz:58,  boomVol:1.30, boomDur:0.38, sub:true},
-  _default:{vol:0.8, crackHz:2600, crackVol:0.7, bodyHz:500, bodyVol:0.7, bodyDur:0.09, boomHz:110, boomVol:0.6, boomDur:0.14}
+  /* Glock 9mm — snappy, bright, short, almost no bass */
+  glock:  {vol:0.58, clickHz:2400,clickVol:0.30, crackHz:3400,crackVol:0.45,crackDec:3.0, bodyHz:780,bodyVol:0.55,bodyDur:0.055,bodyDec:2.4,bodyQ:0.9, resHz:520,resVol:0.30,resDur:0.06,resQ:6, boomHz:170,boomVol:0.30,boomDur:0.07},
+  /* MP5 9mm SMG — tight, fast, mid "tak", crisp click */
+  mp5:    {vol:0.56, clickHz:3000,clickVol:0.40, crackHz:3800,crackVol:0.55,crackDec:3.2, bodyHz:900,bodyVol:0.50,bodyDur:0.045,bodyDec:2.6,bodyQ:1.1, resHz:640,resVol:0.28,resDur:0.05,resQ:7, boomHz:185,boomVol:0.26,boomDur:0.06},
+  /* M416 5.56 — sharp high crack, crisp body, light bass */
+  m416:   {vol:0.84, clickHz:2200,clickVol:0.25, crackHz:3100,crackVol:0.90,crackDec:2.4, bodyHz:680,bodyVol:0.72,bodyDur:0.09,bodyDec:1.7,bodyQ:0.8, resHz:420,resVol:0.45,resDur:0.10,resQ:5, boomHz:125,boomVol:0.55,boomDur:0.13},
+  /* AK74 5.45 — sharper than AK, brighter throat */
+  ak74:   {vol:0.84, clickHz:2000,clickVol:0.28, crackHz:3300,crackVol:0.80,crackDec:2.4, bodyHz:600,bodyVol:0.78,bodyDur:0.10,bodyDec:1.6,bodyQ:0.85, resHz:360,resVol:0.55,resDur:0.12,resQ:5, boomHz:108,boomVol:0.55,boomDur:0.14},
+  /* AK47 7.62 — deep throaty "BRAP", strong low-mid, long tail */
+  ak:     {vol:0.90, clickHz:1500,clickVol:0.30, crackHz:2300,crackVol:0.55,crackDec:2.0, bodyHz:330,bodyVol:1.00,bodyDur:0.14,bodyDec:1.3,bodyQ:0.7, resHz:200,resVol:0.80,resDur:0.18,resQ:4, boomHz:80,boomVol:0.95,boomDur:0.22,sub:true},
+  /* SCAR 7.62 heavy — biggest body, longest tail */
+  scar:   {vol:0.94, clickHz:1400,clickVol:0.30, crackHz:2100,crackVol:0.55,crackDec:1.9, bodyHz:300,bodyVol:1.05,bodyDur:0.16,bodyDec:1.2,bodyQ:0.7, resHz:175,resVol:0.85,resDur:0.22,resQ:4, boomHz:70,boomVol:1.05,boomDur:0.28,sub:true},
+  /* Desert Eagle .50 — single huge concussive boom, slow tail */
+  deagle: {vol:1.00, clickHz:1300,clickVol:0.35, crackHz:1900,crackVol:0.50,crackDec:1.8, bodyHz:280,bodyVol:1.05,bodyDur:0.15,bodyDec:1.2,bodyQ:0.65, resHz:150,resVol:0.80,resDur:0.26,resQ:4, boomHz:56,boomVol:1.35,boomDur:0.40,sub:true},
+  _default:{vol:0.85, clickHz:1800,clickVol:0.28, crackHz:2600,crackVol:0.7,crackDec:2.4, bodyHz:500,bodyVol:0.8,bodyDur:0.10,bodyDec:1.6,bodyQ:0.7, resHz:300,resVol:0.5,resDur:0.13,resQ:5, boomHz:110,boomVol:0.6,boomDur:0.14}
 };
-playGunshotPistol = function(){ _gunFireV3(_GUNAUDIO.glock); };
-playGunshotDeagle = function(){ _gunFireV3(_GUNAUDIO.deagle); };
-playGunshotMp5    = function(){ _gunFireV3(_GUNAUDIO.mp5); };
-playGunshotScar   = function(){ _gunFireV3(_GUNAUDIO.scar); };
-playGunshotAk     = function(){ _gunFireV3(player.activeWeapon==='ak74'?_GUNAUDIO.ak74:_GUNAUDIO.ak); };
-playGunshotM416   = function(){ _gunFireV3(_GUNAUDIO.m416); };
+playGunshotPistol = function(){ _gunFireV4(_GUNAUDIO.glock); };
+playGunshotDeagle = function(){ _gunFireV4(_GUNAUDIO.deagle); };
+playGunshotMp5    = function(){ _gunFireV4(_GUNAUDIO.mp5); };
+playGunshotScar   = function(){ _gunFireV4(_GUNAUDIO.scar); };
+playGunshotAk     = function(){ _gunFireV4(player.activeWeapon==='ak74'?_GUNAUDIO.ak74:_GUNAUDIO.ak); };
+playGunshotM416   = function(){ _gunFireV4(_GUNAUDIO.m416); }; };
 function playGunshot() {
   /* Prefer real samples if loaded */
   const _w = player.activeWeapon;
@@ -11241,7 +11258,7 @@ function updateHUD() {
     const parts = [];
     if (player.inv.hasHelmet)   parts.push('<span style="color:#a0c0ff">ШЛЕМ</span>');
     if (player.inv.hasArmor)    parts.push('<span style="color:#a0ffa0">БРОНЯ</span>');
-    if (player.inv.hasBackpack) parts.push('<span style="color:#ffd066">РЮК��АК</span>');
+    if (player.inv.hasBackpack) parts.push('<span style="color:#ffd066">РЮКЗАК</span>');
     gearEl.innerHTML = parts.join(' · ');
   }
 
@@ -14470,7 +14487,7 @@ if (PVP_MODE) {
       const myName  = (TEAM_SIDE === 'A') ? 'СИНИЕ' : 'КРАСНЫЕ';
       if (ctrl) ctrl.innerHTML =
         '<b>WASD</b> — двигаться | <b>SHIFT</b> — бежать | <b>SPACE</b> — прыжок | <b>CTRL</b> — присесть | <b>Q / E</b> — наклон<br>' +
-        '<b>МЫ��Ь</b> — обзор | <b>ЛКМ</b> — стрелять | <b>ПКМ</b> — прицелиться | <b>R</b> — перезарядка<br>' +
+        '<b>МЫШЬ</b> — обзор | <b>ЛКМ</b> — стрелять | <b>ПКМ</b> — прицелиться | <b>R</b> — перезарядка<br>' +
         '<b>1</b> — пистолет | <b>2</b> — винтовка | <b>3</b> — спец | <b>4</b> — аптечка | <b>B</b> — прицел | <b>O</b> — глушитель<br><br>' +
         '<span style="color:' + myColor + '">КОМАНДА:</span> <b style="color:' + myColor + '">' + myName + '</b><br>' +
         '<span style="color:#ffd060">СНАРЯЖЕНИЕ:</span> АКМ, M416, броня, шлем — выдаётся автоматически<br>' +
@@ -14484,7 +14501,7 @@ if (PVP_MODE) {
 }
 
 </script>
-<div id="build-version" style="position:fixed;right:8px;bottom:5px;z-index:50;font:600 11px/1 'Consolas',monospace;color:#9fb0c4;letter-spacing:1px;text-shadow:0 1px 2px rgba(0,0,0,0.9);pointer-events:none;opacity:0.75">FPS ARENA v3.7</div>
+<div id="build-version" style="position:fixed;right:8px;bottom:5px;z-index:50;font:600 11px/1 'Consolas',monospace;color:#9fb0c4;letter-spacing:1px;text-shadow:0 1px 2px rgba(0,0,0,0.9);pointer-events:none;opacity:0.75">FPS ARENA v3.8</div>
 <canvas id="mudScreen" style="position:fixed;inset:0;width:100%;height:100%;z-index:38;pointer-events:none"></canvas>
 <script>
 (function(){

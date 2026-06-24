@@ -2626,6 +2626,11 @@ function buildEquipBoard() {
   const board = new THREE.Mesh(new THREE.BoxGeometry(7.2, 3.4, 0.10), woodMat);
   board.position.set(0, 1.7, 0);
   g.add(board);
+  /* v3.6 — light the loadout board so the spawn area isn't in shadow */
+  { const _bl1=new THREE.PointLight(0xfff1d4,3.2,18,1.8); _bl1.position.set(0,3.2,1.6); g.add(_bl1);
+    const _bl2=new THREE.PointLight(0xffe7c2,2.4,15,1.8); _bl2.position.set(-2.8,2.2,1.0); g.add(_bl2);
+    const _bl3=new THREE.PointLight(0xffe7c2,2.4,15,1.8); _bl3.position.set(2.8,2.2,1.0); g.add(_bl3);
+    const _bl4=new THREE.PointLight(0xfff1d4,2.2,16,1.8); _bl4.position.set(0,3.0,-1.6); g.add(_bl4); }
   /* Vertical plank seams (visual detail) */
   for (let i = -3; i <= 3; i++) {
     const seam = new THREE.Mesh(new THREE.BoxGeometry(0.04, 3.4, 0.02), woodDarkMat);
@@ -6971,6 +6976,39 @@ playGunshotScar   = function () { _gunFireV2(_WPROF.scar); };
 playGunshotAk     = function () { _gunFireV2(player.activeWeapon === 'ak74' ? Object.assign({}, _WPROF.ak, { power: 0.52, crack: 0.85, boomFreq: 90 }) : _WPROF.ak); };
 playGunshotM416   = function () { _gunFireV2(_WPROF.m416); };
 
+/* ════ v3.6 — gunshot engine V3 (distinct per-gun, NO tonal ring) ════ */
+function _gunFireV3(p){
+  if(!audioCtx) return;
+  const ctx=audioCtx, now=ctx.currentTime;
+  const master=ctx.createGain();
+  master.gain.value=(p.vol||0.8)*_suppressorGain();
+  master.connect(audioBus?audioBus.preMaster:ctx.destination);
+  if(!player.suppressorOn && typeof triggerDeafTone==='function') triggerDeafTone(now);
+  function noise(dur,dec){const n=Math.max(1,(ctx.sampleRate*dur)|0);const buf=ctx.createBuffer(1,n,ctx.sampleRate);const d=buf.getChannelData(0);for(let i=0;i<n;i++){const t=i/n;d[i]=(Math.random()*2-1)*Math.pow(1-t,dec||2);}return buf;}
+  /* supersonic crack */
+  {const dur=0.05;const src=ctx.createBufferSource();src.buffer=noise(dur,2.4);const hp=ctx.createBiquadFilter();hp.type='highpass';hp.frequency.value=p.crackHz||2600;const g=ctx.createGain();g.gain.setValueAtTime(p.crackVol||0.7,now);g.gain.exponentialRampToValueAtTime(0.001,now+dur);src.connect(hp).connect(g).connect(master);src.start(now);src.stop(now+dur+0.01);}
+  /* body */
+  {const dur=p.bodyDur||0.09;const src=ctx.createBufferSource();src.buffer=noise(dur,1.5);const bp=ctx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=p.bodyHz||500;bp.Q.value=0.6;const g=ctx.createGain();g.gain.setValueAtTime(p.bodyVol||0.7,now);g.gain.exponentialRampToValueAtTime(0.001,now+dur);src.connect(bp).connect(g).connect(master);src.start(now);src.stop(now+dur+0.01);}
+  /* boom (low end, weapon-specific) */
+  {const f0=p.boomHz||110;const dur=p.boomDur||0.14;const osc=ctx.createOscillator();osc.type='sine';osc.frequency.setValueAtTime(f0*2.2,now);osc.frequency.exponentialRampToValueAtTime(f0,now+dur*0.7);const g=ctx.createGain();const bg=p.boomVol||0.6;g.gain.setValueAtTime(0.0001,now);g.gain.linearRampToValueAtTime(bg,now+0.004);g.gain.exponentialRampToValueAtTime(0.001,now+dur);osc.connect(g).connect(master);osc.start(now);osc.stop(now+dur+0.02);
+    if(p.sub){const so=ctx.createOscillator();so.type='sine';so.frequency.setValueAtTime(f0*0.55,now);const sg=ctx.createGain();sg.gain.setValueAtTime(0.0001,now);sg.gain.linearRampToValueAtTime(bg*0.7,now+0.006);sg.gain.exponentialRampToValueAtTime(0.001,now+dur*1.4);so.connect(sg).connect(master);so.start(now);so.stop(now+dur*1.4+0.02);}}
+}
+const _GUNAUDIO={
+  glock:  {vol:0.62, crackHz:3000, crackVol:0.50, bodyHz:540, bodyVol:0.50, bodyDur:0.07, boomHz:150, boomVol:0.35, boomDur:0.10},
+  mp5:    {vol:0.60, crackHz:3500, crackVol:0.60, bodyHz:620, bodyVol:0.45, bodyDur:0.06, boomHz:175, boomVol:0.30, boomDur:0.08},
+  m416:   {vol:0.82, crackHz:3000, crackVol:0.85, bodyHz:700, bodyVol:0.70, bodyDur:0.09, boomHz:120, boomVol:0.55, boomDur:0.14},
+  ak74:   {vol:0.82, crackHz:3200, crackVol:0.90, bodyHz:640, bodyVol:0.68, bodyDur:0.09, boomHz:110, boomVol:0.50, boomDur:0.12},
+  ak:     {vol:0.86, crackHz:2200, crackVol:0.75, bodyHz:430, bodyVol:0.92, bodyDur:0.11, boomHz:85,  boomVol:0.90, boomDur:0.21, sub:true},
+  scar:   {vol:0.90, crackHz:2000, crackVol:0.80, bodyHz:360, bodyVol:0.98, bodyDur:0.13, boomHz:72,  boomVol:1.05, boomDur:0.27, sub:true},
+  deagle: {vol:0.95, crackHz:1800, crackVol:0.70, bodyHz:320, bodyVol:0.95, bodyDur:0.12, boomHz:58,  boomVol:1.30, boomDur:0.38, sub:true},
+  _default:{vol:0.8, crackHz:2600, crackVol:0.7, bodyHz:500, bodyVol:0.7, bodyDur:0.09, boomHz:110, boomVol:0.6, boomDur:0.14}
+};
+playGunshotPistol = function(){ _gunFireV3(_GUNAUDIO.glock); };
+playGunshotDeagle = function(){ _gunFireV3(_GUNAUDIO.deagle); };
+playGunshotMp5    = function(){ _gunFireV3(_GUNAUDIO.mp5); };
+playGunshotScar   = function(){ _gunFireV3(_GUNAUDIO.scar); };
+playGunshotAk     = function(){ _gunFireV3(player.activeWeapon==='ak74'?_GUNAUDIO.ak74:_GUNAUDIO.ak); };
+playGunshotM416   = function(){ _gunFireV3(_GUNAUDIO.m416); };
 function playGunshot() {
   /* Prefer real samples if loaded */
   const _w = player.activeWeapon;
@@ -8586,17 +8624,17 @@ function playShellTink() {
   if (!audioCtx) return;
   const ctx = audioCtx; const now = ctx.currentTime;
   const out = ctx.createGain();
-  out.gain.value = 0.10;
+  out.gain.value = 0.06;
   out.connect(audioBus ? audioBus.preMaster : ctx.destination);
-  for (const part of [[3200, 0.9], [5300, 0.5]]) {
-    const o = ctx.createOscillator(); o.type = 'triangle';
-    o.frequency.setValueAtTime(part[0] * (0.96 + Math.random() * 0.08), now);
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0, now);
-    g.gain.linearRampToValueAtTime(part[1], now + 0.001);
-    g.gain.exponentialRampToValueAtTime(0.0008, now + 0.09);
-    o.connect(g).connect(out); o.start(now); o.stop(now + 0.10);
-  }
+  /* v3.6 — dull, non-tonal brass clink (NO bell/ring oscillators) */
+  const n = Math.max(1, (ctx.sampleRate * 0.05) | 0);
+  const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) { const t = i / n; d[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 8); }
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1600; bp.Q.value = 0.7;
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.9, now); g.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+  src.connect(bp).connect(g).connect(out); src.start(now + 0.02); src.stop(now + 0.09);
 }
 /* Phase 4 (W12) — recent-gunshot blips for the minimap. */
 const _gunPings = [];
@@ -8822,7 +8860,7 @@ function shoot() {
    * (tilted) barrel direction. The first shot is exactly aligned with the
    * sights; sustained fire deviates as the weapon climbs. */
   weapon.updateMatrixWorld(true);
-  const dir = new THREE.Vector3(0, 0, -1).transformDirection(weapon.matrixWorld);
+  const dir = new THREE.Vector3(); camera.getWorldDirection(dir); /* v3.5: aim = camera crosshair, not gun-model barrel */
 
   /* === STATE-DRIVEN DISPERSION (cone-of-fire) ===========================
    * Real-world dispersion isn't purely random — it depends on stance,
@@ -8883,6 +8921,12 @@ function spawnBullet(origin, dir, weaponKey, isFirstShot) {
     const rightAx = new THREE.Vector3().crossVectors(dirAdj, new THREE.Vector3(0,1,0)).normalize();
     dirAdj.applyAxisAngle(rightAx, pitchUp);
   }
+  /* v3.5 — converge muzzle trajectory onto the camera crosshair line so the
+   * round lands exactly where the reticle / laser dot points (kills the
+   * muzzle-parallax "aims here, hits higher/off" error). */
+  { const _camP = new THREE.Vector3(); camera.getWorldPosition(_camP);
+    _camP.addScaledVector(dirAdj, 250).sub(origin);
+    if (_camP.lengthSq() > 1e-6) dirAdj.copy(_camP).normalize(); }
   const b = {
     pos:        origin.clone(),
     prev:       origin.clone(),
@@ -10235,6 +10279,108 @@ function botEngageDist(bot) {
     case 'flank_right': return 22;
     case 'reserve':     return 4;   /* never really engages until released */
     default:            return 18;
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   v3.7 — BOT TACTICS LAYER (squads, shared spotting, grenades, cover)
+   Runs after updateBots(dt). Reuses existing grenade system (grenades[],
+   _buildFragMesh, detonateFrag) and hasLineOfSight().
+   ════════════════════════════════════════════════════════════════════════ */
+function updateBotTactics(dt) {
+  if (typeof bots === 'undefined' || !bots.length) return;
+  const now = performance.now() / 1000;
+  const pp = player.position;
+  updateBotTactics._gNade = updateBotTactics._gNade || 0; /* global throttle */
+
+  /* ---- 1. SQUADS + SHARED SPOTTING -------------------------------------
+   * Bots are grouped into squads of ~4 (by spawn index). If ANY squadmate
+   * has a live sighting of the player, nearby squadmates "inherit" it after
+   * a short comms delay — so a squad reacts as a unit instead of one-by-one. */
+  const SQUAD_SIZE = 4, COMMS_RANGE = 38, COMMS_DELAY = 0.5;
+  for (let qi = 0; qi * SQUAD_SIZE < bots.length; qi++) {
+    let spotter = null, best = -1;
+    for (let k = 0; k < SQUAD_SIZE; k++) {
+      const b = bots[qi*SQUAD_SIZE + k];
+      if (!b || b.state === 'dead') continue;
+      if (b.spottedAt >= 0 && b.spottedAt > best) { best = b.spottedAt; spotter = b; }
+    }
+    if (!spotter) continue;
+    if (now - spotter.spottedAt < COMMS_DELAY) continue; /* let caller confirm first */
+    for (let k = 0; k < SQUAD_SIZE; k++) {
+      const b = bots[qi*SQUAD_SIZE + k];
+      if (!b || b.state === 'dead' || b === spotter) continue;
+      if (b.spottedAt >= 0) continue; /* already alerted */
+      const d = b.obj.position.distanceTo(spotter.obj.position);
+      if (d <= COMMS_RANGE) {
+        /* receive contact call — react slightly slower than the spotter */
+        b.spottedAt = spotter.spottedAt + 0.25 + Math.random()*0.25;
+      }
+    }
+  }
+
+  /* ---- 2. GRENADES ------------------------------------------------------
+   * A bot lobs a frag at the player when it has a clear throw window:
+   * alive, spotted player, LOS clear, medium range, off cooldown. A global
+   * throttle keeps the squad from grenade-spamming. */
+  if (typeof grenades !== 'undefined' && now - updateBotTactics._gNade > 1.6) {
+    for (let i = 0; i < bots.length; i++) {
+      const b = bots[i];
+      if (!b || b.state === 'dead') continue;
+      if (b.spottedAt < 0) continue;
+      const bp = b.obj.position;
+      const dist = bp.distanceTo(pp);
+      if (dist < 16 || dist > 55) continue;            /* too close/far */
+      b._nextNade = b._nextNade || (now + 4 + Math.random()*6);
+      if (now < b._nextNade) continue;
+      /* probabilistic — not every eligible bot throws */
+      if (Math.random() > 0.5) { b._nextNade = now + 2 + Math.random()*3; continue; }
+      const eye = bp.clone(); eye.y += 1.5;
+      const tgt = pp.clone(); tgt.y += 0.8;
+      if (typeof hasLineOfSight === 'function' && !hasLineOfSight(eye, tgt)) {
+        b._nextNade = now + 1.5; continue;
+      }
+      /* lob: lead the player a touch + ballistic arc */
+      const lead = (player.velocity ? new THREE.Vector3(player.velocity.x, 0, player.velocity.z).multiplyScalar(0.35) : new THREE.Vector3());
+      const aim = tgt.clone().add(lead).sub(eye);
+      const horiz = new THREE.Vector3(aim.x, 0, aim.z);
+      const hd = Math.max(1, horiz.length());
+      horiz.normalize();
+      const throwSpeed = Math.min(26, 9 + hd * 0.55);
+      const v = horiz.multiplyScalar(throwSpeed);
+      v.y = 6.5 + hd * 0.12;                            /* arc up */
+      let mesh; try { mesh = _buildFragMesh(); } catch(_) { break; }
+      mesh.position.copy(eye);
+      try { scene.add(mesh); } catch(_) {}
+      grenades.push({ obj: mesh, vel: v, spin: (Math.random()-0.5)*8,
+                      kind: 'frag', fuse: 2.6, bounces: 0, fromBot: true });
+      b._nextNade = now + 9 + Math.random()*8;
+      updateBotTactics._gNade = now;
+      try { if (typeof playSfxAt === 'function') playSfxAt(bp, 'throw'); } catch(_) {}
+      try { if (typeof showNotice === 'function' && dist < 40) showNotice('ГРАНАТА!'); } catch(_) {}
+      break; /* at most one throw per frame */
+    }
+  }
+
+  /* ---- 3. REACTIVE COVER vs incoming grenades --------------------------
+   * If a live frag is near a bot, the bot flags itself to seek cover (the
+   * existing cover-seek logic in updateBots reads bot.seekCover / coverTarget). */
+  if (typeof grenades !== 'undefined' && grenades.length) {
+    for (let gi = 0; gi < grenades.length; gi++) {
+      const gr = grenades[gi];
+      if (!gr || gr.kind !== 'frag' || gr.fromBot) continue; /* only player nades scare bots */
+      const gpos = gr.obj.position;
+      for (let i = 0; i < bots.length; i++) {
+        const b = bots[i];
+        if (!b || b.state === 'dead') continue;
+        if (b.obj.position.distanceTo(gpos) < 14) {
+          b.spottedAt = (b.spottedAt < 0) ? now : b.spottedAt; /* alert */
+          b.seekingCover = true; b.coverSeekUntil = now + 2.5;
+          b.jitter = Math.max(b.jitter || 0, 2.0);          /* scatter */
+        }
+      }
+    }
   }
 }
 
@@ -12718,7 +12864,7 @@ function animate() {
 
   if (controls.isLocked) {
     updatePlayer(dt);
-    if (!PVP_MODE) { updateBots(dt); updateMedkits(dt); updateCTF(dt); }
+    if (!PVP_MODE) { updateBots(dt); updateBotTactics(dt); updateMedkits(dt); updateCTF(dt); }
     regen(dt);
     if (PVP_MODE && typeof _pvpUpdate === 'function') _pvpUpdate(dt);
     if (TEAM_MODE && typeof updateKillcam === 'function') updateKillcam();
@@ -14338,7 +14484,7 @@ if (PVP_MODE) {
 }
 
 </script>
-<div id="build-version" style="position:fixed;right:8px;bottom:5px;z-index:50;font:600 11px/1 'Consolas',monospace;color:#9fb0c4;letter-spacing:1px;text-shadow:0 1px 2px rgba(0,0,0,0.9);pointer-events:none;opacity:0.75">FPS ARENA v3.4</div>
+<div id="build-version" style="position:fixed;right:8px;bottom:5px;z-index:50;font:600 11px/1 'Consolas',monospace;color:#9fb0c4;letter-spacing:1px;text-shadow:0 1px 2px rgba(0,0,0,0.9);pointer-events:none;opacity:0.75">FPS ARENA v3.7</div>
 <canvas id="mudScreen" style="position:fixed;inset:0;width:100%;height:100%;z-index:38;pointer-events:none"></canvas>
 <script>
 (function(){

@@ -7044,85 +7044,442 @@ function _shotNoiseBuf(ctx, dur, decay) {
   return buf;
 }
 function playGunshotSynth(p) {
-  /* === REALISTIC GUNSHOT (no tonal ring) ==============================
-   * Earlier versions used resonant `peaking` EQ filters and pure `sine`
-   * oscillators. Both ring on a single frequency, which the ear hears as
-   * a metallic "колокольчик" / cartoonish chime laid over every shot.
-   * This version is built ONLY from broadband filtered white-noise bursts
-   * (highpass/lowpass/wide low-Q bandpass) plus a lowpassed noise THUMP for
-   * weight — no peaking EQ, no oscillators — so there is nothing to ring. */
   if (!audioCtx) return;
   const ctx = audioCtx; const now = ctx.currentTime;
   const master = ctx.createGain();
   master.gain.value = (p.vol != null ? p.vol : 0.6) * _suppressorGain();
   master.connect(audioBus ? audioBus.preMaster : ctx.destination);
+  /* L1 — initial crack */
+  { const dur = p.crackDur || 0.016; const src = ctx.createBufferSource(); src.buffer = _shotNoiseBuf(ctx, dur, 300);
+    const hp = ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value = p.crackHp || 2000;
+    const pk = ctx.createBiquadFilter(); pk.type='peaking'; pk.frequency.value = p.crackFreq || 7000; pk.Q.value=1.0; pk.gain.value=8;   /* phase 3b: broadened (was Q1.4/+16) — a narrow high-gain peak on noise rings like a bell; this was the shared "колокольчик" on SCAR/MP5/pistol */
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(p.crackGain || 1.1, now+0.0006); g.gain.exponentialRampToValueAtTime(0.001, now+dur);
+    src.connect(hp).connect(pk).connect(g).connect(master); src.start(now); src.stop(now+dur+0.005); }
+  /* L2 — body punch */
+  { const dur = p.bodyDur || 0.045; const src = ctx.createBufferSource(); src.buffer = _shotNoiseBuf(ctx, dur, 95);
+    const bp = ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value = p.bodyFreq || 650; bp.Q.value = p.bodyQ || 0.8;
+    const g = ctx.createGain(); g.gain.setValueAtTime(p.bodyGain || 0.8, now); g.gain.exponentialRampToValueAtTime(0.001, now+dur);
+    src.connect(bp).connect(g).connect(master); src.start(now); src.stop(now+dur+0.005); }
+  /* L3 — bright ring */
+  if (p.ringGain) { const dur = p.ringDur || 0.07; const src = ctx.createBufferSource(); src.buffer = _shotNoiseBuf(ctx, dur, 40);
+    const hp = ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value = 1400;
+    const pk = ctx.createBiquadFilter(); pk.type='peaking'; pk.frequency.value = p.ringFreq || 3200; pk.Q.value=0.9; pk.gain.value=5;   /* phase 3: broadened (was Q1.8/+10) so the noise ring is broadband, not a tonal "колокольчик" */
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(p.ringGain, now+0.001); g.gain.exponentialRampToValueAtTime(0.001, now+dur);
+    src.connect(hp).connect(pk).connect(g).connect(master); src.start(now); src.stop(now+dur+0.005); }
+  /* L4 — barrel boom */
+  if (p.boomGain) { const osc = ctx.createOscillator(); osc.type='sine';
+    const bd = p.boomDur || 0.08;
+    osc.frequency.setValueAtTime(p.boomF0 || 120, now); osc.frequency.exponentialRampToValueAtTime(p.boomF1 || 55, now+bd);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(p.boomGain, now+0.002); g.gain.exponentialRampToValueAtTime(0.001, now+bd+0.01);
+    osc.connect(g).connect(master); osc.start(now); osc.stop(now+bd+0.02); }
+}
+function playGunshotPistol() { playGunshotSynth({ vol:0.50, crackFreq:6500, crackGain:0.9,  bodyFreq:800, bodyQ:0.9, bodyGain:0.70, ringGain:0.22, ringFreq:3000, boomGain:0.30, boomF0:140, boomF1:70, boomDur:0.05 }); }
+function playGunshotDeagle() { playGunshotSynth({ vol:0.85, crackFreq:5200, crackGain:1.1,  bodyFreq:430, bodyQ:0.7, bodyGain:0.95, ringGain:0.30, ringFreq:2300, boomGain:0.80, boomF0:115, boomF1:42, boomDur:0.14 }); }
+function playGunshotMp5()    { playGunshotSynth({ vol:0.55, crackDur:0.013, crackFreq:7200, crackGain:0.95, bodyFreq:780, bodyQ:1.0, bodyGain:0.62, ringGain:0.18, ringFreq:3400, boomGain:0.28, boomF0:130, boomF1:66, boomDur:0.05 }); }
+function playGunshotScar()   { playGunshotSynth({ vol:0.72, crackFreq:6000, crackGain:1.05, bodyFreq:520, bodyQ:0.8, bodyGain:0.85, ringGain:0.26, ringFreq:2700, boomGain:0.60, boomF0:118, boomF1:50, boomDur:0.11 }); }
+function playGunshot() {
+  /* Prefer real samples if loaded */
+  const _w = player.activeWeapon;
+  if (_w === 'ak' || _w === 'ak74') {
+    if (!_playSample(_gunSamples.ak)) playGunshotAk();
+  } else if (_w === 'm416') {
+    if (!_playSample(_gunSamples.m416)) playGunshotM416();
+  } else if (_w === 'glock') {
+    playGunshotPistol();
+  } else if (_w === 'deagle') {
+    playGunshotDeagle();
+  } else if (_w === 'mp5') {
+    playGunshotMp5();
+  } else if (_w === 'scar') {
+    playGunshotScar();
+  } else {
+    if (!_playSample(_gunSamples.m416)) playGunshotM416();
+  }
+  /* E2/H3 — biome-aware reverb tail layered behind the dry gunshot */
+  if (!player.suppressorOn) { try { _spawnBiomeReverb(); } catch(_) {} }
+}
+/* Volume multiplier when suppressor is equipped */
+function _suppressorGain() { return player.suppressorOn ? 0.15 : 1.0; }
+
+/* === E2 / H3 — BIOME-AWARE REVERB TAIL =================================
+ * Sample the player's surroundings cheaply (number of trees within 30m,
+ * presence of overhead cover via raycast straight up) to pick:
+ *   - Forest:    short, high-freq absorbed tail
+ *   - Open:      longer, slightly metallic 1-2 tap echo
+ *   - Indoor/roof: bright early reflections, longer tail
+ * Allocates 2 nodes per shot — they auto-disconnect after the source
+ * ends so GC pressure stays bounded. */
+function _spawnBiomeReverb() {
+  if (!audioCtx || !audioBus) return;
+  const ctx = audioCtx; const t0 = ctx.currentTime;
+  /* Sample biome */
+  let nearbyTrees = 0;
+  if (typeof trees !== 'undefined') {
+    const px = player.position.x, pz = player.position.z;
+    for (let i = 0; i < trees.length; i++) {
+      const tp = trees[i].obj.position;
+      const dx = tp.x - px, dz = tp.z - pz;
+      if (dx*dx + dz*dz < 30*30) nearbyTrees++;
+      if (nearbyTrees > 25) break;          /* enough info */
+    }
+  }
+  /* H3 — overhead echo: cast a short ray UP and see if anything is above
+   *      the player's head (a low ceiling, awning, etc). */
+  let overhead = false;
+  try {
+    const o = camera.getWorldPosition(new THREE.Vector3());
+    raycaster.set(o, new THREE.Vector3(0, 1, 0));
+    raycaster.far = 8;
+    const obs = obstacles.filter(x => x !== terrain);
+    if (raycaster.intersectObjects(obs, false).length > 0) overhead = true;
+  } catch (_) {}
+  /* Count solid (non-tree) obstacles within 25m — concrete/stone walls
+   * give a bright, multi-tap reverb (urban/rocky). */
+  let nearbyStone = 0;
+  if (typeof obstacles !== 'undefined') {
+    const px = player.position.x, pz = player.position.z;
+    for (let i = 0; i < obstacles.length; i++) {
+      const ob = obstacles[i];
+      if (!ob || ob === terrain || !ob.position) continue;
+      const dx = ob.position.x - px, dz = ob.position.z - pz;
+      if (dx*dx + dz*dz < 25*25) nearbyStone++;
+      if (nearbyStone > 8) break;
+    }
+  }
+  let env = 'open';
+  if (overhead)               env = 'roof';
+  else if (nearbyStone >= 3)  env = 'stone';
+  else if (nearbyTrees > 8)   env = 'forest';
+  else if (nearbyTrees < 2 && nearbyStone === 0) env = 'wide';   /* open field */
+  /* per-env params: longer tail = more atmosphere on open ground */
+  let delay, lpHz, vol, taps, dur;
+  if (env === 'forest')      { delay = 0.13; lpHz = 700;  vol = 0.10; taps = 1; dur = 0.40; }
+  else if (env === 'roof')   { delay = 0.06; lpHz = 4500; vol = 0.22; taps = 2; dur = 0.50; }
+  else if (env === 'stone')  { delay = 0.09; lpHz = 3800; vol = 0.26; taps = 3; dur = 0.65; }
+  else if (env === 'wide')   { delay = 0.22; lpHz = 1400; vol = 0.20; taps = 2; dur = 0.85; }
+  else                        { delay = 0.18; lpHz = 1700; vol = 0.16; taps = 2; dur = 0.50; }
+  /* Build tail — broadband noise burst of dur seconds through delay+lp */
+  const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) {
+    const tt = i / ctx.sampleRate;
+    d[i] = (Math.random()*2 - 1) * Math.exp(-tt * 9) * 0.6;
+  }
+  const dst = audioBus.preMaster;
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const dly = ctx.createDelay(0.5); dly.delayTime.value = delay;
+  const lp  = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = lpHz;
+  const g   = ctx.createGain(); g.gain.value = vol;
+  src.connect(dly).connect(lp).connect(g).connect(dst);
+  /* Optional 2nd tap for openfield/indoor */
+  let dly2, lp2, g2;
+  if (taps > 1) {
+    dly2 = ctx.createDelay(0.6); dly2.delayTime.value = delay * 1.7;
+    lp2  = ctx.createBiquadFilter(); lp2.type = 'lowpass'; lp2.frequency.value = lpHz * 0.55;
+    g2   = ctx.createGain(); g2.gain.value = vol * 0.5;
+    src.connect(dly2).connect(lp2).connect(g2).connect(dst);
+  }
+  src.onended = () => {
+    try {
+      src.disconnect(); dly.disconnect(); lp.disconnect(); g.disconnect();
+      if (dly2) dly2.disconnect();
+      if (lp2)  lp2.disconnect();
+      if (g2)   g2.disconnect();
+    } catch(_){}
+  };
+  src.start(t0); src.stop(t0 + dur);
+}
+
+/* === AK GUNSHOT (rebuilt — crisp / sharp) ===
+ * Goal: REAL AK report — звонкий, чёткий. The previous version was too
+ * muddy (everything < 900Hz). A real AKM has a hard CRACK on top of a
+ * deep BOOM. We layer:
+ *   1) Crack  — extremely short HF transient (high-pass at 1.5kHz, peak
+ *               around 3-6kHz). This is the "звонкость".
+ *   2) Snap   — short band-pass crack around 1100Hz (the audible "pop")
+ *   3) Body   — short low-mid slap 250-500Hz (the punch you feel)
+ *   4) Boom   — sub thump 60-130Hz (chest weight)
+ *   5) Tail   — short noise tail with mid-cut for distant report ringing
+ * Mixed for definition not loudness — total ~0.25s with sharp envelope. */
+/* ============================================================
+ * AK GUNSHOT — "DUH-PAH"
+ * Updated: extra "звонкость" (metallic clear ring). Layered:
+ *   1) Sub-millisecond white-noise CRACK (5kHz peak, hard transient)
+ *   2) Metallic SHIMMER (8 kHz triangle ringer — the "ring" the
+ *      user asked for; phosphate-receiver reverberation)
+ *   3) BAND-PASS POP (1.1 kHz, the "pop" definition)
+ *   4) BODY slap (450 Hz, the punch you feel in your chest)
+ *   5) Sub BOOM (140 → 55 Hz sweep, classic AK low-end)
+ *   6) Ringing TAIL (sustained noise burst with high-pass filter)
+ * Result: a clear, *bright* "звонкий" gunshot with chest-thumping
+ * low end — feels like firing a real AKM next to your ear.
+ * ============================================================ */
+function playGunshotAk() {
+  if (!audioCtx) return;
+  const ctx = audioCtx;
+  const now = ctx.currentTime;
+  const master = ctx.createGain();
+  master.gain.value = 0.72 * _suppressorGain();
+  master.connect(audioBus ? audioBus.preMaster : ctx.destination);
   if (!player.suppressorOn && typeof triggerDeafTone === 'function') triggerDeafTone(now);
 
-  /* L1 — sharp broadband CRACK (the supersonic snap) */
+  /* 1) CRACK — hard high-freq transient — sharper, with an even higher peak */
   {
-    const dur = p.crackDur || 0.022;
-    const src = ctx.createBufferSource(); src.buffer = _shotNoiseBuf(ctx, dur, p.crackDecay || 320);
-    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = p.crackHp || 1900; hp.Q.value = 0.5;
-    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass';  lp.frequency.value = p.crackLp || 9000; lp.Q.value = 0.5;
+    const dur = 0.020;
+    const buf = ctx.createBuffer(1, Math.max(1, Math.floor(ctx.sampleRate * dur)), ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) {
+      const t = i / ctx.sampleRate;
+      d[i] = (Math.random()*2-1) * Math.exp(-t * 200);
+    }
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass';
+    hp.frequency.value = 1800;
+    const peak = ctx.createBiquadFilter();
+    peak.type = 'peaking'; peak.frequency.value = 5000; peak.Q.value = 1.0; peak.gain.value = 8;   /* phase 3b: broadened (was Q1.6/+14) — killed the AK/AK74 crack "ting" */
     const g = ctx.createGain();
-    g.gain.setValueAtTime(0, now);
-    g.gain.linearRampToValueAtTime(p.crackGain || 1.0, now + 0.0006);
-    g.gain.exponentialRampToValueAtTime(0.0008, now + dur);
-    src.connect(hp).connect(lp).connect(g).connect(master);
-    src.start(now); src.stop(now + dur + 0.01);
+    g.gain.setValueAtTime(0.0, now);
+    g.gain.linearRampToValueAtTime(1.05, now + 0.001);
+    g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+    src.connect(hp).connect(peak).connect(g).connect(master);
+    src.start(now); src.stop(now + dur + 0.005);
   }
-  /* L2 — body PUNCH (wide, low-Q bandpass → a thump, not a tone) */
+
+  /* 2) MECHANICAL TOP-END — phase 3: replaced the 7.4/9.2 kHz triangle
+   *    oscillators (they rang like a BELL / "колокольчик"). Now a very
+   *    short high-passed white-noise burst → broadband metallic "tick" of
+   *    the bolt/action with NO tonal ring. */
   {
-    const dur = p.bodyDur || 0.06;
-    const src = ctx.createBufferSource(); src.buffer = _shotNoiseBuf(ctx, dur, p.bodyDecay || 80);
-    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = p.bodyFreq || 600; bp.Q.value = p.bodyQ || 0.5;
+    const dur = 0.028;
+    const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) { const t = i / ctx.sampleRate; d[i] = (Math.random()*2-1) * Math.exp(-t * 140); }
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 4200;
     const g = ctx.createGain();
-    g.gain.setValueAtTime(p.bodyGain || 0.8, now);
-    g.gain.exponentialRampToValueAtTime(0.0008, now + dur);
+    g.gain.setValueAtTime(0.0, now);
+    g.gain.linearRampToValueAtTime(0.13, now + 0.0008);
+    g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+    src.connect(hp).connect(g).connect(master);
+    src.start(now); src.stop(now + dur + 0.005);
+  }
+
+  /* 3) SNAP — band-pass click around 1.2kHz, gives definition to the pop */
+  {
+    const dur = 0.050;
+    const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) {
+      const t = i / ctx.sampleRate;
+      d[i] = (Math.random()*2-1) * Math.exp(-t * 90);
+    }
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = 1200; bp.Q.value = 0.9;   /* phase 3b: widened (was Q1.4) so the AK snap is a click, not a metallic ring */
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.85, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + dur);
     src.connect(bp).connect(g).connect(master);
-    src.start(now); src.stop(now + dur + 0.01);
+    src.start(now); src.stop(now + dur + 0.005);
   }
-  /* L3 — low THUMP weight (lowpassed noise: broadband low end, no ring) */
+
+  /* 4) BODY — short mid slap 380-500Hz (the punch) */
   {
-    const dur = p.subDur || 0.09;
-    const src = ctx.createBufferSource(); src.buffer = _shotNoiseBuf(ctx, dur, p.subDecay || 55);
-    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = p.subLp || 180; lp.Q.value = 0.4;
+    const dur = 0.085;
+    const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) {
+      const t = i / ctx.sampleRate;
+      d[i] = (Math.random()*2-1) * Math.exp(-t * 48);
+    }
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = 450; bp.Q.value = 0.9;
     const g = ctx.createGain();
-    g.gain.setValueAtTime(p.subGain != null ? p.subGain : 0.7, now);
-    g.gain.exponentialRampToValueAtTime(0.0008, now + dur);
-    src.connect(lp).connect(g).connect(master);
-    src.start(now); src.stop(now + dur + 0.01);
+    g.gain.setValueAtTime(0.62, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+    src.connect(bp).connect(g).connect(master);
+    src.start(now); src.stop(now + dur + 0.005);
   }
-  /* L4 — air-pressure TAIL (broadband decay, gentle lowpass) */
-  if (p.tailGain) {
-    const dur = p.tailDur || 0.18;
-    const src = ctx.createBufferSource(); src.buffer = _shotNoiseBuf(ctx, dur, p.tailDecay || 12);
-    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 350; hp.Q.value = 0.5;
-    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass';  lp.frequency.value = p.tailLp || 3200; lp.Q.value = 0.5;
+
+  /* 5) BOOM — sub thump 65-145Hz (the bass weight) */
+  {
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, now);
+    osc.frequency.exponentialRampToValueAtTime(58, now + 0.09);
     const g = ctx.createGain();
-    g.gain.setValueAtTime(0, now);
-    g.gain.linearRampToValueAtTime(p.tailGain, now + 0.008);
-    g.gain.exponentialRampToValueAtTime(0.0008, now + dur);
-    src.connect(hp).connect(lp).connect(g).connect(master);
-    src.start(now); src.stop(now + dur + 0.01);
+    g.gain.setValueAtTime(0.0, now);
+    g.gain.linearRampToValueAtTime(1.40, now + 0.003);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+    osc.connect(g).connect(master);
+    osc.start(now); osc.stop(now + 0.16);
+  }
+
+  /* 6) RINGING TAIL — slightly longer, brighter (preserves звонкость) */
+  {
+    const dur = 0.30;
+    const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) {
+      const t = i / ctx.sampleRate;
+      d[i] = (Math.random()*2-1) * Math.exp(-t * 8);
+    }
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 350;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 4500;
+    const peak = ctx.createBiquadFilter();
+    peak.type = 'peaking'; peak.frequency.value = 2400; peak.Q.value = 1.0; peak.gain.value = 4;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0, now);
+    g.gain.linearRampToValueAtTime(0.30, now + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+    src.connect(hp).connect(lp).connect(peak).connect(g).connect(master);
+    src.start(now); src.stop(now + dur + 0.005);
   }
 }
 
-/* Per-weapon voicings — same broadband engine, different balance of
- * crack brightness / body / low-end so each gun stays distinct. */
-function playGunshotPistol() { playGunshotSynth({ vol:0.55, crackHp:2000, crackGain:0.90, bodyFreq:760, bodyGain:0.60, subLp:170, subGain:0.45, subDur:0.07, tailGain:0.16, tailLp:3000, tailDur:0.14 }); }
-function playGunshotDeagle() { playGunshotSynth({ vol:0.90, crackHp:1500, crackGain:1.05, bodyFreq:430, bodyGain:0.90, subLp:150, subGain:0.95, subDur:0.13, tailGain:0.24, tailLp:2600, tailDur:0.24 }); }
-function playGunshotMp5()    { playGunshotSynth({ vol:0.60, crackDur:0.018, crackHp:2200, crackGain:0.95, bodyFreq:740, bodyGain:0.55, subLp:170, subGain:0.40, subDur:0.07, tailGain:0.14, tailLp:3200, tailDur:0.12 }); }
-function playGunshotScar()   { playGunshotSynth({ vol:0.78, crackHp:1700, crackGain:1.00, bodyFreq:500, bodyGain:0.85, subLp:155, subGain:0.80, subDur:0.11, tailGain:0.20, tailLp:2800, tailDur:0.20 }); }
-
-/* === AK — heavier 7.62: lower crack, fatter body, more low-end thump === */
-function playGunshotAk() {
-  playGunshotSynth({ vol:0.80, crackHp:1700, crackGain:1.00, crackDecay:300, bodyFreq:480, bodyQ:0.5, bodyGain:0.85, subLp:160, subGain:0.90, subDur:0.12, tailGain:0.22, tailLp:3000, tailDur:0.24 });
-}
-
-/* === M416 — sharper 5.56: brighter/higher crack, less low-end === */
+/* === M416 GUNSHOT ===
+ * Higher-frequency CRACK (5.56 NATO has a sharper supersonic crack vs the
+ * AK's 7.62), shorter snap, MUCH less sub-bass, faster decay. The result
+ * is a tight "tak-tak-tak" rather than the AK's heavy "DUH-DUH". */
+/* ============================================================
+ * M416 GUNSHOT — "TAK-PAH"
+ * Updated: sharp, crisp, ringing pop with much more high-end
+ * presence (the user wanted "звонкий хлопок"). Layered:
+ *   1) Ultra-fast white-noise CRACK with a 6 kHz peaking filter
+ *      (feels like a 5.56 NATO supersonic crack)
+ *   2) Click "TAK" transient (square at 4 kHz) — the receiver hammer
+ *   3) Whip-crack SHIMMER (10 kHz triangle ring, very brief)
+ *   4) Mid-frequency POP (1.7 kHz band-pass, short)
+ *   5) Soft body slap (550 Hz, lighter than AK)
+ *   6) Brief sub punch (180 Hz, no big boom — 5.56 has no real BOOM)
+ *   7) Bright TAIL (high-pass 400 Hz, peak around 3 kHz)
+ * Result: tight "TAK-TAK-TAK" with a clear ringing pop.
+ * ============================================================ */
 function playGunshotM416() {
-  playGunshotSynth({ vol:0.70, crackHp:2200, crackGain:1.10, crackDecay:340, bodyFreq:680, bodyQ:0.5, bodyGain:0.62, subLp:175, subGain:0.50, subDur:0.08, tailGain:0.18, tailLp:3400, tailDur:0.18 });
+  if (!audioCtx) return;
+  const ctx = audioCtx;
+  const now = ctx.currentTime;
+  const master = ctx.createGain();
+  master.gain.value = 0.66 * _suppressorGain();
+  /* Route through global "deaf" filter so post-shot tinnitus low-pass
+   * affects the gunshot tail too (set up later in the file). */
+  master.connect(audioBus ? audioBus.preMaster : ctx.destination);
+
+  /* === 5.56 NATO-style supersonic CRACK ====
+   * No oscillators (square waves sound "cartoonish"). Instead: layer
+   * 4 short white-noise transients with different filters/peaks so the
+   * end result is a non-tonal, broadband BANG with high-end shimmer.
+   *
+   * Layer 1 — initial CRACK (8kHz peak, 4ms hard transient)
+   * Layer 2 — body PUNCH (700Hz band-pass, 35ms)
+   * Layer 3 — whip-crack RING (3kHz peak, 60ms)
+   * Layer 4 — barrel BOOM (sine 110→55Hz, 90ms — only mild low-end)
+   * Layer 5 — air-pressure TAIL (high-pass 600Hz noise, 220ms decay) */
+
+  /* L1 — initial CRACK */
+  {
+    const dur = 0.018;
+    const buf = ctx.createBuffer(1, Math.max(1, Math.floor(ctx.sampleRate * dur)), ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) {
+      const t = i / ctx.sampleRate;
+      d[i] = (Math.random()*2-1) * Math.exp(-t * 280);
+    }
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2200;
+    const peak = ctx.createBiquadFilter();
+    peak.type = 'peaking'; peak.frequency.value = 7800; peak.Q.value = 1.0; peak.gain.value = 9;   /* phase 3b: broadened (was Q1.4/+18) — killed the M416 crack "ting" */
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0, now);
+    g.gain.linearRampToValueAtTime(1.20, now + 0.0006);
+    g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+    src.connect(hp).connect(peak).connect(g).connect(master);
+    src.start(now); src.stop(now + dur + 0.005);
+  }
+
+  /* L2 — body PUNCH (snappy mid hit, lots of "звонкости") */
+  {
+    const dur = 0.038;
+    const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) {
+      const t = i / ctx.sampleRate;
+      d[i] = (Math.random()*2-1) * Math.exp(-t * 110);
+    }
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = 720; bp.Q.value = 0.9;
+    const peak = ctx.createBiquadFilter();
+    peak.type = 'peaking'; peak.frequency.value = 1900; peak.Q.value = 1.2; peak.gain.value = 8;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.78, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+    src.connect(bp).connect(peak).connect(g).connect(master);
+    src.start(now); src.stop(now + dur + 0.005);
+  }
+
+  /* L3 — whip-crack RING (звонкость — the bright supersonic ring) */
+  {
+    const dur = 0.080;
+    const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) {
+      const t = i / ctx.sampleRate;
+      d[i] = (Math.random()*2-1) * Math.exp(-t * 35);
+    }
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1500;
+    const peak = ctx.createBiquadFilter();
+    peak.type = 'peaking'; peak.frequency.value = 3000; peak.Q.value = 0.9; peak.gain.value = 6;   /* phase 3: broadened (was Q1.6/+10) to kill the tonal ring */
+    const peak2 = ctx.createBiquadFilter();
+    peak2.type = 'peaking'; peak2.frequency.value = 5500; peak2.Q.value = 1.0; peak2.gain.value = 4;   /* phase 3: broadened (was Q2.0/+7) */
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0, now);
+    g.gain.linearRampToValueAtTime(0.42, now + 0.001);
+    g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+    src.connect(hp).connect(peak).connect(peak2).connect(g).connect(master);
+    src.start(now); src.stop(now + dur + 0.005);
+  }
+
+  /* L4 — barrel BOOM (mild low-end) */
+  {
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(115, now);
+    osc.frequency.exponentialRampToValueAtTime(58, now + 0.06);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0, now);
+    g.gain.linearRampToValueAtTime(0.55, now + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+    osc.connect(g).connect(master);
+    osc.start(now); osc.stop(now + 0.10);
+  }
+
+  /* L5 — air-pressure TAIL (the bright звонкий ringing after the bang) */
+  {
+    const dur = 0.22;
+    const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) {
+      const t = i / ctx.sampleRate;
+      d[i] = (Math.random()*2-1) * Math.exp(-t * 11);
+    }
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 600;
+    const peak = ctx.createBiquadFilter();
+    peak.type = 'peaking'; peak.frequency.value = 4200; peak.Q.value = 1.0; peak.gain.value = 6;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0, now);
+    g.gain.linearRampToValueAtTime(0.26, now + 0.010);
+    g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+    src.connect(hp).connect(peak).connect(g).connect(master);
+    src.start(now); src.stop(now + dur + 0.005);
+  }
+
+  /* Trigger global deaf-tone for 1s */
+  if (typeof triggerDeafTone === 'function') triggerDeafTone(now);
 }
 
 function playDrySnap() {
@@ -8334,19 +8691,37 @@ const _SHELL_PORTS = {
 };
 /* Small metallic brass 'tink' when an ejected casing hits the ground. */
 function playShellTink() {
+  /* Brass casing hitting the ground. Earlier this used pure `triangle`
+   * tones at 3200/5300 Hz, which rang like a toy bell ("\u0437\u0432\u043e\u043d \u043a\u043e\u043b\u043e\u043a\u043e\u043b\u044c\u0447\u0438\u043a\u043e\u0432").
+   * A real casing is a very short, bright, BROADBAND metallic tick \u2014 not a
+   * sustained pitch \u2014 so this is built only from quick filtered noise bursts. */
   if (!audioCtx) return;
   const ctx = audioCtx; const now = ctx.currentTime;
   const out = ctx.createGain();
-  out.gain.value = 0.10;
+  out.gain.value = 0.09;
   out.connect(audioBus ? audioBus.preMaster : ctx.destination);
-  for (const part of [[3200, 0.9], [5300, 0.5]]) {
-    const o = ctx.createOscillator(); o.type = 'triangle';
-    o.frequency.setValueAtTime(part[0] * (0.96 + Math.random() * 0.08), now);
+  const rnd = 0.9 + Math.random() * 0.2;
+  /* L1 \u2014 sharp click (the initial contact) */
+  {
+    const dur = 0.018;
+    const src = ctx.createBufferSource(); src.buffer = _shotNoiseBuf(ctx, dur, 600);
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2600; hp.Q.value = 0.5;
     const g = ctx.createGain();
-    g.gain.setValueAtTime(0, now);
-    g.gain.linearRampToValueAtTime(part[1], now + 0.001);
-    g.gain.exponentialRampToValueAtTime(0.0008, now + 0.09);
-    o.connect(g).connect(out); o.start(now); o.stop(now + 0.10);
+    g.gain.setValueAtTime(0.7, now);
+    g.gain.exponentialRampToValueAtTime(0.0008, now + dur);
+    src.connect(hp).connect(g).connect(out);
+    src.start(now); src.stop(now + dur + 0.01);
+  }
+  /* L2 \u2014 faint metallic shimmer (wide, low-Q band \u2192 "tink", never "bell") */
+  {
+    const dur = 0.05;
+    const src = ctx.createBufferSource(); src.buffer = _shotNoiseBuf(ctx, dur, 120);
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 4200 * rnd; bp.Q.value = 0.9;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.4, now + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0008, now + dur);
+    src.connect(bp).connect(g).connect(out);
+    src.start(now); src.stop(now + dur + 0.01);
   }
 }
 /* Phase 4 (W12) — recent-gunshot blips for the minimap. */
@@ -12489,7 +12864,7 @@ const _battlefield = (() => {
   return { _tick };
 })();
 
-let _frameLogicWarned = false, _composerWarned = false;
+let _frameLogicWarned = false, _composerWarned = false, _diagLogged = false;
 function animate() {
   requestAnimationFrame(animate);
   if (document.hidden || _ctxLost) {
@@ -12501,6 +12876,26 @@ function animate() {
   _animFrame = (_animFrame + 1) | 0;
   const dt = Math.min(0.05, clock.getDelta());
   if (typeof _perf !== 'undefined') _perf.tick(dt);   /* STAGE 4 — FPS monitor + adaptive quality */
+
+  /* One-time diagnostic (~2s in): reports what the camera actually sees so a
+   * "blank/foggy world" can be pinpointed (no geometry vs. fog vs. exposure). */
+  if (_animFrame === 120 && !_diagLogged) {
+    _diagLogged = true;
+    try {
+      let visMeshes = 0, totMeshes = 0;
+      scene.traverse(o => { if (o.isMesh) { totMeshes++; if (o.visible) visMeshes++; } });
+      const ri = (renderer.info && renderer.info.render) ? renderer.info.render : {};
+      console.info('[__diag]',
+        'cam', camera.position.toArray().map(n => +n.toFixed(2)),
+        '| sceneChildren', scene.children.length,
+        '| meshes vis/total', visMeshes + '/' + totMeshes,
+        '| drawCalls', ri.calls, '| tris', ri.triangles,
+        '| fog', scene.fog ? [scene.fog.near, scene.fog.far] : null,
+        '| bg', (scene.background && scene.background.getHexString) ? '#' + scene.background.getHexString() : scene.background,
+        '| exposure', +renderer.toneMappingExposure.toFixed(3),
+        '| camLayersMask', camera.layers.mask);
+    } catch (e) { console.error('[__diag] failed', e); }
+  }
 
   try {
   if (controls.isLocked) {

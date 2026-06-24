@@ -459,7 +459,7 @@
   <h1>OPERATION RIFLE</h1>
   <div class="subtitle">A K M&nbsp;·&nbsp;M 4 1 6&nbsp;·&nbsp;F P S</div>
   <div class="controls">
-    <b>WASD</b> — двигаться &nbsp;|&nbsp; <b>SHIFT</b> — бежать &nbsp;|&nbsp; <b>SPACE</b> — прыжок &nbsp;|&nbsp; <b>CTRL</b> — присесть &nbsp;|&nbsp; <b>Q / E</b> — наклон<br>
+    <b>WASD</b> — двигаться &nbsp;|&nbsp; <b>SHIFT</b> — бежать &nbsp;|&nbsp; <b>SPACE</b> — прыжок &nbsp;|&nbsp; <b>CTRL</b> — присесть &nbsp;|&nbsp; <b>Q / E</b> — накл��н<br>
     <b>МЫШЬ</b> — обзор &nbsp;|&nbsp; <b>ЛКМ</b> — стрелять &nbsp;|&nbsp; <b>ПКМ</b> — прицелиться &nbsp;|&nbsp; <b>R</b> — перезарядка<br>
     <b>1</b> — пистолет &nbsp;|&nbsp; <b>2</b> — винтовка &nbsp;|&nbsp; <b>3</b> — спец &nbsp;|&nbsp; <b>4</b> — аптечка &nbsp;|&nbsp; <b>B</b> — переключить прицел &nbsp;|&nbsp; <b>O</b> — глушитель &nbsp;|&nbsp; <b>F</b> — взять / пополнить &nbsp;|&nbsp; <b>ESC</b> — пауза<br><br>
     <span style="color:#ffd060">СТАРТ:</span> у тебя <b>пусто</b> (нет оружия, патронов, брони). У сруба — <b>ДОСКА СНАРЯЖЕНИЯ</b>. Подойди и нажми <b>F</b>, чтобы взять: <span style="color:#ffd066">АКМ</span>, <span style="color:#ffd066">M416</span>, <span style="color:#a0ffa0">бронежилет</span>, <span style="color:#a0c0ff">шлем</span>, <span style="color:#ffd066">рюкзак</span>, <span style="color:#ff7080">коллиматор</span>, <span style="color:#ff7080">прицел 3X</span>.<br>
@@ -467,7 +467,7 @@
     <span style="color:#ffd060">ВРАГИ:</span> 60 ботов в волнах — 20 уже на поле, 15 наступают с базы, 13 в резерве, 12 защищают флаг.<br>
     <span style="color:#a0c0ff">ЗАЩИТА:</span> ШЛЕМ — пережить хедшот · БРОНЯ — поглощает 50 HP в торс/голову · РЮКЗАК — +100 к запасу патронов (всего 220).<br>
     <span style="color:#ff8a8a">УРОН ПО ЗОНАМ:</span> голова — смерть (без шлема) · грудь — 50/50 · руки/ноги — 2-3 попадания.<br>
-    <span style="color:#90ff90">АПТЕЧКИ:</span> +1 за каждых 3 убитых · нажми <b>3</b> чтобы восстановить здоровье.
+    <span style="color:#90ff90">АПТЕЧКИ:</span> +1 за каждых 3 убитых · нажми <b>3</b> чтобы в��сстановить здоровье.
   </div>
   <button class="play-btn" id="play">PLAY</button>
 </div>
@@ -574,35 +574,12 @@ canvas.addEventListener('webglcontextlost', (e) => {
       while (impacts.length) { const p = impacts.shift(); try { scene.remove(p.obj); _disposeObj(p.obj); } catch(_){} }
     }
   } catch(_){}
-  /* The browser does NOT auto-restore a driver-induced context loss: we must
-   * explicitly ask three.js to recreate the GL context, otherwise the screen
-   * stays a frozen grey/blue forever (HUD + 2D minimap keep working). This was
-   * the 'серый/синий экран при старте миссии' bug — the heavy first-frame load
-   * (60 ботов + теней) blows the context on weak/VM GPUs. */
-  let _ctxRestoreTries = (typeof _ctxRestoreTries !== 'undefined' ? _ctxRestoreTries : 0);
-  setTimeout(function tryRestore(){
-    try {
-      if (_ctxLost && renderer && typeof renderer.forceContextRestore === 'function') {
-        renderer.forceContextRestore();
-      }
-    } catch(_){}
-  }, 600);
 }, false);
 canvas.addEventListener('webglcontextrestored', () => {
   _ctxLost = false;
-  console.warn('WebGL context restored — resuming (quality reduced to prevent re-loss).');
-  /* Shed GPU load so the just-recovered context is not immediately lost again
-   * by the same heavy scene. Lower DPR + smaller shadow map = stable render. */
-  try { renderer.setPixelRatio(1); } catch(_){}
-  try {
-    if (renderer.shadowMap) {
-      renderer.shadowMap.needsUpdate = true;
-      if (typeof sun !== 'undefined' && sun.shadow && sun.shadow.mapSize) {
-        sun.shadow.mapSize.set(1024, 1024);
-        if (sun.shadow.map) { try { sun.shadow.map.dispose(); } catch(_){} sun.shadow.map = null; }
-      }
-    }
-  } catch(_){}
+  console.warn('WebGL context restored — resuming.');
+  /* Force shadow map regen on the next eligible frame */
+  try { renderer.shadowMap.needsUpdate = true; } catch(_){}
 }, false);
 
 const scene = new THREE.Scene();
@@ -4171,7 +4148,7 @@ function createAK47() {
   ak.add(rsAnchorAk);
   ak.userData.rearSight = rsAnchorAk;
 
-  /* Magazine — curved banana shape (5 segments, increasing curve).
+  /* Magazine ��� curved banana shape (5 segments, increasing curve).
    * Wrapped in a Group so it can be DETACHED during the reload animation.
    * Uses iconic orange-amber bakelite for a premium look. */
   const mag = new THREE.Group();
@@ -7075,7 +7052,7 @@ function playGunshotSynth(p) {
   /* L1 — initial crack */
   { const dur = p.crackDur || 0.016; const src = ctx.createBufferSource(); src.buffer = _shotNoiseBuf(ctx, dur, 300);
     const hp = ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value = p.crackHp || 2000;
-    const pk = ctx.createBiquadFilter(); pk.type='peaking'; pk.frequency.value = p.crackFreq || 7000; pk.Q.value=1.0; pk.gain.value=0;   /* phase 3b: broadened (was Q1.4/+16) — a narrow high-gain peak on noise rings like a bell; this was the shared "колокольчик" on SCAR/MP5/pistol */
+    const pk = ctx.createBiquadFilter(); pk.type='peaking'; pk.frequency.value = p.crackFreq || 7000; pk.Q.value=1.0; pk.gain.value=8;   /* phase 3b: broadened (was Q1.4/+16) — a narrow high-gain peak on noise rings like a bell; this was the shared "колокольчик" on SCAR/MP5/pistol */
     const g = ctx.createGain(); g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(p.crackGain || 1.1, now+0.0006); g.gain.exponentialRampToValueAtTime(0.001, now+dur);
     src.connect(hp).connect(pk).connect(g).connect(master); src.start(now); src.stop(now+dur+0.005); }
   /* L2 — body punch */
@@ -7086,7 +7063,7 @@ function playGunshotSynth(p) {
   /* L3 — bright ring */
   if (p.ringGain) { const dur = p.ringDur || 0.07; const src = ctx.createBufferSource(); src.buffer = _shotNoiseBuf(ctx, dur, 40);
     const hp = ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value = 1400;
-    const pk = ctx.createBiquadFilter(); pk.type='peaking'; pk.frequency.value = p.ringFreq || 3200; pk.Q.value=0.9; pk.gain.value=0;   /* phase 3: broadened (was Q1.8/+10) so the noise ring is broadband, not a tonal "колокольчик" */
+    const pk = ctx.createBiquadFilter(); pk.type='peaking'; pk.frequency.value = p.ringFreq || 3200; pk.Q.value=0.9; pk.gain.value=5;   /* phase 3: broadened (was Q1.8/+10) so the noise ring is broadband, not a tonal "колокольчик" */
     const g = ctx.createGain(); g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(p.ringGain, now+0.001); g.gain.exponentialRampToValueAtTime(0.001, now+dur);
     src.connect(hp).connect(pk).connect(g).connect(master); src.start(now); src.stop(now+dur+0.005); }
   /* L4 — barrel boom */
@@ -7259,7 +7236,7 @@ function playGunshotAk() {
     const hp = ctx.createBiquadFilter(); hp.type = 'highpass';
     hp.frequency.value = 1800;
     const peak = ctx.createBiquadFilter();
-    peak.type = 'peaking'; peak.frequency.value = 5000; peak.Q.value = 1.0; peak.gain.value = 0;   /* phase 3b: broadened (was Q1.6/+14) — killed the AK/AK74 crack "ting" */
+    peak.type = 'peaking'; peak.frequency.value = 5000; peak.Q.value = 1.0; peak.gain.value = 8;   /* phase 3b: broadened (was Q1.6/+14) — killed the AK/AK74 crack "ting" */
     const g = ctx.createGain();
     g.gain.setValueAtTime(0.0, now);
     g.gain.linearRampToValueAtTime(1.05, now + 0.001);
@@ -7352,7 +7329,7 @@ function playGunshotAk() {
     const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 350;
     const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 4500;
     const peak = ctx.createBiquadFilter();
-    peak.type = 'peaking'; peak.frequency.value = 2400; peak.Q.value = 1.0; peak.gain.value = 0;
+    peak.type = 'peaking'; peak.frequency.value = 2400; peak.Q.value = 1.0; peak.gain.value = 4;
     const g = ctx.createGain();
     g.gain.setValueAtTime(0.0, now);
     g.gain.linearRampToValueAtTime(0.30, now + 0.02);
@@ -7413,7 +7390,7 @@ function playGunshotM416() {
     const src = ctx.createBufferSource(); src.buffer = buf;
     const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2200;
     const peak = ctx.createBiquadFilter();
-    peak.type = 'peaking'; peak.frequency.value = 7800; peak.Q.value = 1.0; peak.gain.value = 0;   /* phase 3b: broadened (was Q1.4/+18) — killed the M416 crack "ting" */
+    peak.type = 'peaking'; peak.frequency.value = 7800; peak.Q.value = 1.0; peak.gain.value = 9;   /* phase 3b: broadened (was Q1.4/+18) — killed the M416 crack "ting" */
     const g = ctx.createGain();
     g.gain.setValueAtTime(0.0, now);
     g.gain.linearRampToValueAtTime(1.20, now + 0.0006);
@@ -7435,7 +7412,7 @@ function playGunshotM416() {
     const bp = ctx.createBiquadFilter();
     bp.type = 'bandpass'; bp.frequency.value = 720; bp.Q.value = 0.9;
     const peak = ctx.createBiquadFilter();
-    peak.type = 'peaking'; peak.frequency.value = 1900; peak.Q.value = 1.2; peak.gain.value = 0;
+    peak.type = 'peaking'; peak.frequency.value = 1900; peak.Q.value = 1.2; peak.gain.value = 8;
     const g = ctx.createGain();
     g.gain.setValueAtTime(0.78, now);
     g.gain.exponentialRampToValueAtTime(0.001, now + dur);
@@ -7455,9 +7432,9 @@ function playGunshotM416() {
     const src = ctx.createBufferSource(); src.buffer = buf;
     const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1500;
     const peak = ctx.createBiquadFilter();
-    peak.type = 'peaking'; peak.frequency.value = 3000; peak.Q.value = 0.9; peak.gain.value = 0;   /* phase 3: broadened (was Q1.6/+10) to kill the tonal ring */
+    peak.type = 'peaking'; peak.frequency.value = 3000; peak.Q.value = 0.9; peak.gain.value = 6;   /* phase 3: broadened (was Q1.6/+10) to kill the tonal ring */
     const peak2 = ctx.createBiquadFilter();
-    peak2.type = 'peaking'; peak2.frequency.value = 5500; peak2.Q.value = 1.0; peak2.gain.value = 0;   /* phase 3: broadened (was Q2.0/+7) */
+    peak2.type = 'peaking'; peak2.frequency.value = 5500; peak2.Q.value = 1.0; peak2.gain.value = 4;   /* phase 3: broadened (was Q2.0/+7) */
     const g = ctx.createGain();
     g.gain.setValueAtTime(0.0, now);
     g.gain.linearRampToValueAtTime(0.42, now + 0.001);
@@ -7492,7 +7469,7 @@ function playGunshotM416() {
     const src = ctx.createBufferSource(); src.buffer = buf;
     const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 600;
     const peak = ctx.createBiquadFilter();
-    peak.type = 'peaking'; peak.frequency.value = 4200; peak.Q.value = 1.0; peak.gain.value = 0;
+    peak.type = 'peaking'; peak.frequency.value = 4200; peak.Q.value = 1.0; peak.gain.value = 6;
     const g = ctx.createGain();
     g.gain.setValueAtTime(0.0, now);
     g.gain.linearRampToValueAtTime(0.26, now + 0.010);
@@ -11246,7 +11223,7 @@ function updateHUD() {
     const parts = [];
     if (player.inv.hasHelmet)   parts.push('<span style="color:#a0c0ff">ШЛЕМ</span>');
     if (player.inv.hasArmor)    parts.push('<span style="color:#a0ffa0">БРОНЯ</span>');
-    if (player.inv.hasBackpack) parts.push('<span style="color:#ffd066">РЮКЗАК</span>');
+    if (player.inv.hasBackpack) parts.push('<span style="color:#ffd066">РЮК��АК</span>');
     gearEl.innerHTML = parts.join(' · ');
   }
 
@@ -11518,7 +11495,7 @@ function pickUpFromBoard(slot) {
       showNotice('КОЛЛИМАТОР (B - переключить)');
       break;
     case 'scope_3x':
-      if (player.inv.hasScope3x) { showNotice('ПРИЦЕЛ 3X УЖЕ В ИНВЕНТАРЕ'); return; }
+      if (player.inv.hasScope3x) { showNotice('ПРИЦЕЛ 3X УЖЕ В ИНВЕНТ��РЕ'); return; }
       player.inv.hasScope3x = true;
       showNotice('ПРИЦЕЛ 3X (B - переключить)');
       break;
@@ -11538,7 +11515,7 @@ function pickUpFromBoard(slot) {
     case 'foregrip':
       if (player.inv.hasForegrip) { showNotice('РУКОЯТКА УЖЕ УСТАНОВЛЕНА'); return; }
       player.inv.hasForegrip = true;
-      showNotice('ПЕРЕДНЯЯ РУКОЯТКА — МЕНЬШЕ ОТДАЧИ');
+      showNotice('ПЕРЕДНЯЯ РУКОЯТКА — МЕН��ШЕ ОТДАЧИ');
       break;
     case 'rig':
       /* W10 — chest rig: bigger ammo reserve + grenade capacity, tops both up */
@@ -11912,8 +11889,8 @@ function updateDayNight() {
    * cut to ~30m — matches the user's "20-80m fog" spec and lets the
    * flashlight beam read prominently. */
   if (scene.fog) {
-    scene.fog.near = 600; /* fog pushed far out so world stays visible */
-    scene.fog.far  = 3000; /* fog pushed far out so world stays visible */
+    scene.fog.near = 600; /* fog pushed far out so the world stays visible */
+    scene.fog.far  = 3000; /* fog pushed far out so the world stays visible */
   }
   /* Disable expensive sun shadow map at night (sun barely contributes) */
   sun.castShadow = dl > 0.18;
@@ -12959,16 +12936,32 @@ function animate() {
    * weapon as a separate overlay on a freshly-cleared depth buffer so it can
    * never clip into world geometry. */
   camera.layers.set(0);
-  composer.render(dt);
+  /* FIX: the EffectComposer post-pass produced a blank/grey frame on many
+     GPUs (the "grey screen" bug). Render the scene directly instead — this
+     keeps ACES tonemapping, sRGB, shadows and the CSS post-FX overlays. */
+  renderer.setRenderTarget(null);
+  renderer.setViewport(0, 0, renderer.domElement.width, renderer.domElement.height);
+  if (renderer.setScissorTest) renderer.setScissorTest(false);
+  renderer.autoClear = true;
+  renderer.clear();
+  renderer.render(scene, camera);
   if (typeof weapon !== 'undefined' && typeof _setViewmodelLayer === 'function') {
     _setViewmodelLayer();
     const _ac = renderer.autoClear;
+    /* FIX (grey-screen): three.js always repaints scene.background as a
+       fullscreen quad on every render() call — even with autoClear=false.
+       This overlay pass for the weapon viewmodel was therefore repainting
+       the grey sky over the entire already-rendered world, wiping it out.
+       Null the background for the overlay render and restore it after. */
+    const _bg = scene.background;
     renderer.autoClear = false;
+    scene.background = null;
     renderer.setRenderTarget(null);
     renderer.clearDepth();
     camera.layers.set(VIEWMODEL_LAYER);
     renderer.render(scene, camera);
     camera.layers.set(0);
+    scene.background = _bg;
     renderer.autoClear = _ac;
   }
 }
@@ -14513,7 +14506,7 @@ if (PVP_MODE) {
       '<b>1</b> — пистолет | <b>2</b> — винтовка | <b>3</b> — спец | <b>4</b> — аптечка | <b>B</b> — прицел | <b>O</b> — глушитель<br><br>' +
       '<span style="color:#ff6040">РЕЖИМ:</span> PVP 1 на 1 с игроком <b style="color:#ff6040">' + PVP_OPPONENT + '</b><br>' +
       '<span style="color:#ffd060">СНАРЯЖЕНИЕ:</span> АКМ, M416, броня, шлем, рюкзак — выдаётся автоматически<br>' +
-      '<span style="color:#ff8a8a">ПРАВИЛА:</span> убейте противника. Респавн через 5 секунд. Раунды бесконечны.<br>' +
+      '<span style="color:#ff8a8a">ПРАВИЛА:</span> убейте противника. Респавн чере�� 5 секунд. Раунды бесконечны.<br>' +
       '<span style="color:#90ff90">СЧЁТ:</span> побеждает тот, кто убил противника. Счёт отображается в правом верхнем углу.';
   }
   if (TEAM_MODE) {
@@ -14528,7 +14521,7 @@ if (PVP_MODE) {
       const myName  = (TEAM_SIDE === 'A') ? 'СИНИЕ' : 'КРАСНЫЕ';
       if (ctrl) ctrl.innerHTML =
         '<b>WASD</b> — двигаться | <b>SHIFT</b> — бежать | <b>SPACE</b> — прыжок | <b>CTRL</b> — присесть | <b>Q / E</b> — наклон<br>' +
-        '<b>МЫШЬ</b> — обзор | <b>ЛКМ</b> — стрелять | <b>ПКМ</b> — прицелиться | <b>R</b> — перезарядка<br>' +
+        '<b>МЫ��Ь</b> — обзор | <b>ЛКМ</b> — стрелять | <b>ПКМ</b> — прицелиться | <b>R</b> — перез��рядка<br>' +
         '<b>1</b> — пистолет | <b>2</b> — винтовка | <b>3</b> — спец | <b>4</b> — аптечка | <b>B</b> — прицел | <b>O</b> — глушитель<br><br>' +
         '<span style="color:' + myColor + '">КОМАНДА:</span> <b style="color:' + myColor + '">' + myName + '</b><br>' +
         '<span style="color:#ffd060">СНАРЯЖЕНИЕ:</span> АКМ, M416, броня, шлем — выдаётся автоматически<br>' +

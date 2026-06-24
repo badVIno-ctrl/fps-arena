@@ -608,7 +608,7 @@ canvas.addEventListener('webglcontextrestored', () => {
 const scene = new THREE.Scene();
 /* Overcast/rainy sky — desaturated, cool grey/blue */
 scene.background = new THREE.Color(0x7e858c);
-scene.fog = new THREE.Fog(0x7e858c, 48, 195);
+scene.fog = new THREE.Fog(0x7e858c, 600, 3000);
 
 /* PMREM env was removed — added pressure on GPU texture memory and was
  * implicated in browser-tab crashes on lower-end machines. We rely on
@@ -11912,8 +11912,8 @@ function updateDayNight() {
    * cut to ~30m — matches the user's "20-80m fog" spec and lets the
    * flashlight beam read prominently. */
   if (scene.fog) {
-    scene.fog.near = THREE.MathUtils.lerp(45, 60, dl);   /* phase 1: was 18 — night fog no longer chokes visibility to ~30m */
-    scene.fog.far  = THREE.MathUtils.lerp(150, 220, dl); /* phase 1: was 70 */
+    scene.fog.near = 600; /* fog pushed far out so world stays visible */
+    scene.fog.far  = 3000; /* fog pushed far out so world stays visible */
   }
   /* Disable expensive sun shadow map at night (sun barely contributes) */
   sun.castShadow = dl > 0.18;
@@ -11927,8 +11927,8 @@ function updateDayNight() {
     hemi.intensity    += 0.45 * boost;
     ambient.color.setRGB(0.45 + 0.55 * dl, 1.0, 0.5 + 0.5 * dl);
     if (scene.fog) {
-      scene.fog.near = THREE.MathUtils.lerp(scene.fog.near, 80,  boost);
-      scene.fog.far  = THREE.MathUtils.lerp(scene.fog.far,  320, boost);
+      scene.fog.near = THREE.MathUtils.lerp(scene.fog.near, 600,  boost);
+      scene.fog.far  = THREE.MathUtils.lerp(scene.fog.far,  3000, boost);
     }
   } else {
     ambient.color.setRGB(1, 1, 1);

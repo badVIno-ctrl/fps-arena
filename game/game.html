@@ -847,7 +847,7 @@ const LensRainShader = {
   uniforms: {
     tDiffuse:    { value: null },
     uTime:       { value: 0 },
-    uIntensity:  { value: 0.85 },
+    uIntensity:  { value: 0.0 },   /* lens droplets off — rain stays on the map, not on camera */
     uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
   },
   vertexShader: `
@@ -4808,6 +4808,7 @@ function createAK74() {
   const rearSight = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.012, 0.016), polished);
   rearSight.position.set(0, 0.052, -0.14);
   g.add(rearSight);
+  g.userData.rearSight = rearSight;
 
   /* AK-74 signature muzzle brake */
   const brakeBody = new THREE.Mesh(new THREE.CylinderGeometry(0.020, 0.020, 0.075, 14), dark);
@@ -4932,6 +4933,7 @@ function createScarH() {
   const rearAp = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.012, 0.006), polished);
   rearAp.position.set(0, 0.090, 0.00);
   g.add(rearAp);
+  g.userData.rearSight = rearAp;
 
   const pgrip = new THREE.Mesh(new THREE.BoxGeometry(0.030, 0.090, 0.038), fde);
   pgrip.position.set(0, -0.030, 0.015);
@@ -5081,6 +5083,7 @@ function createMP5() {
   rearDrum.rotation.z = Math.PI / 2;
   rearDrum.position.set(0, 0.064, 0.02);
   g.add(rearDrum);
+  g.userData.rearSight = rearDrum;
 
   const pgrip = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.085, 0.036), dark);
   pgrip.position.set(0, -0.020, 0.025);
@@ -9851,11 +9854,28 @@ function updatePlayer(dt) {
   if (player.adsT > 0.2 && activeSight === 'iron' && player.activeWeapon &&
       WEAPON_OBJS[player.activeWeapon]) {
     const _fsObj = WEAPON_OBJS[player.activeWeapon].userData.frontSight;
+    const _rsObj = WEAPON_OBJS[player.activeWeapon].userData.rearSight;
     if (_fsObj) {
-      weapon.updateWorldMatrix(true, true);
-      const _fsW = _fsObj.getWorldPosition(new THREE.Vector3());
-      const _fsL = camera.worldToLocal(_fsW);   /* weapon is a child of camera */
       const _k = Math.min(1, player.adsT);
+      /* Step 1 — align the EYE→REAR→FRONT line. Pitch/yaw the gun about the
+       * eye so the rear-sight→front-sight axis points straight back at the
+       * camera. Without this the eye sits below the sight line and you end up
+       * "looking into the barrel" instead of through the sights. */
+      if (_rsObj) {
+        weapon.updateWorldMatrix(true, true);
+        const _fW = camera.worldToLocal(_fsObj.getWorldPosition(new THREE.Vector3()));
+        const _rW = camera.worldToLocal(_rsObj.getWorldPosition(new THREE.Vector3()));
+        const _dir = _fW.clone().sub(_rW).normalize();        /* rear -> front */
+        const _want = new THREE.Vector3(0, 0, -1);            /* straight ahead */
+        const _q = new THREE.Quaternion().setFromUnitVectors(_dir, _want);
+        /* blend the correction in with ADS so hip-fire is untouched */
+        _q.slerp(new THREE.Quaternion(), 1 - _k);
+        weapon.position.applyQuaternion(_q);                  /* rotate about eye */
+        weapon.quaternion.premultiply(_q);
+      }
+      /* Step 2 — slide the front post onto the crosshair (screen centre). */
+      weapon.updateWorldMatrix(true, true);
+      const _fsL = camera.worldToLocal(_fsObj.getWorldPosition(new THREE.Vector3()));
       weapon.position.x -= _fsL.x * _k;
       weapon.position.y -= _fsL.y * _k;
     }
@@ -11894,26 +11914,26 @@ function updateDayNight() {
   );
   sun.target.position.set(cx, 0, cz);
   /* Light intensities */
-  sun.intensity     = THREE.MathUtils.lerp(0.0,  0.95, dl);
-  hemi.intensity    = THREE.MathUtils.lerp(0.08, 0.85, dl);
-  ambient.intensity = THREE.MathUtils.lerp(0.06, 0.62, dl);
+  sun.intensity     = THREE.MathUtils.lerp(0.30, 1.05, dl);
+  hemi.intensity    = THREE.MathUtils.lerp(0.55, 0.95, dl);
+  ambient.intensity = THREE.MathUtils.lerp(0.50, 0.72, dl);
   /* Hemi sky color blends from deep night-blue to overcast grey */
   hemi.color.setRGB(
-    THREE.MathUtils.lerp(0.06, 0.71, dl),
-    THREE.MathUtils.lerp(0.08, 0.76, dl),
-    THREE.MathUtils.lerp(0.18, 0.81, dl)
+    THREE.MathUtils.lerp(0.34, 0.71, dl),
+    THREE.MathUtils.lerp(0.38, 0.76, dl),
+    THREE.MathUtils.lerp(0.46, 0.81, dl)
   );
   hemi.groundColor.setRGB(
-    THREE.MathUtils.lerp(0.04, 0.31, dl),
-    THREE.MathUtils.lerp(0.04, 0.29, dl),
-    THREE.MathUtils.lerp(0.06, 0.24, dl)
+    THREE.MathUtils.lerp(0.20, 0.31, dl),
+    THREE.MathUtils.lerp(0.20, 0.29, dl),
+    THREE.MathUtils.lerp(0.20, 0.24, dl)
   );
   /* Fog near/far: at night, pull fog in MUCH closer so visibility is
    * cut to ~30m — matches the user's "20-80m fog" spec and lets the
    * flashlight beam read prominently. */
   if (scene.fog) {
-    scene.fog.near = THREE.MathUtils.lerp(18, 60, dl);
-    scene.fog.far  = THREE.MathUtils.lerp(70, 220, dl);
+    scene.fog.near = THREE.MathUtils.lerp(45, 60, dl);
+    scene.fog.far  = THREE.MathUtils.lerp(170, 220, dl);
   }
   /* Disable expensive sun shadow map at night (sun barely contributes) */
   sun.castShadow = dl > 0.18;

@@ -224,8 +224,31 @@
    * "double dot" effect: 3D dot tilts with the gun while the HTML dot
    * stayed glued to screen center. Element kept so JS opacity writes
    * don't error. */
-  /* IRON-SIGHT — no overlay; player aligns through the gun's actual front
-   * post + rear notch. Element kept so JS opacity writes don't error. */
+  /* IRON-SIGHT overlay — a crisp notch-and-post reticle pinned to screen
+   * centre so the front sight (мушка) is ALWAYS visible when aiming, no matter
+   * how the 3D model is lit or occluded. The auto-zero centres the real 3D
+   * front post on the same point, so the model sights sit right behind this
+   * and reinforce it instead of doubling up. */
+  #sight-iron .iron-post {
+    position: absolute; left: 50%; top: 50%;
+    width: 3px; height: 18px; transform: translate(-50%, 0);
+    background: rgba(12,12,14,0.95); border-radius: 1px;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.18), 0 0 3px rgba(0,0,0,0.85);
+  }
+  #sight-iron .iron-post::after {
+    content: ''; position: absolute; left: 50%; top: 0;
+    width: 5px; height: 5px; transform: translate(-50%, -55%);
+    background: #f4e6b0; border-radius: 50%;
+    box-shadow: 0 0 4px 1px rgba(255,230,140,0.8);
+  }
+  #sight-iron .iron-rear-l, #sight-iron .iron-rear-r {
+    position: absolute; left: 50%; top: 50%;
+    width: 30px; height: 11px;
+    background: rgba(10,10,12,0.9); border-radius: 2px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 0 3px rgba(0,0,0,0.85);
+  }
+  #sight-iron .iron-rear-l { transform: translate(calc(-100% - 8px), -1px); }
+  #sight-iron .iron-rear-r { transform: translate(8px, -1px); }
   /* 3X SCOPE — full-screen sniper-scope ring + crosshair + mil-dots + center dot */
   #sight-3x .scope-vignette {
     position: absolute; inset: 0;
@@ -312,7 +335,7 @@
 <div id="damage"></div>
 
 <!-- Sight overlays — toggled by JS based on player.isAiming + active sight -->
-<div id="sight-iron"></div>
+<div id="sight-iron"><div class="iron-rear-l"></div><div class="iron-rear-r"></div><div class="iron-post"></div></div>
 <div id="sight-reddot"></div>
 <div id="sight-3x">
   <div class="scope-vignette"></div>
@@ -376,42 +399,42 @@
   <div id="inv">
     <div class="inv-slot" id="slot-medkit">
       <div class="inv-key">4</div>
-      <div class="inv-icon">✚</div>
+      <div class="inv-icon"><svg viewBox="0 0 24 24" style="width:1em;height:1em;display:block" fill="currentColor" aria-hidden="true"><rect x="9.5" y="3" width="5" height="18" rx="1.2"/><rect x="3" y="9.5" width="18" height="5" rx="1.2"/></svg></div>
       <div class="inv-count" id="medkit-count">2</div>
     </div>
     <div class="inv-slot" id="slot-frag" style="margin-left:8px">
       <div class="inv-key">G</div>
-      <div class="inv-icon" style="color:#7fbb6c">⬢</div>
+      <div class="inv-icon" style="color:#7fbb6c"><svg viewBox="0 0 24 24" style="width:1em;height:1em;display:block" fill="currentColor" aria-hidden="true"><circle cx="12" cy="15" r="6.5"/><rect x="9.8" y="3.4" width="4.4" height="4.2" rx="1"/><rect x="12.4" y="3.7" width="7.4" height="2.6" rx="1.3"/></svg></div>
       <div class="inv-count" id="frag-count">2</div>
     </div>
     <div class="inv-slot" id="slot-smoke" style="margin-left:8px">
       <div class="inv-key">Y</div>
-      <div class="inv-icon" style="color:#cfd2d8">○</div>
+      <div class="inv-icon" style="color:#cfd2d8"><svg viewBox="0 0 24 24" style="width:1em;height:1em;display:block" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg></div>
       <div class="inv-count" id="smoke-count">4</div>
     </div>
     <div class="inv-slot" id="slot-suppressor" style="margin-left:8px;display:none">
       <div class="inv-key">O</div>
-      <div class="inv-icon" style="color:#888;font-size:13px">▮</div>
+      <div class="inv-icon" style="color:#888;font-size:13px"><svg viewBox="0 0 24 24" style="width:1em;height:1em;display:block" fill="currentColor" aria-hidden="true"><rect x="3" y="9" width="18" height="6" rx="3"/></svg></div>
       <div class="inv-count" id="sup-status" style="font-size:9px">OFF</div>
     </div>
     <div class="inv-slot" id="slot-laser" style="margin-left:8px;display:none">
       <div class="inv-key">T</div>
-      <div class="inv-icon" style="color:#ff4438;font-size:13px">→</div>
+      <div class="inv-icon" style="color:#ff4438;font-size:13px"><svg viewBox="0 0 24 24" style="width:1em;height:1em;display:block" fill="currentColor" aria-hidden="true"><rect x="2" y="10.5" width="13" height="3"/><path d="M14 7 L22 12 L14 17 Z"/></svg></div>
       <div class="inv-count" id="laser-status" style="font-size:9px">OFF</div>
     </div>
     <div class="inv-slot" id="slot-foregrip" style="margin-left:8px;display:none">
       <div class="inv-key" style="font-size:8px">ГРИП</div>
-      <div class="inv-icon" style="color:#9a8f7a;font-size:13px">⬇</div>
+      <div class="inv-icon" style="color:#9a8f7a;font-size:13px"><svg viewBox="0 0 24 24" style="width:1em;height:1em;display:block" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 v13 M6 11 l6 6 6-6"/></svg></div>
       <div class="inv-count" style="font-size:9px">ON</div>
     </div>
     <div class="inv-slot" id="slot-nvg" style="margin-left:8px;display:none">
       <div class="inv-key">N</div>
-      <div class="inv-icon" style="color:#5fff7a;font-size:13px">◎</div>
+      <div class="inv-icon" style="color:#5fff7a;font-size:13px"><svg viewBox="0 0 24 24" style="width:1em;height:1em;display:block" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/></svg></div>
       <div class="inv-count" id="nvg-status" style="font-size:9px">OFF</div>
     </div>
     <div class="inv-slot" id="slot-rig" style="margin-left:8px;display:none">
       <div class="inv-key" style="font-size:8px">РИГ</div>
-      <div class="inv-icon" style="color:#b8a060;font-size:13px">▦</div>
+      <div class="inv-icon" style="color:#b8a060;font-size:13px"><svg viewBox="0 0 24 24" style="width:1em;height:1em;display:block" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="7.5" height="7.5" rx="1"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1"/></svg></div>
       <div class="inv-count" style="font-size:9px">+</div>
     </div>
   </div>
@@ -4807,7 +4830,19 @@ function createAK74() {
   const rearBase = new THREE.Mesh(new THREE.BoxGeometry(0.020, 0.026, 0.016), steel);
   rearBase.position.set(0, 0.060, -0.14);
   g.add(rearBase);
-  const rearSight = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.012, 0.016), polished);
+  /* Rear sight — an OPEN notch (two shoulders + a central gap) instead of a
+   * solid blade. The old solid blade sat dead-centre on the sight line and
+   * fully occluded the front post, so aiming showed only a black block and
+   * "мушки нет". The gap lets the front post show through. */
+  for (const sx of [-0.011, 0.011]) {
+    const sh = new THREE.Mesh(new THREE.BoxGeometry(0.009, 0.014, 0.016), polished);
+    sh.position.set(sx, 0.090, -0.14);
+    g.add(sh);
+  }
+  /* Invisible reference at the notch centre — the ADS auto-zero reads this to
+   * align the eye->rear->front sight line, so keeping it dead-centre preserves
+   * the weapon's zero. */
+  const rearSight = new THREE.Object3D();
   rearSight.position.set(0, 0.090, -0.14);
   g.add(rearSight);
   g.userData.rearSight = rearSight;
@@ -4852,8 +4887,8 @@ function createAK74() {
   const aWhite = new THREE.MeshStandardMaterial({ color: 0xfff4d8, roughness: 0.4, metalness: 0.0, emissive: 0xffe890, emissiveIntensity: 1.0 });
   for (const sx of [-0.011, 0.011]) { const ear = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.034, 0.014), polished); ear.position.set(sx, 0.092, -0.62); g.add(ear); }
   const aHood = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.004, 0.014), polished); aHood.position.set(0, 0.108, -0.62); g.add(aHood);
-  const aTip = new THREE.Mesh(new THREE.SphereGeometry(0.0044, 12, 10), aWhite); aTip.position.set(0, 0.092, -0.62); g.add(aTip); g.userData.frontSight = aTip;
-  for (const sx of [-0.008, 0.008]) { const fin = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.010, 0.012), dark); fin.position.set(sx, 0.090, -0.14); g.add(fin); }
+  const aTip = new THREE.Mesh(new THREE.SphereGeometry(0.0062, 14, 12), aWhite); aTip.position.set(0, 0.092, -0.62); g.add(aTip); g.userData.frontSight = aTip;
+  for (const sx of [-0.018, 0.018]) { const fin = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.012, 0.012), dark); fin.position.set(sx, 0.090, -0.14); g.add(fin); }
   for (let i = 0; i < 4; i++) { const rib = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.004, 0.004), dark); rib.position.set(0, 0.040 - i * 0.025, -0.026); magBody.add(rib); }
   for (const sx of [-0.012, 0.012]) { const cr = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.014, 0.16), steel); cr.position.set(sx, 0.070, -0.04); g.add(cr); }
   for (let i = 0; i < 4; i++) { const hr = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.004, 0.006), dark); hr.position.set(0, 0.044, -0.20 - i * 0.030); g.add(hr); }
@@ -12187,11 +12222,23 @@ function detonateFrag(pos) {
   /* Damage player — steep (squared) falloff so a point-blank frag (your own
    * dropped at your feet, or a bot's direct hit) is reliably lethal, while
    * frags out near the radius edge only wound. */
-  if (distP <= RADIUS) {
+  if (isFinite(distP) && distP <= RADIUS) {
     const falloff = 1 - (distP / RADIUS);
-    const dmg = Math.round(190 * falloff * falloff);
-    if (dmg > 0 && typeof applyDamageToPlayer === 'function') {
-      applyDamageToPlayer(dmg, pos, 'frag');
+    /* squared falloff: frags out near the radius edge only wound, a near hit is lethal */
+    const dmg = Math.max(1, Math.round(190 * falloff * falloff));
+    if (typeof applyDamageToPlayer === 'function') {
+      /* Never let an FX/audio error in the damage path swallow the kill — a
+       * frag that drops you to 0 HP must always actually kill you. */
+      try {
+        applyDamageToPlayer(dmg, pos, 'frag');
+      } catch (e) {
+        player.health -= dmg;
+        if (player.health <= 0) {
+          player.health = 0;
+          if (player.stats) player.stats.deaths += 1;
+          if (typeof handleDeath === 'function') handleDeath();
+        }
+      }
     }
   }
 }
@@ -14177,7 +14224,7 @@ if (PVP_MODE) {
       } else if (msg.killer === PVP_NICKNAME) {
         showNotice('ВЫ УБИЛИ ' + msg.killed + '!');
       } else {
-        showNotice((msg.killer || '???') + ' ←×→ ' + msg.killed);
+        showNotice((msg.killer || '???') + ' × ' + msg.killed);
       }
     }
     else if (msg.type === 'team_match_end') {
@@ -14340,7 +14387,7 @@ if (PVP_MODE) {
         '<thead><tr><th style="padding:4px 16px;text-align:left;color:#aaa">ИГРОК</th><th style="padding:4px 16px;text-align:right;color:#aaa">УБИЙСТВ</th></tr></thead>' +
         '<tbody>' + rows + '</tbody>' +
       '</table>' +
-      '<div style="margin-top:32px"><a href="/" style="color:#ffd060;font-size:18px;text-decoration:underline">⟵ Вернуться в меню</a></div>';
+      '<div style="margin-top:32px"><a href="/" style="color:#ffd060;font-size:18px;text-decoration:underline">« Вернуться в меню</a></div>';
     el.style.display = 'flex';
   }
 

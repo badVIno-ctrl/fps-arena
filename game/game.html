@@ -224,31 +224,8 @@
    * "double dot" effect: 3D dot tilts with the gun while the HTML dot
    * stayed glued to screen center. Element kept so JS opacity writes
    * don't error. */
-  /* IRON-SIGHT overlay — a crisp notch-and-post reticle pinned to screen
-   * centre so the front sight (мушка) is ALWAYS visible when aiming, no matter
-   * how the 3D model is lit or occluded. The auto-zero centres the real 3D
-   * front post on the same point, so the model sights sit right behind this
-   * and reinforce it instead of doubling up. */
-  #sight-iron .iron-post {
-    position: absolute; left: 50%; top: 50%;
-    width: 3px; height: 18px; transform: translate(-50%, 0);
-    background: rgba(12,12,14,0.95); border-radius: 1px;
-    box-shadow: 0 0 0 1px rgba(255,255,255,0.18), 0 0 3px rgba(0,0,0,0.85);
-  }
-  #sight-iron .iron-post::after {
-    content: ''; position: absolute; left: 50%; top: 0;
-    width: 5px; height: 5px; transform: translate(-50%, -55%);
-    background: #f4e6b0; border-radius: 50%;
-    box-shadow: 0 0 4px 1px rgba(255,230,140,0.8);
-  }
-  #sight-iron .iron-rear-l, #sight-iron .iron-rear-r {
-    position: absolute; left: 50%; top: 50%;
-    width: 30px; height: 11px;
-    background: rgba(10,10,12,0.9); border-radius: 2px;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 0 3px rgba(0,0,0,0.85);
-  }
-  #sight-iron .iron-rear-l { transform: translate(calc(-100% - 8px), -1px); }
-  #sight-iron .iron-rear-r { transform: translate(8px, -1px); }
+  /* IRON-SIGHT — no overlay; you aim through the gun's real 3D rear notch
+   * + front post. No screen-space reticle. */
   /* 3X SCOPE — full-screen sniper-scope ring + crosshair + mil-dots + center dot */
   #sight-3x .scope-vignette {
     position: absolute; inset: 0;
@@ -335,7 +312,7 @@
 <div id="damage"></div>
 
 <!-- Sight overlays — toggled by JS based on player.isAiming + active sight -->
-<div id="sight-iron"><div class="iron-rear-l"></div><div class="iron-rear-r"></div><div class="iron-post"></div></div>
+<div id="sight-iron"></div>
 <div id="sight-reddot"></div>
 <div id="sight-3x">
   <div class="scope-vignette"></div>
@@ -4025,12 +4002,12 @@ function createAK47() {
   rsRamp.rotation.x = -0.45;
   ak.add(rsRamp);
   /* Two shoulder fins forming the V-notch (gap of ~0.012 between them) */
-  const fin = new THREE.BoxGeometry(0.015, 0.013, 0.012);
+  const fin = new THREE.BoxGeometry(0.015, 0.024, 0.012);
   const rsLeftFin = new THREE.Mesh(fin, darkMetal);
-  rsLeftFin.position.set(-0.013, 0.075, -0.118);
+  rsLeftFin.position.set(-0.013, 0.069, -0.118);   // extended down onto rsBase -> no float
   ak.add(rsLeftFin);
   const rsRightFin = new THREE.Mesh(fin, darkMetal);
-  rsRightFin.position.set( 0.013, 0.075, -0.118);
+  rsRightFin.position.set( 0.013, 0.069, -0.118);
   ak.add(rsRightFin);
 
   /* Magazine — curved banana shape (5 segments, increasing curve).
@@ -4830,20 +4807,21 @@ function createAK74() {
   const rearBase = new THREE.Mesh(new THREE.BoxGeometry(0.020, 0.026, 0.016), steel);
   rearBase.position.set(0, 0.060, -0.14);
   g.add(rearBase);
-  /* Rear sight — an OPEN notch (two shoulders + a central gap) instead of a
-   * solid blade. The old solid blade sat dead-centre on the sight line and
-   * fully occluded the front post, so aiming showed only a black block and
-   * "мушки нет". The gap lets the front post show through. */
-  for (const sx of [-0.011, 0.011]) {
-    const sh = new THREE.Mesh(new THREE.BoxGeometry(0.009, 0.014, 0.016), polished);
-    sh.position.set(sx, 0.090, -0.14);
-    g.add(sh);
+  /* Rear sight — a real open notch, all one solid piece bolted to the base
+   * so nothing floats: a leaf rises from rearBase, then two short walls on top
+   * leave a square gap you look THROUGH to the front post. */
+  const rearLeaf = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.022, 0.014), steel);
+  rearLeaf.position.set(0, 0.075, -0.14);            // overlaps rearBase (top 0.073)
+  g.add(rearLeaf);
+  for (const sx of [-0.0125, 0.0125]) {              // two notch walls -> ~0.013 gap
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.011, 0.014, 0.014), steel);
+    wall.position.set(sx, 0.093, -0.14);             // sit on the leaf (top 0.086)
+    g.add(wall);
   }
   /* Invisible reference at the notch centre — the ADS auto-zero reads this to
-   * align the eye->rear->front sight line, so keeping it dead-centre preserves
-   * the weapon's zero. */
+   * align the eye->rear->front sight line, keeping the weapon's zero. */
   const rearSight = new THREE.Object3D();
-  rearSight.position.set(0, 0.090, -0.14);
+  rearSight.position.set(0, 0.089, -0.14);
   g.add(rearSight);
   g.userData.rearSight = rearSight;
 
@@ -4884,11 +4862,13 @@ function createAK74() {
   /* ---- Phase 1 detail pass: protected front-sight ears+hood+bead, rear notch
    *      fins, dust-cover pressing ribs, handguard finger ribs, ribbed mag,
    *      sling loop, textured pistol grip. ---- */
-  const aWhite = new THREE.MeshStandardMaterial({ color: 0xfff4d8, roughness: 0.4, metalness: 0.0, emissive: 0xffe890, emissiveIntensity: 1.0 });
-  for (const sx of [-0.011, 0.011]) { const ear = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.034, 0.014), polished); ear.position.set(sx, 0.092, -0.62); g.add(ear); }
-  const aHood = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.004, 0.014), polished); aHood.position.set(0, 0.108, -0.62); g.add(aHood);
-  const aTip = new THREE.Mesh(new THREE.SphereGeometry(0.0062, 14, 12), aWhite); aTip.position.set(0, 0.092, -0.62); g.add(aTip); g.userData.frontSight = aTip;
-  for (const sx of [-0.018, 0.018]) { const fin = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.012, 0.012), dark); fin.position.set(sx, 0.090, -0.14); g.add(fin); }
+  const aWhite = new THREE.MeshStandardMaterial({ color: 0xfff4d8, roughness: 0.4, metalness: 0.0, emissive: 0xffe890, emissiveIntensity: 0.55 });
+  /* Hooded front post, all connected down to the front-sight block (no gap ->
+   * nothing floats): two protective ears rise from the block, a hood bridges
+   * their tops, and the post stands in the middle with a small bead tip. */
+  for (const sx of [-0.011, 0.011]) { const ear = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.052, 0.014), steel); ear.position.set(sx, 0.078, -0.62); g.add(ear); }
+  const aHood = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.005, 0.014), steel); aHood.position.set(0, 0.103, -0.62); g.add(aHood);
+  const aTip = new THREE.Mesh(new THREE.SphereGeometry(0.0050, 14, 12), aWhite); aTip.position.set(0, 0.090, -0.62); g.add(aTip); g.userData.frontSight = aTip;
   for (let i = 0; i < 4; i++) { const rib = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.004, 0.004), dark); rib.position.set(0, 0.040 - i * 0.025, -0.026); magBody.add(rib); }
   for (const sx of [-0.012, 0.012]) { const cr = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.014, 0.16), steel); cr.position.set(sx, 0.070, -0.04); g.add(cr); }
   for (let i = 0; i < 4; i++) { const hr = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.004, 0.006), dark); hr.position.set(0, 0.044, -0.20 - i * 0.030); g.add(hr); }
@@ -4963,18 +4943,25 @@ function createScarH() {
     slot.position.set(0, 0.040, -0.69 + i * 0.012);
     g.add(slot);
   }
-  const fBase = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.022, 0.006), polished);
-  fBase.position.set(0, 0.090, -0.42);
+  const fBase = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.052, 0.010), steel);
+  fBase.position.set(0, 0.076, -0.42);   // reaches down onto the handguard -> no float
   g.add(fBase);
-  const frontPost = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.012, 0.006), polished);
-  frontPost.position.set(0, 0.102, -0.42);
+  const frontPost = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.014, 0.006), polished);
+  frontPost.position.set(0, 0.103, -0.42);
   g.add(frontPost);
   g.userData.frontSight = frontPost;
-  const rBase = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.020, 0.010), polished);
+  const rBase = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.020, 0.010), steel);
   rBase.position.set(0, 0.088, 0.00);
   g.add(rBase);
-  const rearAp = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.012, 0.006), polished);
-  rearAp.position.set(0, 0.100, 0.00);
+  /* Rear sight — a real open notch (two walls + central gap) you look
+   * THROUGH, same as the AK-74. Both walls sit on rBase so nothing floats. */
+  for (const sx of [-0.0085, 0.0085]) {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.007, 0.013, 0.008), steel);
+    wall.position.set(sx, 0.100, 0.00);
+    g.add(wall);
+  }
+  const rearAp = new THREE.Object3D();
+  rearAp.position.set(0, 0.101, 0.00);
   g.add(rearAp);
   g.userData.rearSight = rearAp;
 
@@ -5739,12 +5726,12 @@ scene.add(camera);
  *  `player.flashlightOn`. Toggle key is `L`.
  * ======================================================================= */
 const flashlight = new THREE.SpotLight(
-  0xffe8c4,   /* warm-white tungsten color */
-  0.0,        /* intensity (0 = off; we ramp to 4 when on) */
-  140,        /* range in metres (4× the original 35m per user request) */
-  Math.PI / 7,/* outer half-angle ≈ 25.7° */
-  0.45,       /* penumbra: soft edge */
-  1.1         /* decay — softer falloff so 140m range is actually visible */
+  0xfff0d0,   /* warm-white tungsten color */
+  0.0,        /* intensity (0 = off; ramped up by _updateFlashlightVisual) */
+  170,        /* range in metres */
+  Math.PI / 6,/* outer half-angle ≈ 30° — wider, more usable beam */
+  0.5,        /* penumbra: soft edge */
+  1.0         /* decay — slower falloff so the beam actually reaches far */
 );
 flashlight.position.set(0.18, -0.18, -0.45);   /* under-barrel, forward of camera */
 flashlight.castShadow = false;                 /* perf — no shadow map for handheld */
@@ -5827,12 +5814,12 @@ const flashlightM416 = flashlightMeshes.m416;
 function _updateFlashlightVisual() {
   const have = !!(player.inv && player.inv.hasFlashlight);
   const on   = have && !!player.flashlightOn;
-  flashlight.intensity   = on ? 9.0 : 0.0;   /* brighter to project across 140m range */
+  flashlight.intensity   = on ? 42.0 : 0.0;  /* much stronger tactical beam (was 9.0) */
   for (const _fk in flashlightMeshes) {
     const fl = flashlightMeshes[_fk];
     fl.visible = have;
     const lm = fl.userData && fl.userData.lensMat;
-    if (lm) lm.emissiveIntensity = on ? 1.8 : 0.0;
+    if (lm) lm.emissiveIntensity = on ? 3.2 : 0.0;
   }
 }
 
@@ -14593,7 +14580,7 @@ if (PVP_MODE) {
 }
 
 </script>
-<div id="build-version" style="position:fixed;right:8px;bottom:5px;z-index:50;font:600 11px/1 'Consolas',monospace;color:#9fb0c4;letter-spacing:1px;text-shadow:0 1px 2px rgba(0,0,0,0.9);pointer-events:none;opacity:0.75">FPS ARENA v3.10</div>
+<div id="build-version" style="position:fixed;right:8px;bottom:5px;z-index:50;font:600 11px/1 'Consolas',monospace;color:#9fb0c4;letter-spacing:1px;text-shadow:0 1px 2px rgba(0,0,0,0.9);pointer-events:none;opacity:0.75">FPS ARENA v3.15</div>
 <canvas id="mudScreen" style="position:fixed;inset:0;width:100%;height:100%;z-index:38;pointer-events:none"></canvas>
 <script>
 (function(){

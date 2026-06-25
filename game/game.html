@@ -1633,7 +1633,7 @@ function addDestroyedTank(x, z, rot = 0) {
  * crater and gives bullet-blocking cover when you crouch behind the lip. */
 function addCrater(cx, cz, radius = 3.0) {
   const g = new THREE.Group();
-  /* Bowl floor ��� flat disc with darker dirt */
+  /* Bowl floor ����� flat disc with darker dirt */
   const floorMat = new THREE.MeshStandardMaterial({ map: dirtTex, color: 0x4a3a26, roughness: 1 });
   const floor = new THREE.Mesh(new THREE.CircleGeometry(radius, 24), floorMat);
   floor.rotation.x = -Math.PI / 2;
@@ -2701,7 +2701,7 @@ function buildEquipBoard() {
     { x:  2.0, y: 2.6, kind: 'scar',   label: 'SCAR-H (2)' },
     { x:  3.0, y: 2.6, kind: 'mp5',    label: 'MP5 (3)' },
     /* Row 2 — gear */
-    { x: -3.0, y: 1.5, kind: 'armor',    label: 'БРОНЕЖИЛЕТ' },
+    { x: -3.0, y: 1.5, kind: 'armor',    label: 'Б��ОНЕЖИЛЕТ' },
     { x: -1.8, y: 1.5, kind: 'helmet',   label: 'ШЛЕМ' },
     { x: -0.6, y: 1.5, kind: 'backpack', label: 'РЮКЗАК' },
     { x:  0.5, y: 1.5, kind: 'ghillie',  label: 'МАСКХАЛАТ' },
@@ -4795,8 +4795,8 @@ function createAK74() {
   barrel.rotation.x = Math.PI / 2;
   barrel.position.set(0, 0.026, -0.52);
   g.add(barrel);
-  const fsBlock = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.082, 0.030), steel);
-  fsBlock.position.set(0, 0.056, -0.62);
+  const fsBlock = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.040, 0.030), steel);
+  fsBlock.position.set(0, 0.042, -0.62);
   g.add(fsBlock);
   const frontPost = new THREE.Mesh(new THREE.CylinderGeometry(0.0025, 0.0025, 0.022, 8), polished);
   frontPost.position.set(0, 0.090, -0.62);
@@ -4805,8 +4805,8 @@ function createAK74() {
   const gasBlock = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.034, 0.026), steel);
   gasBlock.position.set(0, 0.038, -0.46);
   g.add(gasBlock);
-  const rearBase = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.044, 0.016), steel);
-  rearBase.position.set(0, 0.066, -0.14);
+  const rearBase = new THREE.Mesh(new THREE.BoxGeometry(0.020, 0.026, 0.016), steel);
+  rearBase.position.set(0, 0.060, -0.14);
   g.add(rearBase);
   const rearSight = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.012, 0.016), polished);
   rearSight.position.set(0, 0.090, -0.14);
@@ -4929,12 +4929,18 @@ function createScarH() {
     slot.position.set(0, 0.040, -0.69 + i * 0.012);
     g.add(slot);
   }
+  const fBase = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.022, 0.006), polished);
+  fBase.position.set(0, 0.090, -0.42);
+  g.add(fBase);
   const frontPost = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.012, 0.006), polished);
-  frontPost.position.set(0, 0.092, -0.42);
+  frontPost.position.set(0, 0.102, -0.42);
   g.add(frontPost);
   g.userData.frontSight = frontPost;
+  const rBase = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.020, 0.010), polished);
+  rBase.position.set(0, 0.088, 0.00);
+  g.add(rBase);
   const rearAp = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.012, 0.006), polished);
-  rearAp.position.set(0, 0.090, 0.00);
+  rearAp.position.set(0, 0.100, 0.00);
   g.add(rearAp);
   g.userData.rearSight = rearAp;
 
@@ -4964,12 +4970,12 @@ function createScarH() {
   const sWhite = new THREE.MeshStandardMaterial({ color: 0xf4f4f4, roughness: 0.45, metalness: 0.0, emissive: 0x3a3a3a });
   /* Front post white dot (faces shooter) */
   const sFdot = new THREE.Mesh(new THREE.CircleGeometry(0.0026, 12), sWhite);
-  sFdot.position.set(0, 0.094, -0.413);
+  sFdot.position.set(0, 0.104, -0.413);
   g.add(sFdot);
   /* Two rear aperture dots */
   for (const sx of [-0.008, 0.008]) {
     const rd = new THREE.Mesh(new THREE.CircleGeometry(0.0024, 12), sWhite);
-    rd.position.set(sx, 0.090, 0.0035);
+    rd.position.set(sx, 0.100, 0.0035);
     g.add(rd);
   }
   /* Ambidextrous safety levers (both sides of lower) */
@@ -5075,21 +5081,20 @@ function createMP5() {
   /* Classic wide "tropical" handguard — bottom heat-shield slab + side cheeks */
   const hsh = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.024, 0.150), dark); hsh.position.set(0, 0.024, -0.245); g.add(hsh);
   for (const sx of [-1, 1]) { const cheek = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.040, 0.150), dark); cheek.position.set(sx * 0.024, 0.040, -0.245); g.add(cheek); }
-  const fRiser = new THREE.Mesh(new THREE.BoxGeometry(0.007, 0.055, 0.010), steel);
-  fRiser.position.set(0, 0.068, -0.36);
-  g.add(fRiser);
-  const fsHood = new THREE.Mesh(new THREE.TorusGeometry(0.012, 0.0025, 8, 14), steel);
-  fsHood.position.set(0, 0.100, -0.36);
+  const fBase = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.040, 0.010), steel);
+  fBase.position.set(0, 0.070, -0.36);
+  g.add(fBase);
+  const fsHood = new THREE.Mesh(new THREE.TorusGeometry(0.011, 0.0022, 8, 16), steel);
+  fsHood.position.set(0, 0.096, -0.36);
   g.add(fsHood);
   const fPost = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.012, 0.004), polished);
   fPost.position.set(0, 0.094, -0.36);
   g.add(fPost);
   g.userData.frontSight = fPost;
-  const rRiser = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.045, 0.014), steel);
-  rRiser.position.set(0, 0.072, 0.02);
-  g.add(rRiser);
-  const rearDrum = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.014, 14), steel);
-  rearDrum.rotation.z = Math.PI / 2;
+  const rBase = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.020, 0.014), steel);
+  rBase.position.set(0, 0.066, 0.02);
+  g.add(rBase);
+  const rearDrum = new THREE.Mesh(new THREE.TorusGeometry(0.010, 0.0024, 8, 16), steel);
   rearDrum.position.set(0, 0.094, 0.02);
   g.add(rearDrum);
   g.userData.rearSight = rearDrum;
@@ -6132,7 +6137,8 @@ function _updateAttachmentsVisual(dt) {
   if (lst) lst.textContent = player.laserOn ? 'ON' : 'OFF';
   const gslot = document.getElementById('slot-foregrip');
   if (gslot) gslot.style.display = player.inv.hasForegrip ? '' : 'none';
-  const want = !!(player.inv.hasLaser && player.laserOn && aw);
+  const sprintHide = (player._sprintLowT || 0) > 0.35;
+  const want = !!(player.inv.hasLaser && player.laserOn && aw) && !sprintHide;
   laserBeam.visible = want;
   laserDot.visible = want;
   if (!want) return;
@@ -7863,15 +7869,15 @@ const WEAPON_STATS = {
   ak74:   { name: 'АК-74', slot: 'rifle', magSize: 30, fireRate: 0.092, reloadDuration: 2.4,
             baseDamage: 1.00, reserveStart: 0, recoilVert: 0.020, recoilHoriz: 0.0060,
             weight: 3.3, adsTime: 0.30, muzzleVel: 900, energyJ: 1390, zeroDist: 100,
-            adsX: 0, adsY: -0.075, adsZ: -0.130, adsRotX: -0.0260 },
+            adsX: 0, adsY: -0.075, adsZ: -0.140, adsRotX: -0.0260 },
   scar:   { name: 'SCAR-H', slot: 'rifle', magSize: 20, fireRate: 0.105, reloadDuration: 2.6,
             baseDamage: 1.50, reserveStart: 0, recoilVert: 0.030, recoilHoriz: 0.0085,
             weight: 3.8, adsTime: 0.34, muzzleVel: 870, energyJ: 3400, zeroDist: 100,
-            adsX: 0, adsY: -0.090, adsZ: -0.140, adsRotX: -0.0120 },
+            adsX: 0, adsY: -0.090, adsZ: -0.150, adsRotX: -0.0120 },
   mp5:    { name: 'MP5', slot: 'special', magSize: 30, fireRate: 0.075, reloadDuration: 2.1,
             baseDamage: 0.65, reserveStart: 0, recoilVert: 0.013, recoilHoriz: 0.0050,
             weight: 2.5, adsTime: 0.22, muzzleVel: 400, energyJ: 620, zeroDist: 50,
-            adsX: 0, adsY: -0.082, adsZ: -0.100, adsRotX: -0.0140 }
+            adsX: 0, adsY: -0.082, adsZ: -0.160, adsRotX: -0.0140 }
 };
 
 /* === A2 — LOADOUT / CARRY-SLOT MODEL =====================================

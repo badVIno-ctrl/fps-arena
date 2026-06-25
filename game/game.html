@@ -10457,6 +10457,70 @@ function updateBotTactics(dt) {
   }
 }
 
+/* ════════════════════════════════════════════════════════════════════════
+   v3.16 — SQUAD COMMAND LAYER (grouping + coordinated maneuvers)
+   Bots are organized into fixed squads of 4 (by spawn index). Each squad:
+     • shares ONE objective so the whole squad moves together (grouping),
+     • is assigned a complementary attack direction (left flank / frontal /
+       right flank) so the player gets PINCERED instead of facing one blob,
+     • uses BOUNDING OVERWATCH — half the squad bounds forward while the
+       other half holds position and lays covering fire, then they swap.
+   Defenders (flag guards) and un-released reserves are left untouched so the
+   base-defense behavior still works.
+   ════════════════════════════════════════════════════════════════════════ */
+const SQUAD_SIZE_CMD = 4;
+const _squadState = {};
+function updateSquadCommand(dt, now, playerPos) {
+  if (!bots.length) return;
+  /* Complementary attack vectors — produces a pincer across squads. */
+  const SQUAD_ROLES = ['flank_left', 'assault', 'flank_right', 'assault'];
+  const nSquads = Math.ceil(bots.length / SQUAD_SIZE_CMD);
+  for (let qi = 0; qi < nSquads; qi++) {
+    let st = _squadState[qi];
+    if (!st) {
+      st = _squadState[qi] = {
+        role: SQUAD_ROLES[qi % SQUAD_ROLES.length],
+        boundUntil: 0,
+        movers: 0,            /* which half currently bounds forward */
+        cx: playerPos.x, cz: playerPos.z, n: 0,
+      };
+    }
+    /* Gather alive members + centroid + leader (lowest alive index). */
+    let sumx = 0, sumz = 0, n = 0, leader = null;
+    const members = [];
+    for (let k = 0; k < SQUAD_SIZE_CMD; k++) {
+      const b = bots[qi * SQUAD_SIZE_CMD + k];
+      if (!b || b.state === 'dead') continue;
+      members.push(b);
+      sumx += b.obj.position.x; sumz += b.obj.position.z; n++;
+      if (!leader) leader = b;
+    }
+    if (!n) continue;
+    st.cx = sumx / n; st.cz = sumz / n; st.n = n;
+
+    /* Bounding overwatch: every ~2-3.5s flip which half advances. */
+    if (now > st.boundUntil) {
+      st.movers ^= 1;
+      st.boundUntil = now + 2.0 + Math.random() * 1.5;
+    }
+
+    for (let mi = 0; mi < members.length; mi++) {
+      const b = members[mi];
+      const maneuver = (b.role === 'assault' || b.role === 'flank_left' ||
+                        b.role === 'flank_right' || b.role === 'support');
+      b.squadCx = st.cx; b.squadCz = st.cz; b.squadN = n;
+      b.isSquadLeader = (b === leader);
+      if (!maneuver) { b.boundHold = false; continue; }
+      /* Share the squad objective so they converge & push together; keep
+       * 'support' bots laying back at range instead of folding into the rush. */
+      if (b.role !== 'support') b.role = st.role;
+      /* Leader always bounds (gives the squad forward direction); the rest
+       * alternate hold/move in two halves for leapfrogging cover. */
+      b.boundHold = (!b.isSquadLeader) && ((mi % 2) !== st.movers) && n > 1;
+    }
+  }
+}
+
 function updateBots(dt) {
   const now = performance.now() / 1000;
   const playerPos = player.position;
@@ -10466,6 +10530,9 @@ function updateBots(dt) {
 
   /* Release reserve wave (wave 3) when total alive count drops below threshold */
   maybeReleaseReserves();
+
+  /* Squad coordination: grouping, pincer directions, bounding overwatch. */
+  updateSquadCommand(dt, now, playerPos);
 
   /* Global frame counter used for AI throttling — distant bots only run
    * their full AI on every Nth frame. */
@@ -10589,7 +10656,12 @@ function updateBots(dt) {
         const dest = botDesiredDest(bot, playerPos);
         const ddx = dest.x - bp.x, ddz = dest.z - bp.z;
         const dd = Math.sqrt(ddx*ddx + ddz*ddz);
-        if (dist <= engageDist || losPlayer) {
+        if (bot.boundHold && (losPlayer || dist < 50)) {
+          /* BOUNDING OVERWATCH — this half of the squad holds and lays
+           * covering fire while the other half bounds forward. */
+          bot.phase = 'engage';
+          bot.phaseUntil = now + 0.8 + Math.random() * 0.8;
+        } else if (dist <= engageDist || losPlayer) {
           /* Within fire range — switch to engage */
           bot.phase = 'engage';
           /* Aggression-driven hold time: aggressive bots peek out fast and
@@ -10664,6 +10736,19 @@ function updateBots(dt) {
       bot.obj.rotation.y = Math.atan2(dx, dz);
     } else if (vx !== 0 || vz !== 0) {
       bot.obj.rotation.y = Math.atan2(vx, vz);
+    }
+
+    /* === SQUAD COHESION — drift back toward squadmates so the squad moves
+     * and fights as one group instead of scattering across the map. Only
+     * kicks in for stragglers (>10m from the squad centroid). */
+    if (bot.squadN > 1 && bot.squadCx !== undefined &&
+        bot.role !== 'defender' && bot.role !== 'reserve') {
+      const gx = bot.squadCx - bp.x, gz = bot.squadCz - bp.z;
+      const gd = Math.hypot(gx, gz);
+      if (gd > 10) {
+        vx += (gx / gd) * bot.speed * 0.55;
+        vz += (gz / gd) * bot.speed * 0.55;
+      }
     }
 
     /* Soft separation: avoid overlapping other bots */

@@ -688,7 +688,7 @@ window.setTimeOfDay = setTimeOfDay;
 setTimeOfDay('day');
 
 /* Tone mapping exposure: comfortable mid-range so weapon and bots are visible */
-renderer.toneMappingExposure = 1.16;
+renderer.toneMappingExposure = 1.34;
 
 /* ========================================================================
    IBL — image-based lighting via Three's RoomEnvironment
@@ -1072,7 +1072,7 @@ function updateStorm(dt) {
     if (_storm.flash > 0) scene.fog.color.copy(_storm._fogBase).lerp(_WHITE, _storm.flash * 0.7);
     else scene.fog.color.copy(_storm._fogBase);
   }
-  renderer.toneMappingExposure = 1.05 + _storm.flash * 0.55;
+  renderer.toneMappingExposure = 1.34 + _storm.flash * 0.55;
 }
 
 /* Update rain — recycle drops back up when they fall below ground.
@@ -1633,7 +1633,7 @@ function addDestroyedTank(x, z, rot = 0) {
  * crater and gives bullet-blocking cover when you crouch behind the lip. */
 function addCrater(cx, cz, radius = 3.0) {
   const g = new THREE.Group();
-  /* Bowl floor — flat disc with darker dirt */
+  /* Bowl floor ��� flat disc with darker dirt */
   const floorMat = new THREE.MeshStandardMaterial({ map: dirtTex, color: 0x4a3a26, roughness: 1 });
   const floor = new THREE.Mesh(new THREE.CircleGeometry(radius, 24), floorMat);
   floor.rotation.x = -Math.PI / 2;
@@ -4795,18 +4795,21 @@ function createAK74() {
   barrel.rotation.x = Math.PI / 2;
   barrel.position.set(0, 0.026, -0.52);
   g.add(barrel);
-  const fsBlock = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.040, 0.030), steel);
-  fsBlock.position.set(0, 0.040, -0.62);
+  const fsBlock = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.082, 0.030), steel);
+  fsBlock.position.set(0, 0.056, -0.62);
   g.add(fsBlock);
   const frontPost = new THREE.Mesh(new THREE.CylinderGeometry(0.0025, 0.0025, 0.022, 8), polished);
-  frontPost.position.set(0, 0.058, -0.62);
+  frontPost.position.set(0, 0.090, -0.62);
   g.add(frontPost);
   g.userData.frontSight = frontPost;
   const gasBlock = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.034, 0.026), steel);
   gasBlock.position.set(0, 0.038, -0.46);
   g.add(gasBlock);
+  const rearBase = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.044, 0.016), steel);
+  rearBase.position.set(0, 0.066, -0.14);
+  g.add(rearBase);
   const rearSight = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.012, 0.016), polished);
-  rearSight.position.set(0, 0.052, -0.14);
+  rearSight.position.set(0, 0.090, -0.14);
   g.add(rearSight);
   g.userData.rearSight = rearSight;
 
@@ -4848,10 +4851,10 @@ function createAK74() {
    *      fins, dust-cover pressing ribs, handguard finger ribs, ribbed mag,
    *      sling loop, textured pistol grip. ---- */
   const aWhite = new THREE.MeshStandardMaterial({ color: 0xe9e9ee, roughness: 0.5, metalness: 0.0, emissive: 0x202020 });
-  for (const sx of [-0.011, 0.011]) { const ear = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.034, 0.014), polished); ear.position.set(sx, 0.060, -0.62); g.add(ear); }
-  const aHood = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.004, 0.014), polished); aHood.position.set(0, 0.076, -0.62); g.add(aHood);
-  const aTip = new THREE.Mesh(new THREE.SphereGeometry(0.0026, 8, 8), aWhite); aTip.position.set(0, 0.068, -0.62); g.add(aTip);
-  for (const sx of [-0.008, 0.008]) { const fin = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.010, 0.012), dark); fin.position.set(sx, 0.058, -0.14); g.add(fin); }
+  for (const sx of [-0.011, 0.011]) { const ear = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.034, 0.014), polished); ear.position.set(sx, 0.092, -0.62); g.add(ear); }
+  const aHood = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.004, 0.014), polished); aHood.position.set(0, 0.108, -0.62); g.add(aHood);
+  const aTip = new THREE.Mesh(new THREE.SphereGeometry(0.0026, 8, 8), aWhite); aTip.position.set(0, 0.090, -0.62); g.add(aTip);
+  for (const sx of [-0.008, 0.008]) { const fin = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.010, 0.012), dark); fin.position.set(sx, 0.090, -0.14); g.add(fin); }
   for (let i = 0; i < 4; i++) { const rib = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.004, 0.004), dark); rib.position.set(0, 0.040 - i * 0.025, -0.026); magBody.add(rib); }
   for (const sx of [-0.012, 0.012]) { const cr = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.014, 0.16), steel); cr.position.set(sx, 0.070, -0.04); g.add(cr); }
   for (let i = 0; i < 4; i++) { const hr = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.004, 0.006), dark); hr.position.set(0, 0.044, -0.20 - i * 0.030); g.add(hr); }
@@ -5072,16 +5075,22 @@ function createMP5() {
   /* Classic wide "tropical" handguard — bottom heat-shield slab + side cheeks */
   const hsh = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.024, 0.150), dark); hsh.position.set(0, 0.024, -0.245); g.add(hsh);
   for (const sx of [-1, 1]) { const cheek = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.040, 0.150), dark); cheek.position.set(sx * 0.024, 0.040, -0.245); g.add(cheek); }
+  const fRiser = new THREE.Mesh(new THREE.BoxGeometry(0.007, 0.055, 0.010), steel);
+  fRiser.position.set(0, 0.068, -0.36);
+  g.add(fRiser);
   const fsHood = new THREE.Mesh(new THREE.TorusGeometry(0.012, 0.0025, 8, 14), steel);
-  fsHood.position.set(0, 0.066, -0.36);
+  fsHood.position.set(0, 0.100, -0.36);
   g.add(fsHood);
   const fPost = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.012, 0.004), polished);
-  fPost.position.set(0, 0.060, -0.36);
+  fPost.position.set(0, 0.094, -0.36);
   g.add(fPost);
   g.userData.frontSight = fPost;
+  const rRiser = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.045, 0.014), steel);
+  rRiser.position.set(0, 0.072, 0.02);
+  g.add(rRiser);
   const rearDrum = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.014, 14), steel);
   rearDrum.rotation.z = Math.PI / 2;
-  rearDrum.position.set(0, 0.064, 0.02);
+  rearDrum.position.set(0, 0.094, 0.02);
   g.add(rearDrum);
   g.userData.rearSight = rearDrum;
 
@@ -5117,11 +5126,11 @@ function createMP5() {
   const pWhite = new THREE.MeshStandardMaterial({ color: 0xf4f4f4, roughness: 0.45, metalness: 0.0, emissive: 0x3a3a3a });
   /* Front post white dot inside the hood (faces shooter) */
   const pFdot = new THREE.Mesh(new THREE.CircleGeometry(0.0022, 12), pWhite);
-  pFdot.position.set(0, 0.062, -0.353);
+  pFdot.position.set(0, 0.094, -0.353);
   g.add(pFdot);
   /* Rear drum aperture ring (faces shooter) */
   const pRear = new THREE.Mesh(new THREE.RingGeometry(0.0030, 0.0052, 14), pWhite);
-  pRear.position.set(0, 0.064, 0.028);
+  pRear.position.set(0, 0.094, 0.028);
   g.add(pRear);
   /* HK "slap" charging-handle forward catch */
   const pSlap = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.012, 0.008), polished);
@@ -8027,7 +8036,7 @@ function computeSpreadCone(isFirstShot) {
   if (typeof player.stamina === 'number' && player.stamina < 0.4) {
     s *= 1 + (0.4 - player.stamina) * 1.2;
   }
-  /* === A5 — BARREL HEAT cone penalty ===============================
+  /* === A5 �� BARREL HEAT cone penalty ===============================
    * Hot barrel = wider grouping (mirage + warped barrel). Reaches +50%
    * at maximum heat. Visible smoke wisp already kicks in at heat>0.4. */
   if (typeof _heatLevel !== 'undefined' && _heatLevel > 0.4) {
@@ -11914,9 +11923,9 @@ function updateDayNight() {
   );
   sun.target.position.set(cx, 0, cz);
   /* Light intensities */
-  sun.intensity     = THREE.MathUtils.lerp(0.30, 1.05, dl);
-  hemi.intensity    = THREE.MathUtils.lerp(0.55, 0.95, dl);
-  ambient.intensity = THREE.MathUtils.lerp(0.50, 0.72, dl);
+  sun.intensity     = THREE.MathUtils.lerp(0.55, 1.55, dl);
+  hemi.intensity    = THREE.MathUtils.lerp(0.90, 1.40, dl);
+  ambient.intensity = THREE.MathUtils.lerp(0.80, 1.10, dl);
   /* Hemi sky color blends from deep night-blue to overcast grey */
   hemi.color.setRGB(
     THREE.MathUtils.lerp(0.34, 0.71, dl),

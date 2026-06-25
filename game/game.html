@@ -1633,7 +1633,7 @@ function addDestroyedTank(x, z, rot = 0) {
  * crater and gives bullet-blocking cover when you crouch behind the lip. */
 function addCrater(cx, cz, radius = 3.0) {
   const g = new THREE.Group();
-  /* Bowl floor ����� flat disc with darker dirt */
+  /* Bowl floor — flat disc with darker dirt */
   const floorMat = new THREE.MeshStandardMaterial({ map: dirtTex, color: 0x4a3a26, roughness: 1 });
   const floor = new THREE.Mesh(new THREE.CircleGeometry(radius, 24), floorMat);
   floor.rotation.x = -Math.PI / 2;
@@ -2701,7 +2701,7 @@ function buildEquipBoard() {
     { x:  2.0, y: 2.6, kind: 'scar',   label: 'SCAR-H (2)' },
     { x:  3.0, y: 2.6, kind: 'mp5',    label: 'MP5 (3)' },
     /* Row 2 — gear */
-    { x: -3.0, y: 1.5, kind: 'armor',    label: 'Б��ОНЕЖИЛЕТ' },
+    { x: -3.0, y: 1.5, kind: 'armor',    label: 'БРОНЕЖИЛЕТ' },
     { x: -1.8, y: 1.5, kind: 'helmet',   label: 'ШЛЕМ' },
     { x: -0.6, y: 1.5, kind: 'backpack', label: 'РЮКЗАК' },
     { x:  0.5, y: 1.5, kind: 'ghillie',  label: 'МАСКХАЛАТ' },
@@ -4798,10 +4798,9 @@ function createAK74() {
   const fsBlock = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.040, 0.030), steel);
   fsBlock.position.set(0, 0.042, -0.62);
   g.add(fsBlock);
-  const frontPost = new THREE.Mesh(new THREE.CylinderGeometry(0.0025, 0.0025, 0.022, 8), polished);
-  frontPost.position.set(0, 0.090, -0.62);
+  const frontPost = new THREE.Mesh(new THREE.CylinderGeometry(0.0024, 0.0034, 0.050, 12), polished);
+  frontPost.position.set(0, 0.070, -0.62);
   g.add(frontPost);
-  g.userData.frontSight = frontPost;
   const gasBlock = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.034, 0.026), steel);
   gasBlock.position.set(0, 0.038, -0.46);
   g.add(gasBlock);
@@ -4850,10 +4849,10 @@ function createAK74() {
   /* ---- Phase 1 detail pass: protected front-sight ears+hood+bead, rear notch
    *      fins, dust-cover pressing ribs, handguard finger ribs, ribbed mag,
    *      sling loop, textured pistol grip. ---- */
-  const aWhite = new THREE.MeshStandardMaterial({ color: 0xe9e9ee, roughness: 0.5, metalness: 0.0, emissive: 0x202020 });
+  const aWhite = new THREE.MeshStandardMaterial({ color: 0xfff4d8, roughness: 0.4, metalness: 0.0, emissive: 0xffe890, emissiveIntensity: 1.0 });
   for (const sx of [-0.011, 0.011]) { const ear = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.034, 0.014), polished); ear.position.set(sx, 0.092, -0.62); g.add(ear); }
   const aHood = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.004, 0.014), polished); aHood.position.set(0, 0.108, -0.62); g.add(aHood);
-  const aTip = new THREE.Mesh(new THREE.SphereGeometry(0.0026, 8, 8), aWhite); aTip.position.set(0, 0.090, -0.62); g.add(aTip);
+  const aTip = new THREE.Mesh(new THREE.SphereGeometry(0.0044, 12, 10), aWhite); aTip.position.set(0, 0.092, -0.62); g.add(aTip); g.userData.frontSight = aTip;
   for (const sx of [-0.008, 0.008]) { const fin = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.010, 0.012), dark); fin.position.set(sx, 0.090, -0.14); g.add(fin); }
   for (let i = 0; i < 4; i++) { const rib = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.004, 0.004), dark); rib.position.set(0, 0.040 - i * 0.025, -0.026); magBody.add(rib); }
   for (const sx of [-0.012, 0.012]) { const cr = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.014, 0.16), steel); cr.position.set(sx, 0.070, -0.04); g.add(cr); }
@@ -8042,7 +8041,7 @@ function computeSpreadCone(isFirstShot) {
   if (typeof player.stamina === 'number' && player.stamina < 0.4) {
     s *= 1 + (0.4 - player.stamina) * 1.2;
   }
-  /* === A5 �� BARREL HEAT cone penalty ===============================
+  /* === A5 — BARREL HEAT cone penalty ===============================
    * Hot barrel = wider grouping (mirage + warped barrel). Reaches +50%
    * at maximum heat. Visible smoke wisp already kicks in at heat>0.4. */
   if (typeof _heatLevel !== 'undefined' && _heatLevel > 0.4) {
@@ -12185,11 +12184,13 @@ function detonateFrag(pos) {
       try { killBot(bot); } catch(_){}
     }
   }
-  /* Damage player if too close */
+  /* Damage player — steep (squared) falloff so a point-blank frag (your own
+   * dropped at your feet, or a bot's direct hit) is reliably lethal, while
+   * frags out near the radius edge only wound. */
   if (distP <= RADIUS) {
     const falloff = 1 - (distP / RADIUS);
-    const dmg = Math.round(80 * falloff);
-    if (typeof applyDamageToPlayer === 'function') {
+    const dmg = Math.round(190 * falloff * falloff);
+    if (dmg > 0 && typeof applyDamageToPlayer === 'function') {
       applyDamageToPlayer(dmg, pos, 'frag');
     }
   }
@@ -12411,7 +12412,7 @@ function tryBandage() {
   if (player.bandaging) {
     /* Press H again to abort — bandage is NOT consumed. */
     player.bandaging = false;
-    if (typeof showNotice === 'function') showNotice('БАНДАЖ ПРЕРВАН');
+    if (typeof showNotice === 'function') showNotice('—АНДАЖ ПРЕРВАН');
     return;
   }
   if (player.bandages <= 0) {
@@ -12644,6 +12645,10 @@ function updateGrenadeHud() {
  * ------------------------------------------------------------------------- */
 function applyDamageToPlayer(rawDmg, sourceWorldPos, dmgKind) {
   let dmg = rawDmg;
+  /* Frag shreds — plates/armor barely help vs a grenade (it hits limbs,
+   * gaps, and arrives from all angles), so absorption is much lower for frag. */
+  const _plateMul  = (dmgKind === 'frag') ? 0.25 : 0.7;
+  const _legacyMul = (dmgKind === 'frag') ? 0.20 : 0.6;
   /* Plate path: head plate first, else front/back depending on facing */
   if (sourceWorldPos && (player.plates.front > 0 || player.plates.back > 0)) {
     const toSrc = new THREE.Vector3().subVectors(sourceWorldPos, player.position);
@@ -12653,18 +12658,18 @@ function applyDamageToPlayer(rawDmg, sourceWorldPos, dmgKind) {
     const dot = fwd.dot(toSrc);
     /* >0 means source ahead → front plate */
     if (dot > 0 && player.plates.front > 0) {
-      const absorbed = Math.min(player.plates.front, dmg * 0.7);
+      const absorbed = Math.min(player.plates.front, dmg * _plateMul);
       player.plates.front -= absorbed;
       dmg -= absorbed;
     } else if (dot <= 0 && player.plates.back > 0) {
-      const absorbed = Math.min(player.plates.back, dmg * 0.7);
+      const absorbed = Math.min(player.plates.back, dmg * _plateMul);
       player.plates.back -= absorbed;
       dmg -= absorbed;
     }
   }
   /* Legacy single-armor fallback */
   if (player.armor > 0) {
-    const absorbed = Math.min(player.armor, dmg * 0.6);
+    const absorbed = Math.min(player.armor, dmg * _legacyMul);
     player.armor -= absorbed;
     dmg -= absorbed;
   }
@@ -12678,9 +12683,14 @@ function applyDamageToPlayer(rawDmg, sourceWorldPos, dmgKind) {
   if (typeof playHurt === 'function' && Math.random() < 0.6) playHurt();
   /* Camera kick from the impulse */
   pushCamShake(0.04 + dmg * 0.002);
-  /* Death */
-  if (player.health <= 0) {
+  /* Death — wire into the real death/respawn flow. This branch used to only
+   * increment the death counter and never call handleDeath(), which is why a
+   * grenade (your own or a bot's) could drop your HP but never actually kill
+   * you. Mirror the bullet-damage death path. */
+  if (player.health <= 0 && controls.isLocked) {
+    player.health = 0;
     player.stats.deaths += 1;
+    if (typeof handleDeath === 'function') handleDeath();
   }
 }
 

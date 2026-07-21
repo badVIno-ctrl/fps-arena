@@ -2715,13 +2715,15 @@ function buildEquipBoard() {
   /* Slot layout: localX, localY, kind, label */
   const SLOT_DEFS = [
     /* Row 1 — weapons (pistols → rifles → special) */
-    { x: -3.0, y: 2.6, kind: 'glock',  label: 'GLOCK-18 (1)' },
-    { x: -2.0, y: 2.6, kind: 'deagle', label: 'DEAGLE (1)' },
-    { x: -1.0, y: 2.6, kind: 'ak',     label: 'AKM (2)' },
-    { x:  0.0, y: 2.6, kind: 'm416',   label: 'M416 (2)' },
-    { x:  1.0, y: 2.6, kind: 'ak74',   label: 'АК-74 (2)' },
-    { x:  2.0, y: 2.6, kind: 'scar',   label: 'SCAR-H (2)' },
-    { x:  3.0, y: 2.6, kind: 'mp5',    label: 'MP5 (3)' },
+    { x: -3.6, y: 2.6, kind: 'glock',  label: 'GLOCK-18 (1)' },
+    { x: -2.7, y: 2.6, kind: 'deagle', label: 'DEAGLE (1)' },
+    { x: -1.8, y: 2.6, kind: 'ak',     label: 'AKM (2)' },
+    { x: -0.9, y: 2.6, kind: 'm416',   label: 'M416 (2)' },
+    { x:  0.0, y: 2.6, kind: 'ak74',   label: 'АК-74 (2)' },
+    { x:  0.9, y: 2.6, kind: 'scar',   label: 'SCAR-H (2)' },
+    { x:  1.8, y: 2.6, kind: 'svd',    label: 'СВД (2)' },
+    { x:  2.7, y: 2.6, kind: 'mp5',    label: 'MP5 (3)' },
+    { x:  3.6, y: 2.6, kind: 'm870',   label: 'M870 (3)' },
     /* Row 2 — gear */
     { x: -3.0, y: 1.5, kind: 'armor',    label: 'БРОНЕЖИЛЕТ' },
     { x: -1.8, y: 1.5, kind: 'helmet',   label: 'ШЛЕМ' },
@@ -2789,6 +2791,18 @@ function buildEquipBoard() {
     } else if (def.kind === 'mp5') {
       item = createMP5();
       item.scale.set(1.9, 1.9, 1.9);
+      item.rotation.y = -Math.PI / 2;
+      item.rotation.z = -0.02;
+      item.position.set(def.x, def.y, 0.18);
+    } else if (def.kind === 'svd') {
+      item = createSVD();
+      item.scale.set(1.35, 1.35, 1.35);   /* long gun — scale down so it fits the peg */
+      item.rotation.y = -Math.PI / 2;
+      item.rotation.z = -0.02;
+      item.position.set(def.x, def.y, 0.18);
+    } else if (def.kind === 'm870') {
+      item = createM870();
+      item.scale.set(1.5, 1.5, 1.5);
       item.rotation.y = -Math.PI / 2;
       item.rotation.z = -0.02;
       item.position.set(def.x, def.y, 0.18);
@@ -5311,6 +5325,245 @@ function createMP5() {
   return g;
 }
 
+/* === SVD DRAGUNOV — semi-auto marksman rifle ==========================
+ * Long, elegant Soviet DMR: laminate wood furniture with the signature
+ * cut-out skeleton stock + cheek riser, long thin barrel, PSO-style scope
+ * mount, and a slotted flash hider. High damage, high muzzle velocity,
+ * slow semi-auto cadence — rewards a still, scoped, breath-held shot. */
+function createSVD() {
+  const g = new THREE.Group();
+  g.userData.kind = 'svd';
+  const wood = new THREE.MeshStandardMaterial({ color: 0x7a4b22, roughness: 0.5, metalness: 0.03 });
+  const woodDk = new THREE.MeshStandardMaterial({ color: 0x542f13, roughness: 0.6, metalness: 0.03 });
+  const metal = new THREE.MeshStandardMaterial({ color: 0x26282e, roughness: 0.32, metalness: 0.92 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x101116, roughness: 0.4, metalness: 0.85 });
+  const polished = new THREE.MeshStandardMaterial({ color: 0x484c54, roughness: 0.18, metalness: 1.0 });
+  const brass = new THREE.MeshStandardMaterial({ color: 0xc8a050, roughness: 0.32, metalness: 0.9 });
+
+  /* Receiver — long and slim */
+  const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.060, 0.30), metal);
+  receiver.position.set(0, 0.0, 0.02);
+  g.add(receiver);
+  const lower = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.030, 0.16), metal);
+  lower.position.set(0, -0.044, 0.02);
+  g.add(lower);
+
+  /* Charging handle on the right */
+  const bolt = new THREE.Group();
+  const chArm = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.010, 0.06), polished);
+  chArm.position.set(0.028, 0.028, 0.06);
+  bolt.add(chArm);
+  const chKnob = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.016, 10), polished);
+  chKnob.rotation.z = Math.PI / 2;
+  chKnob.position.set(0.042, 0.028, 0.06);
+  bolt.add(chKnob);
+  g.add(bolt);
+  g.userData.bolt = bolt;
+  const port = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.018, 0.044), dark);
+  port.position.set(0.025, 0.026, 0.00);
+  g.add(port);
+  const cartridge = new THREE.Mesh(new THREE.CylinderGeometry(0.0072, 0.0072, 0.004, 10), brass);
+  cartridge.rotation.z = Math.PI / 2;
+  cartridge.position.set(0.027, 0.026, 0.00);
+  g.add(cartridge);
+
+  /* PSO scope mount rail on the left of the receiver */
+  const mountRail = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.030, 0.12), dark);
+  mountRail.position.set(-0.030, 0.030, 0.02);
+  g.add(mountRail);
+
+  /* Signature SVD handguard — two tapered laminate halves with vent slots */
+  const hgU = new THREE.Mesh(new THREE.BoxGeometry(0.050, 0.030, 0.22), wood);
+  hgU.position.set(0, 0.030, -0.20);
+  g.add(hgU);
+  const hgL = new THREE.Mesh(new THREE.BoxGeometry(0.050, 0.034, 0.22), woodDk);
+  hgL.position.set(0, -0.006, -0.20);
+  g.add(hgL);
+  for (const sx of [-1, 1]) {
+    for (let i = 0; i < 3; i++) {
+      const vent = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.016, 0.030), dark);
+      vent.position.set(sx * 0.026, 0.014, -0.15 - i * 0.05);
+      g.add(vent);
+    }
+  }
+
+  /* Long thin barrel */
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.0098, 0.0108, 0.44, 16), dark);
+  barrel.rotation.x = Math.PI / 2;
+  barrel.position.set(0, 0.010, -0.52);
+  g.add(barrel);
+  const gasBlock = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.034, 0.05), metal);
+  gasBlock.position.set(0, 0.030, -0.34);
+  g.add(gasBlock);
+
+  /* Front sight tower */
+  const fBase = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.030, 0.030), metal);
+  fBase.position.set(0, 0.030, -0.70);
+  g.add(fBase);
+  for (const sx of [-0.010, 0.010]) {
+    const ear = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.040, 0.014), metal);
+    ear.position.set(sx, 0.060, -0.70); g.add(ear);
+  }
+  const fPost = new THREE.Mesh(new THREE.CylinderGeometry(0.0022, 0.0030, 0.036, 10), polished);
+  fPost.position.set(0, 0.058, -0.70); g.add(fPost);
+  g.userData.frontSight = fPost;
+
+  /* Slotted flash hider */
+  const fh = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.06, 14), dark);
+  fh.rotation.x = Math.PI / 2;
+  fh.position.set(0, 0.010, -0.76);
+  g.add(fh);
+  for (let i = 0; i < 5; i++) {
+    const slot = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.020, 0.006), metal);
+    const a = (i / 5) * Math.PI * 2;
+    slot.position.set(Math.cos(a) * 0.014, 0.010 + Math.sin(a) * 0.014, -0.77);
+    g.add(slot);
+  }
+
+  /* Rear sight reference (kept for iron-sight fallback) */
+  const rearSight = new THREE.Object3D();
+  rearSight.position.set(0, 0.052, 0.06);
+  g.add(rearSight);
+  g.userData.rearSight = rearSight;
+
+  /* Pistol grip */
+  const pgrip = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.088, 0.036), woodDk);
+  pgrip.position.set(0, -0.058, 0.06);
+  pgrip.rotation.x = -0.24;
+  g.add(pgrip);
+
+  /* 10-round box mag (long, curved) */
+  const mag = new THREE.Group();
+  const magBody = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.11, 0.058), metal);
+  magBody.position.set(0, -0.070, -0.05);
+  magBody.rotation.x = 0.14;
+  mag.add(magBody);
+  const magToe = new THREE.Mesh(new THREE.BoxGeometry(0.030, 0.03, 0.03), dark);
+  magToe.position.set(0, -0.125, -0.075);
+  mag.add(magToe);
+  g.add(mag);
+  g.userData.mag = mag;
+  g.userData.magHomePos = mag.position.clone();
+  g.userData.magHomeRot = mag.rotation.clone();
+
+  /* Skeleton stock — the SVD's defining feature: a frame with a cut-out
+   * and a separate cheek riser bar on top. */
+  const stockTop = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.014, 0.20), wood);
+  stockTop.position.set(0, 0.036, 0.20); g.add(stockTop);
+  const stockBot = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.014, 0.16), wood);
+  stockBot.position.set(0, -0.030, 0.20); g.add(stockBot);
+  const stockDiag = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.070, 0.016), wood);
+  stockDiag.position.set(0, 0.004, 0.29); stockDiag.rotation.x = 0.0; g.add(stockDiag);
+  const cheek = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.018, 0.13), woodDk);
+  cheek.position.set(0, 0.058, 0.21); g.add(cheek);
+  const butt = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.080, 0.018), dark);
+  butt.position.set(0, 0.006, 0.30); g.add(butt);
+
+  g.userData.muzzleZ = -0.80;
+  g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
+  return g;
+}
+
+/* === M870 — pump-action shotgun =======================================
+ * Wood-furniture pump gun: tube magazine under the barrel, a sliding
+ * fore-end (the "pump"), bead front sight, ventilated rib. Fires a spread
+ * of pellets (handled in shoot() via the WEAPON_STATS.pellets field). The
+ * fore-end animates back-and-forth via userData.pump in the reload/fire
+ * choreography. */
+function createM870() {
+  const g = new THREE.Group();
+  g.userData.kind = 'm870';
+  const wood = new THREE.MeshStandardMaterial({ color: 0x5a3418, roughness: 0.5, metalness: 0.03 });
+  const woodDk = new THREE.MeshStandardMaterial({ color: 0x3d2210, roughness: 0.6, metalness: 0.03 });
+  const blued = new THREE.MeshStandardMaterial({ color: 0x1a1c22, roughness: 0.28, metalness: 0.95 });
+  const metal = new THREE.MeshStandardMaterial({ color: 0x24262c, roughness: 0.34, metalness: 0.9 });
+  const polished = new THREE.MeshStandardMaterial({ color: 0x484c54, roughness: 0.18, metalness: 1.0 });
+  const brass = new THREE.MeshStandardMaterial({ color: 0xc09040, roughness: 0.35, metalness: 0.85 });
+  const red = new THREE.MeshStandardMaterial({ color: 0x8a1410, roughness: 0.5, metalness: 0.1 });
+
+  /* Receiver */
+  const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.058, 0.20), blued);
+  receiver.position.set(0, 0.0, 0.03);
+  g.add(receiver);
+  const ejPort = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.024, 0.05), metal);
+  ejPort.position.set(0.024, 0.006, -0.02); g.add(ejPort);
+  /* trigger guard + trigger */
+  const guard = new THREE.Mesh(new THREE.TorusGeometry(0.020, 0.004, 8, 16), metal);
+  guard.rotation.x = Math.PI / 2; guard.position.set(0, -0.036, 0.06); g.add(guard);
+
+  /* Barrel + ventilated rib + bead */
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 0.52, 18), blued);
+  barrel.rotation.x = Math.PI / 2;
+  barrel.position.set(0, 0.026, -0.36);
+  g.add(barrel);
+  const rib = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.006, 0.48), metal);
+  rib.position.set(0, 0.046, -0.34); g.add(rib);
+  for (let i = 0; i < 7; i++) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.008, 0.004), metal);
+    post.position.set(0, 0.040, -0.52 + i * 0.06); g.add(post);
+  }
+  const bead = new THREE.Mesh(new THREE.SphereGeometry(0.0055, 12, 10),
+    new THREE.MeshStandardMaterial({ color: 0xffe070, emissive: 0xffd23a, emissiveIntensity: 0.6, roughness: 0.3 }));
+  bead.position.set(0, 0.050, -0.60); g.add(bead);
+  g.userData.frontSight = bead;
+
+  /* Tube magazine under the barrel */
+  const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.42, 14), blued);
+  tube.rotation.x = Math.PI / 2;
+  tube.position.set(0, 0.002, -0.32);
+  g.add(tube);
+  const tubeCap = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.02, 14), metal);
+  tubeCap.rotation.x = Math.PI / 2; tubeCap.position.set(0, 0.002, -0.53); g.add(tubeCap);
+
+  /* Sliding fore-end ("pump") — grooved wood, sits on a group so it can
+   * translate along Z during fire/reload. */
+  const pump = new THREE.Group();
+  const pumpBody = new THREE.Mesh(new THREE.BoxGeometry(0.052, 0.048, 0.16), wood);
+  pumpBody.position.set(0, 0.006, 0); pump.add(pumpBody);
+  for (let i = 0; i < 6; i++) {
+    const groove = new THREE.Mesh(new THREE.BoxGeometry(0.054, 0.004, 0.006), woodDk);
+    groove.position.set(0, 0.028, -0.06 + i * 0.024); pump.add(groove);
+  }
+  for (const sx of [-1, 1]) {
+    const side = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.040, 0.14), woodDk);
+    side.position.set(sx * 0.027, 0.004, 0); pump.add(side);
+  }
+  pump.position.set(0, 0.006, -0.28);
+  g.add(pump);
+  g.userData.pump = pump;
+  g.userData.pumpHomeZ = pump.position.z;
+
+  /* Pistol-wrist stock (wood) */
+  const wrist = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.050, 0.10), wood);
+  wrist.position.set(0, -0.020, 0.16); wrist.rotation.x = 0.24; g.add(wrist);
+  const stock = new THREE.Mesh(new THREE.BoxGeometry(0.040, 0.090, 0.18), wood);
+  stock.position.set(0, 0.010, 0.28); g.add(stock);
+  const pad = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.10, 0.02), red);
+  pad.position.set(0, 0.010, 0.375); g.add(pad);
+
+  /* A couple of visible red shells in the loading port for flavor */
+  const shell = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.03, 12), red);
+  shell.rotation.z = Math.PI / 2; shell.position.set(0, -0.030, 0.02); g.add(shell);
+  const shellHead = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.013, 0.006, 12), brass);
+  shellHead.rotation.z = Math.PI / 2; shellHead.position.set(0.016, -0.030, 0.02); g.add(shellHead);
+
+  /* Rear sight reference (bead-only gun, aim uses the rib) */
+  const rearSight = new THREE.Object3D();
+  rearSight.position.set(0, 0.048, 0.06);
+  g.add(rearSight);
+  g.userData.rearSight = rearSight;
+
+  /* No detachable mag — expose the pump as the "mag" so the reload anim has
+   * something to move; magHome kept at pump home. */
+  g.userData.mag = pump;
+  g.userData.magHomePos = pump.position.clone();
+  g.userData.magHomeRot = pump.rotation.clone();
+
+  g.userData.muzzleZ = -0.62;
+  g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
+  return g;
+}
+
 function createRedDotSight() {
   /* Aimpoint-style mini reflex sight — built as a HOLLOW tube so the player
    * sees the world straight through both lens openings. The "lens" itself
@@ -5732,6 +5985,8 @@ const WEAPON_HANDS = {
   m416:     { right: { pos: [0, -0.02, -0.055],rot: [0, 0, 0] },        left: { pos: [0, 0.05, -0.120],  rot: [0, 0, 0] } },
   scar:     { right: { pos: [0, 0.04, -0.060], rot: [0, 0, 0] },        left: { pos: [0, 0.05, -0.160],  rot: [0, 0, 0] } },
   mp5:      { right: { pos: [0, 0.05, -0.050], rot: [0, 0, 0] },        left: { pos: [0, 0.06, -0.060],  rot: [0, 0, 0] } },
+  svd:      { right: { pos: [0, 0.02, -0.060], rot: [0, 0, 0] },        left: { pos: [0, 0.045, -0.200], rot: [0, 0, 0] } },
+  m870:     { right: { pos: [0, 0.03, -0.040], rot: [0, 0, 0] },        left: { pos: [0, 0.06, -0.150],  rot: [0, 0, 0] } },
   glock:    { right: { pos: [0, 0.03, -0.060], rot: [0, 0, 0] },        left: { pos: [0.03, -0.02, 0.175], rot: [0, 0.35, 0.6] }, pistol: true },
   deagle:   { right: { pos: [0, 0.025, -0.050],rot: [0, 0, 0] },        left: { pos: [0.03, -0.02, 0.185], rot: [0, 0.35, 0.6] }, pistol: true },
 };
@@ -5798,14 +6053,18 @@ const deagle = createDeagle();
 const ak74   = createAK74();
 const scar   = createScarH();
 const mp5    = createMP5();
+const svd    = createSVD();      /* marksman rifle (rifle slot / key 2) */
+const m870   = createM870();     /* pump shotgun    (special slot / key 3) */
 weapon.add(glock);
 weapon.add(deagle);
 weapon.add(ak74);
 weapon.add(scar);
 weapon.add(mp5);
+weapon.add(svd);
+weapon.add(m870);
 /* Registry keyed by weapon id. Every system (visibility, muzzle flash,
  * active-weapon lookup, swap) iterates this instead of hardcoding ak/m416. */
-const WEAPON_OBJS = { ak, m416, glock, deagle, ak74, scar, mp5 };
+const WEAPON_OBJS = { ak, m416, glock, deagle, ak74, scar, mp5, svd, m870 };
 /* Both weapons start hidden — the player picks one up at the equipment
  * board next to the spawn cabin. Hands are also hidden when no weapon is
  * equipped (we don't want floating gloves). */
@@ -5816,6 +6075,8 @@ deagle.visible = false;
 ak74.visible = false;
 scar.visible = false;
 mp5.visible = false;
+svd.visible = false;
+m870.visible = false;
 hands.visible = false;
 ak.position.z = 0;
 hands.position.z = 0;
@@ -5903,7 +6164,9 @@ const WEAPON_ATTACH = {
   deagle: { sight:[0,0.040,-0.02],  opticZ:-0.06, flash:[0,-0.032,-0.18], sup:[0,0.008,-0.38], supR:[0.013,0.015,0.13], laser:[0.014,-0.022,-0.20], grip:null },
   ak74:   { sight:[0,0.074,-0.075], opticZ:-0.19, flash:[0,-0.06,-0.48], sup:[0,0.016,-0.92], supR:[0.016,0.020,0.16], laser:[0.026,-0.030,-0.55], grip:[0,-0.085,-0.42] },
   scar:   { sight:[0,0.086,-0.10],  opticZ:-0.12, flash:[0,-0.07,-0.46], sup:[0,0.030,-0.86], supR:[0.015,0.018,0.16], laser:[0.024,-0.028,-0.52], grip:[0,-0.080,-0.40] },
-  mp5:    { sight:[0,0.064,-0.06],  opticZ:-0.10, flash:[0,-0.05,-0.30], sup:[0,0.045,-0.46], supR:[0.014,0.016,0.14], laser:[0.020,-0.024,-0.32], grip:[0,-0.060,-0.28] }
+  mp5:    { sight:[0,0.064,-0.06],  opticZ:-0.10, flash:[0,-0.05,-0.30], sup:[0,0.045,-0.46], supR:[0.014,0.016,0.14], laser:[0.020,-0.024,-0.32], grip:[0,-0.060,-0.28] },
+  svd:    { sight:[-0.030,0.060,0.02], opticZ:-0.16, flash:[0,-0.05,-0.60], sup:[0,0.010,-0.86], supR:[0.016,0.018,0.18], laser:[0.024,-0.028,-0.60], grip:[0,-0.075,-0.30] },
+  m870:   { sight:[0,0.062,-0.02],  opticZ:-0.10, flash:[0,-0.05,-0.42], sup:[0,0.026,-0.70], supR:[0.020,0.024,0.16], laser:[0.024,-0.030,-0.44], grip:null }
 };
 
 /* Under-barrel flashlight body meshes — one per weapon, registry-driven. */
@@ -6041,6 +6304,8 @@ function playerOwnsWeapon(key) {
   if (key === 'ak74')   return !!player.inv.hasAk74;
   if (key === 'scar')   return !!player.inv.hasScar;
   if (key === 'mp5')    return !!player.inv.hasMp5;
+  if (key === 'svd')    return !!player.inv.hasSvd;
+  if (key === 'm870')   return !!player.inv.hasM870;
   return false;
 }
 function ownedWeaponsInSlot(slot) {
@@ -7076,6 +7341,8 @@ function playGunshotPistol() { playGunshotSynth({ vol:0.50, crackFreq:6500, crac
 function playGunshotDeagle() { playGunshotSynth({ vol:0.85, crackFreq:5200, crackGain:1.1,  bodyFreq:430, bodyQ:0.7, bodyGain:0.95, ringGain:0.30, ringFreq:2300, boomGain:0.80, boomF0:115, boomF1:42, boomDur:0.14 }); }
 function playGunshotMp5()    { playGunshotSynth({ vol:0.55, crackDur:0.013, crackFreq:7200, crackGain:0.95, bodyFreq:780, bodyQ:1.0, bodyGain:0.62, ringGain:0.18, ringFreq:3400, boomGain:0.28, boomF0:130, boomF1:66, boomDur:0.05 }); }
 function playGunshotScar()   { playGunshotSynth({ vol:0.72, crackFreq:6000, crackGain:1.05, bodyFreq:520, bodyQ:0.8, bodyGain:0.85, ringGain:0.26, ringFreq:2700, boomGain:0.60, boomF0:118, boomF1:50, boomDur:0.11 }); }
+function playGunshotSvd()    { playGunshotSynth({ vol:0.90, crackFreq:5600, crackGain:1.1,  bodyFreq:400, bodyQ:0.7, bodyGain:0.98, ringGain:0.30, ringFreq:2200, boomGain:0.85, boomF0:110, boomF1:40, boomDur:0.16 }); }
+function playGunshotM870()   { playGunshotSynth({ vol:0.95, crackFreq:4200, crackGain:0.9,  bodyFreq:320, bodyQ:0.6, bodyGain:1.05, ringGain:0.20, ringFreq:1800, boomGain:1.0,  boomF0:95,  boomF1:36, boomDur:0.18 }); }
 /* ════════════════════════════════════════════════════════════════════════
    v3.4 — UNIFIED GUNSHOT ENGINE
    One parametric report synth shared by every weapon. NO metallic "bell"
@@ -7191,12 +7458,18 @@ const _GUNAUDIO={
   scar:   {vol:0.94, clickHz:1400,clickVol:0.30, crackHz:2100,crackVol:0.55,crackDec:1.9, bodyHz:300,bodyVol:1.05,bodyDur:0.16,bodyDec:1.2,bodyQ:0.7, resHz:175,resVol:0.85,resDur:0.22,resQ:4, boomHz:70,boomVol:1.05,boomDur:0.28,sub:true},
   /* Desert Eagle .50 — single huge concussive boom, slow tail */
   deagle: {vol:1.00, clickHz:1300,clickVol:0.35, crackHz:1900,crackVol:0.50,crackDec:1.8, bodyHz:280,bodyVol:1.05,bodyDur:0.15,bodyDec:1.2,bodyQ:0.65, resHz:150,resVol:0.80,resDur:0.26,resQ:4, boomHz:56,boomVol:1.35,boomDur:0.40,sub:true},
+  /* SVD 7.62x54R — sharp supersonic crack + long rolling tail (rifle report) */
+  svd:    {vol:0.98, clickHz:1350,clickVol:0.30, crackHz:2000,crackVol:0.70,crackDec:1.8, bodyHz:290,bodyVol:1.05,bodyDur:0.17,bodyDec:1.15,bodyQ:0.7, resHz:165,resVol:0.90,resDur:0.26,resQ:4, boomHz:66,boomVol:1.10,boomDur:0.32,sub:true},
+  /* M870 12-gauge — big low-mid "BOOM", short crack, heavy thump, no long ring */
+  m870:   {vol:1.00, clickHz:1100,clickVol:0.30, crackHz:1700,crackVol:0.55,crackDec:2.0, bodyHz:240,bodyVol:1.10,bodyDur:0.14,bodyDec:1.4,bodyQ:0.6, resHz:140,resVol:0.70,resDur:0.16,resQ:4, boomHz:62,boomVol:1.25,boomDur:0.30,sub:true},
   _default:{vol:0.85, clickHz:1800,clickVol:0.28, crackHz:2600,crackVol:0.7,crackDec:2.4, bodyHz:500,bodyVol:0.8,bodyDur:0.10,bodyDec:1.6,bodyQ:0.7, resHz:300,resVol:0.5,resDur:0.13,resQ:5, boomHz:110,boomVol:0.6,boomDur:0.14}
 };
 playGunshotPistol = function(){ _gunFireV4(_GUNAUDIO.glock); };
 playGunshotDeagle = function(){ _gunFireV4(_GUNAUDIO.deagle); };
 playGunshotMp5    = function(){ _gunFireV4(_GUNAUDIO.mp5); };
 playGunshotScar   = function(){ _gunFireV4(_GUNAUDIO.scar); };
+playGunshotSvd    = function(){ _gunFireV4(_GUNAUDIO.svd); };
+playGunshotM870   = function(){ _gunFireV4(_GUNAUDIO.m870); };
 playGunshotAk     = function(){ _gunFireV4(player.activeWeapon==='ak74'?_GUNAUDIO.ak74:_GUNAUDIO.ak); };
 playGunshotM416   = function(){ _gunFireV4(_GUNAUDIO.m416); };
 function playGunshot() {
@@ -7214,6 +7487,10 @@ function playGunshot() {
     playGunshotMp5();
   } else if (_w === 'scar') {
     playGunshotScar();
+  } else if (_w === 'svd') {
+    playGunshotSvd();
+  } else if (_w === 'm870') {
+    playGunshotM870();
   } else {
     if (!_playSample(_gunSamples.m416)) playGunshotM416();
   }
@@ -8032,7 +8309,21 @@ const WEAPON_STATS = {
   mp5:    { name: 'MP5', slot: 'special', magSize: 30, fireRate: 0.075, reloadDuration: 2.1,
             baseDamage: 0.65, reserveStart: 0, recoilVert: 0.013, recoilHoriz: 0.0050,
             weight: 2.5, adsTime: 0.22, muzzleVel: 400, energyJ: 620, zeroDist: 50,
-            adsX: 0, adsY: -0.082, adsZ: -0.160, adsRotX: -0.0140 }
+            adsX: 0, adsY: -0.082, adsZ: -0.160, adsRotX: -0.0140 },
+  /* SVD — semi-auto marksman rifle. Big single-shot damage, high muzzle
+   * velocity, slow cadence, heavy recoil; defaults to the 3x optic. */
+  svd:    { name: 'СВД', slot: 'rifle', magSize: 10, fireRate: 0.34, reloadDuration: 2.9,
+            baseDamage: 3.20, reserveStart: 0, recoilVert: 0.052, recoilHoriz: 0.0090,
+            weight: 4.3, adsTime: 0.42, muzzleVel: 830, energyJ: 4090, zeroDist: 300,
+            defaultSight: 'scope_3x',
+            adsX: 0, adsY: -0.086, adsZ: -0.150, adsRotX: -0.0120 },
+  /* M870 — pump shotgun. Fires `pellets` projectiles per trigger pull in a
+   * wide cone; each pellet does baseDamage. Slow pump cadence, short range. */
+  m870:   { name: 'M870', slot: 'special', magSize: 6, fireRate: 0.85, reloadDuration: 3.6,
+            baseDamage: 0.34, reserveStart: 0, recoilVert: 0.070, recoilHoriz: 0.0140,
+            weight: 3.6, adsTime: 0.30, muzzleVel: 400, energyJ: 700, zeroDist: 20,
+            pellets: 9, pelletSpread: 0.055,
+            adsX: 0, adsY: -0.078, adsZ: -0.130, adsRotX: -0.0080 }
 };
 
 /* === A2 — LOADOUT / CARRY-SLOT MODEL =====================================
@@ -8135,6 +8426,18 @@ const RECOIL_PATTERN_MP5 = [
   [ 0.00, 0.06], [ 0.00, 0.05], [ 0.00, 0.05], [ 0.00, 0.04],
   [ 0.00, 0.04], [ 0.00, 0.03]
 ];
+/* SVD — every shot is a heavy, mostly-vertical kick (semi-auto DMR); a small
+ * horizontal wander so re-acquiring the target after each shot is the skill. */
+const RECOIL_PATTERN_SVD = [
+  [ 0.00, 1.30], [ 0.05, 1.30], [-0.06, 1.30], [ 0.06, 1.30],
+  [-0.07, 1.30], [ 0.07, 1.30], [-0.08, 1.30], [ 0.08, 1.30],
+  [-0.08, 1.30], [ 0.08, 1.30]
+];
+/* M870 — one massive kick per pump; horizontal barely matters. */
+const RECOIL_PATTERN_M870 = [
+  [ 0.00, 1.60], [ 0.06, 1.60], [-0.06, 1.60], [ 0.06, 1.60],
+  [-0.06, 1.60], [ 0.06, 1.60]
+];
 const RECOIL_PATTERN_PISTOL = [
   [ 0.00, 1.00], [ 0.06, 1.05], [-0.08, 1.05], [ 0.10, 1.00],
   [-0.12, 0.95], [ 0.14, 0.88], [-0.16, 0.80], [ 0.16, 0.72],
@@ -8152,6 +8455,8 @@ function recoilPatternFor(key) {
     case 'm416':   return RECOIL_PATTERN_M416;
     case 'scar':   return RECOIL_PATTERN_SCAR;
     case 'mp5':    return RECOIL_PATTERN_MP5;
+    case 'svd':    return RECOIL_PATTERN_SVD;
+    case 'm870':   return RECOIL_PATTERN_M870;
     case 'glock':
     case 'deagle': return RECOIL_PATTERN_PISTOL;
     default:       return RECOIL_PATTERN_M416;
@@ -8247,6 +8552,8 @@ const player = {
     hasAk74:      false,
     hasScar:      false,
     hasMp5:       false,
+    hasSvd:       false,
+    hasM870:      false,
     /* W7 — which sight is mounted on each weapon, one slot per weapon.
      * Values: 'iron' | 'red_dot' | 'holo' | 'scope_3x'. */
     sights: { ak:'iron', m416:'iron', glock:'iron', deagle:'iron', ak74:'iron', scar:'iron', mp5:'iron' },
@@ -8274,7 +8581,9 @@ const player = {
     deagle: { ammo: 0, reserve: 0 },
     ak74:   { ammo: 0, reserve: 0 },
     scar:   { ammo: 0, reserve: 0 },
-    mp5:    { ammo: 0, reserve: 0 }
+    mp5:    { ammo: 0, reserve: 0 },
+    svd:    { ammo: 0, reserve: 0 },
+    m870:   { ammo: 0, reserve: 0 }
   },
   /* Active stats — copied from WEAPON_STATS[activeWeapon] when switching */
   ammo: 0,
@@ -9082,7 +9391,32 @@ function shoot() {
   /* Origin is the muzzle (visually consistent with the tracer); the
    * direction is the gun's barrel direction so close-range hits stay
    * accurate even when the camera is slightly off-axis. */
-  spawnBullet(muzzleWorld, dir, player.activeWeapon, isFirstShot);
+  const _pellets = (stats && stats.pellets) ? stats.pellets : 1;
+  if (_pellets > 1) {
+    /* Shotgun: fire a cone of pellets around the aim direction. The extra
+     * per-pellet spread is on top of the base cone and is NOT reduced by ADS
+     * as much (buckshot always patterns), so the shotgun stays a close-range
+     * weapon. Each pellet is its own physics bullet. */
+    const ps = stats.pelletSpread || 0.05;
+    const adsBlend = THREE.MathUtils.clamp(player.adsT || 0, 0, 1);
+    const coneR = ps * (1 - adsBlend * 0.35);   /* ADS tightens the pattern a little */
+    const baseDir = dir.clone().normalize();
+    const u = new THREE.Vector3(); const v = new THREE.Vector3();
+    if (Math.abs(baseDir.y) < 0.9) u.set(0,1,0).cross(baseDir).normalize();
+    else                           u.set(1,0,0).cross(baseDir).normalize();
+    v.crossVectors(baseDir, u).normalize();
+    for (let p = 0; p < _pellets; p++) {
+      const ang = Math.random() * Math.PI * 2;
+      const rr  = Math.sqrt(Math.random()) * coneR;
+      const pd = baseDir.clone()
+        .addScaledVector(u, Math.cos(ang) * rr)
+        .addScaledVector(v, Math.sin(ang) * rr)
+        .normalize();
+      spawnBullet(muzzleWorld, pd, player.activeWeapon, isFirstShot && p === 0);
+    }
+  } else {
+    spawnBullet(muzzleWorld, dir, player.activeWeapon, isFirstShot);
+  }
   /* PVP: notify opponent of shot for visual/audio feedback */
   if (PVP_MODE && typeof _pvpOnShoot === 'function') {
     _pvpOnShoot(muzzleWorld, dir);
@@ -11771,6 +12105,29 @@ function pickUpFromBoard(slot) {
       if (!player.activeWeapon) setActiveWeapon('mp5');
       syncLoadoutFromInv();
       showNotice('ПОЛУЧЕНО: MP5 (клавиша 3)');
+      break;
+    case 'svd':
+      if (player.inv.hasSvd) { showNotice('СВД УЖЕ В ИНВЕНТАРЕ'); return; }
+      player.inv.hasSvd = true;
+      player.weaponState.svd.ammo = WEAPON_STATS.svd.magSize;
+      player.weaponState.svd.reserve = 40;
+      player.slots.rifle = 'svd';
+      /* SVD ships with its 3x optic mounted. */
+      if (typeof setSight === 'function') setSight('svd', 'scope_3x');
+      if (!player.activeWeapon) setActiveWeapon('svd');
+      else if (player.activeWeapon === 'svd' && typeof applySightToActiveWeapon === 'function') applySightToActiveWeapon();
+      syncLoadoutFromInv();
+      showNotice('ПОЛУЧЕНО: СВД + ОПТИКА 3X (клавиша 2)');
+      break;
+    case 'm870':
+      if (player.inv.hasM870) { showNotice('M870 УЖЕ В ИНВЕНТАРЕ'); return; }
+      player.inv.hasM870 = true;
+      player.weaponState.m870.ammo = WEAPON_STATS.m870.magSize;
+      player.weaponState.m870.reserve = 36;
+      player.slots.special = 'm870';
+      if (!player.activeWeapon) setActiveWeapon('m870');
+      syncLoadoutFromInv();
+      showNotice('ПОЛУЧЕНО: M870 ДРОБОВИК (клавиша 3)');
       break;
     case 'armor':
       if (player.inv.hasArmor) { showNotice('БРОНЯ УЖЕ НАДЕТА'); return; }

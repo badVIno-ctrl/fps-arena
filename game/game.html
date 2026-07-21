@@ -12602,7 +12602,18 @@ function applyCamShakeAndSway(camera, dt) {
      * at stamina=0 → mul ≈ 2.6 (visible heaving). */
     const breathlessMul = 1.0 + (1.0 - THREE.MathUtils.clamp(player.stamina, 0, 1)) * 1.6;
     let stanceMul = player.prone ? 0.4 : (player.crouching ? 0.7 : 1.0);
-    let amp = stanceMul * breathlessMul;
+    /* === SCOPE MAGNIFICATION SWAY ===================================
+     * A magnified optic amplifies every tremor — the more zoom, the more
+     * the reticle wanders. Marksman rifles (SVD) sway most; a mounted 3x
+     * optic on any gun swings more than irons/reflex. This is what makes
+     * the breath-hold (Shift) matter for a precision shot. */
+    let scopeMul = 1.0;
+    const _aw = player.activeWeapon;
+    const _sight = (typeof getSight === 'function' && _aw) ? getSight(_aw) : 'iron';
+    if (_aw === 'svd') scopeMul = 2.2;
+    else if (_sight === 'scope_3x') scopeMul = 1.6;
+    else if (_sight === 'holo' || _sight === 'red_dot') scopeMul = 1.15;
+    let amp = stanceMul * breathlessMul * scopeMul;
     if (player.breathHold) amp *= 0.05;       /* near-frozen */
     const breathing = (Math.sin(_shakeT * 0.85) * 0.0018 +
                        Math.sin(_shakeT * 1.7) * 0.0006) * amp;

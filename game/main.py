@@ -34,6 +34,9 @@ TEAM_RESPAWN_SECS = int(os.environ.get("TEAM_RESPAWN_SECS", "5"))
 MATCH_KILL_LIMIT  = int(os.environ.get("MATCH_KILL_LIMIT", "50"))
 MATCH_TIME_LIMIT = int(os.environ.get("MATCH_TIME_LIMIT", "600"))
 RECONNECT_TTL = int(os.environ.get("RECONNECT_TTL", "60"))
+# 1v1 duels are best-of: first player to PVP_MATCH_TARGET round wins takes the
+# match (default 3 → "best of 5").
+PVP_MATCH_TARGET = int(os.environ.get("PVP_MATCH_TARGET", "3"))
 
 # --- In-memory state ----------------------------------------------------------
 
@@ -56,7 +59,7 @@ class Room:
     __slots__ = (
         "id", "p1_nick", "p2_nick", "p1_ws", "p2_ws",
         "p1_spawn", "p2_spawn", "scores", "created", "round_active",
-        "dying",
+        "dying", "match_over", "rematch",
     )
 
     def __init__(self, rid: str, p1: str, p2: str):
@@ -75,6 +78,10 @@ class Room:
         # the client is still processing the death animation produce a
         # SECOND "died" message and inflate the killer's score (+2, +3).
         self.dying: set[str] = set()
+        # Best-of match state. When one player reaches PVP_MATCH_TARGET round
+        # wins the match ends; both must request a rematch to reset.
+        self.match_over: bool = False
+        self.rematch: set[str] = set()
 
     def opponent_ws(self, nick: str) -> WebSocket | None:
         return self.p2_ws if nick == self.p1_nick else self.p1_ws
@@ -659,10 +666,12 @@ async def ws_endpoint(ws: WebSocket):
                     await _safe_send(r.p1_ws, {
                         "type": "game_start", "spawn": r.p1_spawn,
                         "opponent": r.p2_nick, "scores": r.scores,
+                        "match_target": PVP_MATCH_TARGET,
                     })
                     await _safe_send(r.p2_ws, {
                         "type": "game_start", "spawn": r.p2_spawn,
                         "opponent": r.p1_nick, "scores": r.scores,
+                        "match_target": PVP_MATCH_TARGET,
                     })
                 else:
                     await _safe_send(ws, {"type": "waiting_opponent"})
@@ -690,7 +699,7 @@ async def ws_endpoint(ws: WebSocket):
                     # GUARD against double-counting. If the dying player has
                     # already sent a 'died' for this round, ignore extras —
                     # this is the +2 / +3 score bug fix.
-                    if nickname in room.dying or not room.round_active:
+                    if nickname in room.dying or not room.round_active or room.match_over:
                         pass
                     else:
                         room.dying.add(nickname)
@@ -698,34 +707,77 @@ async def ws_endpoint(ws: WebSocket):
                         if killer in room.scores:
                             room.scores[killer] += 1
 
-                        room.p1_spawn = 1 - room.p1_spawn
-                        room.p2_spawn = 1 - room.p2_spawn
                         room.round_active = False
 
                         death_msg = {
                             "type": "round_over",
                             "killed": nickname, "killer": killer,
                             "scores": room.scores,
+                            "match_target": PVP_MATCH_TARGET,
                         }
                         await _safe_send(room.p1_ws, death_msg)
                         await _safe_send(room.p2_ws, death_msg)
 
-                        async def _respawn(r: Room = room):
-                            await asyncio.sleep(TEAM_RESPAWN_SECS)
-                            if r.id not in rooms:
-                                return
-                            r.round_active = True
-                            r.dying.clear()
-                            await _safe_send(r.p1_ws, {
-                                "type": "respawn", "spawn": r.p1_spawn,
-                                "scores": r.scores,
-                            })
-                            await _safe_send(r.p2_ws, {
-                                "type": "respawn", "spawn": r.p2_spawn,
-                                "scores": r.scores,
-                            })
+                        # Best-of: has the killer clinched the match?
+                        if room.scores.get(killer, 0) >= PVP_MATCH_TARGET:
+                            room.match_over = True
+                            room.rematch.clear()
+                            end_msg = {
+                                "type": "pvp_match_over",
+                                "winner": killer,
+                                "scores": room.scores,
+                                "match_target": PVP_MATCH_TARGET,
+                            }
+                            await _safe_send(room.p1_ws, end_msg)
+                            await _safe_send(room.p2_ws, end_msg)
+                        else:
+                            room.p1_spawn = 1 - room.p1_spawn
+                            room.p2_spawn = 1 - room.p2_spawn
 
-                        asyncio.create_task(_respawn())
+                            async def _respawn(r: Room = room):
+                                await asyncio.sleep(TEAM_RESPAWN_SECS)
+                                if r.id not in rooms or r.match_over:
+                                    return
+                                r.round_active = True
+                                r.dying.clear()
+                                await _safe_send(r.p1_ws, {
+                                    "type": "respawn", "spawn": r.p1_spawn,
+                                    "scores": r.scores,
+                                    "match_target": PVP_MATCH_TARGET,
+                                })
+                                await _safe_send(r.p2_ws, {
+                                    "type": "respawn", "spawn": r.p2_spawn,
+                                    "scores": r.scores,
+                                    "match_target": PVP_MATCH_TARGET,
+                                })
+
+                            asyncio.create_task(_respawn())
+
+            elif t == "rematch":
+                # Both players must ask for a rematch; then scores reset and a
+                # fresh match starts via a new game_start to each side.
+                if room and nickname and room.match_over and nickname in room.scores:
+                    room.rematch.add(nickname)
+                    await _safe_send(room.opponent_ws(nickname),
+                                     {"type": "rematch_wanted", "who": nickname})
+                    if room.p1_nick in room.rematch and room.p2_nick in room.rematch:
+                        room.scores = {room.p1_nick: 0, room.p2_nick: 0}
+                        room.match_over = False
+                        room.rematch.clear()
+                        room.round_active = True
+                        room.dying.clear()
+                        room.p1_spawn = random.randint(0, 1)
+                        room.p2_spawn = 1 - room.p1_spawn
+                        await _safe_send(room.p1_ws, {
+                            "type": "game_start", "spawn": room.p1_spawn,
+                            "opponent": room.p2_nick, "scores": room.scores,
+                            "match_target": PVP_MATCH_TARGET, "rematch": True,
+                        })
+                        await _safe_send(room.p2_ws, {
+                            "type": "game_start", "spawn": room.p2_spawn,
+                            "opponent": room.p1_nick, "scores": room.scores,
+                            "match_target": PVP_MATCH_TARGET, "rematch": True,
+                        })
 
             elif t == "grenade_throw":
                 if room:

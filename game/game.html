@@ -13347,11 +13347,23 @@ if (PVP_MODE) {
   pvpHud.style.cssText = 'position:fixed;top:60px;right:30px;z-index:20;pointer-events:none;' +
     'font-family:Consolas,monospace;text-align:right';
   pvpHud.innerHTML = `
-    <div style="font-size:12px;color:#889;letter-spacing:1px;margin-bottom:4px">${TEAM_MODE ? 'КОМАНДНАЯ ИГРА' : 'ОНЛАЙН PVP'}</div>
+    <div style="font-size:12px;color:#889;letter-spacing:1px;margin-bottom:4px">${TEAM_MODE ? 'КОМАНДНАЯ ИГРА' : 'ДУЭЛЬ 1×1'}</div>
     <div id="pvp-scores" style="font-size:15px;color:#eee"></div>
+    ${TEAM_MODE ? '' : '<div id="pvp-target" style="font-size:11px;color:#7f8ba0;letter-spacing:1px;margin-top:3px"></div><div id="pvp-timer" style="font-size:14px;color:#cfd6e0;margin-top:2px;font-variant-numeric:tabular-nums"></div>'}
     <div id="pvp-round-msg" style="font-size:18px;color:#ff6040;margin-top:8px;font-weight:bold"></div>
   `;
   document.body.appendChild(pvpHud);
+
+  /* Best-of state (1v1). Target comes from the server; round clock counts up
+   * while a round is live so both players can see how long the standoff runs. */
+  let _pvpMatchTarget = 3;
+  let _pvpRoundStart = performance.now();
+  let _pvpMatchDone = false;
+  function _pvpSetTarget(n) {
+    if (typeof n === 'number' && n > 0) _pvpMatchTarget = n;
+    const el = document.getElementById('pvp-target');
+    if (el) el.textContent = 'ПЕРВЫЙ ДО ' + _pvpMatchTarget + ' ПОБЕД';
+  }
 
   function updatePvpScoreDisplay(scores) {
     const el = document.getElementById('pvp-scores');
@@ -13744,16 +13756,81 @@ if (PVP_MODE) {
     }
   }
 
+  /* === MATCH-OVER SCREEN (best-of) ==================================== */
+  function _pvpRemoveMatchOver() {
+    const o = document.getElementById('pvpMatchOver');
+    if (o) o.remove();
+  }
+  function _pvpShowMatchOver(winner, scores) {
+    _pvpMatchDone = true;
+    _pvpRoundActive = false;
+    try { controls.unlock(); } catch (_) {}
+    _pvpRemoveMatchOver();
+    const won = (winner === PVP_NICKNAME);
+    const my = (scores && scores[PVP_NICKNAME]) || 0;
+    const opp = (scores && scores[PVP_OPPONENT]) || 0;
+    const accent = won ? '#3ddc84' : '#ff5145';
+    const accentDeep = won ? '#12603a' : '#8f2019';
+    const o = document.createElement('div');
+    o.id = 'pvpMatchOver';
+    o.style.cssText = 'position:fixed;inset:0;z-index:150;display:flex;flex-direction:column;' +
+      'align-items:center;justify-content:center;gap:20px;padding:24px;pointer-events:auto;' +
+      'background:radial-gradient(ellipse at 50% 30%, rgba(10,14,20,.72), rgba(6,8,12,.92));' +
+      "font-family:'Segoe UI',Arial,sans-serif;color:#eef2f7;opacity:0;" +
+      'transition:opacity .45s cubic-bezier(.22,1,.36,1)';
+    o.innerHTML =
+      `<div style="font-size:13px;letter-spacing:.32em;text-transform:uppercase;color:${accent}">ДУЭЛЬ 1×1 · ИТОГ</div>
+       <div style="font-size:clamp(46px,9vw,84px);font-weight:800;letter-spacing:.04em;line-height:.95;
+          color:${accent};text-shadow:0 0 42px ${accent}55">${won ? 'ПОБЕДА' : 'ПОРАЖЕНИЕ'}</div>
+       <div style="font-size:26px;font-weight:800;letter-spacing:.06em;color:#eef2f7">
+          <span style="color:#4a9eff">${escapePvp(PVP_NICKNAME)}</span> ${my} : ${opp} <span style="color:#ff6040">${escapePvp(PVP_OPPONENT)}</span></div>
+       <div id="pvp-rematch-hint" style="font-size:13px;letter-spacing:.08em;color:#93a1b4;min-height:18px"></div>
+       <div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center">
+         <button id="pvp-rematch" style="padding:14px 26px;border:none;border-radius:10px;cursor:pointer;
+            font-size:14px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#04150d;
+            background:linear-gradient(135deg,${accent},${accentDeep});transition:transform .14s cubic-bezier(.22,1,.36,1),filter .2s">Реванш</button>
+         <button id="pvp-menu" style="padding:14px 26px;border:1px solid rgba(160,180,210,.22);border-radius:10px;cursor:pointer;
+            font-size:14px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#c7d2e0;
+            background:rgba(255,255,255,.05);transition:transform .14s cubic-bezier(.22,1,.36,1)">В меню</button>
+       </div>`;
+    document.body.appendChild(o);
+    requestAnimationFrame(() => { o.style.opacity = '1'; });
+    const rb = o.querySelector('#pvp-rematch');
+    const mb = o.querySelector('#pvp-menu');
+    const press = b => { if (b) { b.onmousedown = () => b.style.transform = 'scale(.97)'; b.onmouseup = () => b.style.transform = ''; } };
+    press(rb); press(mb);
+    if (mb) mb.onclick = () => { location.href = '/'; };
+    if (rb) rb.onclick = () => {
+      pvpSend({ type: 'rematch' });
+      rb.disabled = true; rb.style.filter = 'grayscale(1)'; rb.style.cursor = 'default';
+      const h = document.getElementById('pvp-rematch-hint');
+      if (h) h.textContent = 'Ждём соперника…';
+    };
+  }
+  function escapePvp(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
   function pvpHandleMessage(msg) {
     if (msg.type === 'waiting_opponent') {
       showNotice('ОЖИДАНИЕ ПРОТИВНИКА...');
     }
     else if (msg.type === 'game_start') {
-      showNotice('ИГРА НАЧАЛАСЬ! ПРОТИВНИК: ' + msg.opponent);
+      showNotice(msg.rematch ? 'РЕВАНШ! БОЙ!' : ('ИГРА НАЧАЛАСЬ! ПРОТИВНИК: ' + msg.opponent));
       _pvpRoundActive = true;
       _pvpOppDead = false;
+      _pvpMatchDone = false;
+      _pvpDying = false;
+      _pvpRoundStart = performance.now();
+      _pvpRemoveMatchOver();
+      _pvpSetTarget(msg.match_target);
       updatePvpScoreDisplay(msg.scores || {});
       pvpAutoEquip();
+      if (msg.rematch) {
+        /* Reset health/position for the fresh match. */
+        player.health = player.maxHealth;
+        try { if (!controls.isLocked) setTimeout(() => { if (!controls.isLocked) controls.lock(); }, 300); } catch (_) {}
+      }
       /* Start sending state */
       if (_pvpStateInterval) clearInterval(_pvpStateInterval);
       _pvpStateInterval = setInterval(pvpSendState, 66); /* ~15 Hz */
@@ -13803,20 +13880,38 @@ if (PVP_MODE) {
     }
     else if (msg.type === 'round_over') {
       _pvpRoundActive = false;
+      _pvpSetTarget(msg.match_target);
       updatePvpScoreDisplay(msg.scores || {});
       const rmsg = document.getElementById('pvp-round-msg');
+      const my = (msg.scores && msg.scores[PVP_NICKNAME]) || 0;
+      const opp = (msg.scores && msg.scores[PVP_OPPONENT]) || 0;
+      const score = ' (' + my + ':' + opp + ')';
       if (msg.killed === PVP_NICKNAME) {
-        if (rmsg) rmsg.textContent = 'ВЫ УБИТЫ! РЕСПАВН ЧЕРЕЗ 5 СЕК...';
+        if (rmsg) rmsg.textContent = 'ВЫ УБИТЫ' + score + ' · РЕСПАВН…';
         showNotice(msg.killer + ' УБИЛ ВАС');
       } else {
-        if (rmsg) rmsg.textContent = 'ВЫ УБИЛИ ' + msg.killed + '! РЕСПАВН ЧЕРЕЗ 5 СЕК...';
+        if (rmsg) rmsg.textContent = 'ФРАГ' + score + ' · РЕСПАВН…';
         showNotice('ВЫ УБИЛИ ' + msg.killed + '!');
       }
+    }
+    else if (msg.type === 'pvp_match_over') {
+      _pvpSetTarget(msg.match_target);
+      updatePvpScoreDisplay(msg.scores || {});
+      const rmsg = document.getElementById('pvp-round-msg');
+      if (rmsg) rmsg.textContent = '';
+      if (_pvpStateInterval) { clearInterval(_pvpStateInterval); _pvpStateInterval = null; }
+      _pvpShowMatchOver(msg.winner, msg.scores || {});
+    }
+    else if (msg.type === 'rematch_wanted') {
+      const h = document.getElementById('pvp-rematch-hint');
+      if (h) h.textContent = 'Соперник хочет реванш — жми «Реванш»';
     }
     else if (msg.type === 'respawn') {
       _pvpRoundActive = true;
       _pvpOppDead = false;
       _pvpDying = false;
+      _pvpRoundStart = performance.now();
+      _pvpSetTarget(msg.match_target);
       const rmsg = document.getElementById('pvp-round-msg');
       if (rmsg) rmsg.textContent = '';
       const spawnIdx = msg.spawn;
@@ -13945,6 +14040,13 @@ if (PVP_MODE) {
 
   /* --- PVP UPDATE (called every frame from animate) --- */
   window._pvpUpdate = function(dt) {
+    /* Round clock (best-of duel) — counts up while the round is live. */
+    const _tEl = document.getElementById('pvp-timer');
+    if (_tEl && _pvpRoundActive && !_pvpMatchDone) {
+      const el = (performance.now() - _pvpRoundStart) / 1000;
+      const mm = Math.floor(el / 60), ss = Math.floor(el % 60);
+      _tEl.textContent = 'РАУНД ' + mm + ':' + (ss < 10 ? '0' : '') + ss;
+    }
     if (!_pvpOpp || !_pvpOppModel) return;
     const r = _pvpLastRecv;
     if (r.x !== undefined) {

@@ -162,7 +162,7 @@ class TeamRoom:
     __slots__ = (
         "id", "members", "team_of", "scores", "team_scores",
         "created", "round_active", "spawns", "dying",
-        "disconnected_at", "started_at", "ended", "winner",
+        "disconnected_at", "started_at", "ended", "winner", "deaths",
     )
 
     def __init__(self, rid: str, lobby: TeamLobby):
@@ -175,6 +175,8 @@ class TeamRoom:
         self.spawns: dict[str, int] = {}
         # nick -> personal kill count (leaderboard)
         self.scores: dict[str, int] = {}
+        # nick -> personal death count (for K/D on the scoreboard)
+        self.deaths: dict[str, int] = {}
         self.team_scores: dict[str, int] = {"A": 0, "B": 0}
         # nicks currently in their death/respawn timer — guards against
         # follow-up damage producing multiple +1 increments per kill.
@@ -196,6 +198,7 @@ class TeamRoom:
             self.members[nick] = None
             self.team_of[nick] = p.team
             self.scores[nick] = 0
+            self.deaths[nick] = 0
             if p.team == "A":
                 self.spawns[nick] = a_idx
                 a_idx += 1
@@ -247,6 +250,7 @@ class TeamRoom:
         if victim in self.dying:
             return {"new_death": False, "kill_counted": False, "killer": None}
         self.dying.add(victim)
+        self.deaths[victim] = self.deaths.get(victim, 0) + 1
         kill_counted = False
         credited: str | None = None
         if (killer and killer in self.scores and killer != victim and
@@ -284,6 +288,7 @@ class TeamRoom:
         self.team_of[nick] = team
         self.spawns[nick] = spawn_idx
         self.scores[nick] = 0
+        self.deaths[nick] = 0
         self.members[nick] = ws
         return team
 
@@ -313,6 +318,7 @@ class TeamRoom:
                 "nick": nick,
                 "team": team,
                 "kills": self.scores.get(nick, 0),
+                "deaths": self.deaths.get(nick, 0),
                 "alive": nick not in self.dying,
                 "spawn": self.spawns.get(nick, 0),
             })
@@ -320,6 +326,7 @@ class TeamRoom:
             "room": self.id,
             "roster": roster,
             "team_scores": self.team_scores,
+            "deaths": self.deaths,
         }
 
 
@@ -816,6 +823,7 @@ async def ws_endpoint(ws: WebSocket):
                     ],
                     "scores": tr.scores,
                     "team_scores": tr.team_scores,
+                    "deaths": tr.deaths,
                 })
                 # Notify everyone of updated room state.
                 await _broadcast_team_room(tr)
@@ -868,6 +876,7 @@ async def ws_endpoint(ws: WebSocket):
                             "killer": killer or "",
                             "scores": team_room.scores,
                             "team_scores": team_room.team_scores,
+                            "deaths": team_room.deaths,
                             "killer_x": data.get("killer_x"),
                             "killer_y": data.get("killer_y"),
                             "killer_z": data.get("killer_z"),
@@ -888,6 +897,7 @@ async def ws_endpoint(ws: WebSocket):
                                 "winner": winner,
                                 "scores": team_room.scores,
                                 "team_scores": team_room.team_scores,
+                                "deaths": team_room.deaths,
                                 "kill_limit": MATCH_KILL_LIMIT,
                                 "time_limit": MATCH_TIME_LIMIT,
                             })
@@ -904,6 +914,7 @@ async def ws_endpoint(ws: WebSocket):
                                     "team": tr.team_of.get(dead_nick, "A"),
                                     "scores": tr.scores,
                                     "team_scores": tr.team_scores,
+                                    "deaths": tr.deaths,
                                 })
 
                             asyncio.create_task(_team_respawn())

@@ -14229,6 +14229,7 @@ if (PVP_MODE) {
   let _matchEndUntil = 0;
   let   _teamLastDamageT = 0;       /* timestamp of that hit (seconds) */
   let   _teamScores = {};           /* nick -> kills */
+  let   _teamDeaths = {};           /* nick -> deaths (server-authoritative) */
   let   _teamTotals = { A: 0, B: 0 };
   let   _teamRoster = TEAM_ROSTER.slice();   /* [{nick, team, spawn}] */
   let   _teamMyTeam = TEAM_SIDE;
@@ -14439,6 +14440,7 @@ if (PVP_MODE) {
       teamBuildRoster();
       _teamScores = msg.scores || _teamScores;
       _teamTotals = msg.team_scores || _teamTotals;
+      if (msg.deaths) _teamDeaths = msg.deaths;
       updateTeamScoreDisplay();
       showNotice('МАТЧ НАЧАЛСЯ — Команда ' +
         (_teamMyTeam === 'A' ? 'СИНИЕ' : 'КРАСНЫЕ'));
@@ -14451,6 +14453,7 @@ if (PVP_MODE) {
        * so late-joiners get avatars on existing clients (and players who left
        * during the match are cleaned up). */
       _teamTotals = msg.team_scores || _teamTotals;
+      if (msg.deaths) _teamDeaths = msg.deaths;
       if (msg.roster) {
         const newNicks = new Set(msg.roster.map(e => e.nick));
         /* 1) Build avatars for any newcomer that isn't us. */
@@ -14527,6 +14530,7 @@ if (PVP_MODE) {
     else if (msg.type === 'team_round_over') {
       _teamScores = msg.scores || _teamScores;
       _teamTotals = msg.team_scores || _teamTotals;
+      if (msg.deaths) _teamDeaths = msg.deaths;
       updateTeamScoreDisplay();
       const av = _teamPlayers.get(msg.killed);
       if (av) av._dead = true;
@@ -14550,6 +14554,7 @@ if (PVP_MODE) {
       _matchEndUntil = performance.now() / 1000 + 10;
       _teamScores = msg.scores || _teamScores;
       _teamTotals = msg.team_scores || _teamTotals;
+      if (msg.deaths) _teamDeaths = msg.deaths;
       updateTeamScoreDisplay();
       showMatchEndScreen(msg.winner, msg.scores || {}, msg.team_scores || {});
       try { controls.unlock(); } catch(_){}
@@ -14584,6 +14589,7 @@ if (PVP_MODE) {
       player.bandages = 6;
       _teamScores = msg.scores || _teamScores;
       _teamTotals = msg.team_scores || _teamTotals;
+      if (msg.deaths) _teamDeaths = msg.deaths;
       updateTeamScoreDisplay();
       /* Mark me alive again so my own avatar shows for others (they handle locally) */
       showNotice('НОВЫЙ РАУНД!');
@@ -14683,15 +14689,25 @@ if (PVP_MODE) {
     const titleColor = winner === 'DRAW' ? '#ffcc40' : (myTeamWon ? '#40ff80' : '#ff4040');
     const title = winner === 'DRAW' ? 'НИЧЬЯ' : (myTeamWon ? 'ПОБЕДА' : 'ПОРАЖЕНИЕ');
     const sub = winner === 'DRAW' ? 'Время вышло' : ('Команда ' + (winner === 'A' ? 'СИНИЕ' : 'КРАСНЫЕ') + ' выигрывает');
-    /* Build leaderboard rows */
-    const sorted = Object.entries(scores).sort((a,b) => b[1] - a[1]);
+    /* Build leaderboard rows — kills desc, then fewest deaths. Compute MVP
+     * (top kills; tie broken by fewest deaths) and mark it with a star. */
+    const sorted = Object.entries(scores)
+      .map(([nick, kills]) => ({ nick, kills, deaths: (_teamDeaths[nick] || 0) }))
+      .sort((a, b) => (b.kills - a.kills) || (a.deaths - b.deaths));
+    const mvp = sorted.length ? sorted[0].nick : null;
     let rows = '';
-    for (const [nick, kills] of sorted) {
+    for (const e of sorted) {
+      const nick = e.nick;
       const t = _teamRoster.find(r => r.nick === nick)?.team || '?';
       const tColor = t === 'A' ? '#4a9eff' : '#ff6040';
-      const me = nick === PVP_NICKNAME ? ' style="background:rgba(255,255,255,0.1)"' : '';
-      rows += '<tr' + me + '><td style="color:' + tColor + ';padding:6px 16px">' + nick +
-        '</td><td style="padding:6px 16px;text-align:right;font-weight:bold">' + kills + '</td></tr>';
+      const me = nick === PVP_NICKNAME ? ' style="background:rgba(255,255,255,0.08)"' : '';
+      const kd = e.deaths > 0 ? (e.kills / e.deaths).toFixed(2) : e.kills.toFixed(2);
+      const star = (nick === mvp) ? ' <span style="color:#ffd23a">★ MVP</span>' : '';
+      rows += '<tr' + me + '>' +
+        '<td style="color:' + tColor + ';padding:6px 16px">' + nick + star + '</td>' +
+        '<td style="padding:6px 14px;text-align:right;font-weight:bold">' + e.kills + '</td>' +
+        '<td style="padding:6px 14px;text-align:right;color:#9fb0c4">' + e.deaths + '</td>' +
+        '<td style="padding:6px 14px;text-align:right;color:#cfe0f2">' + kd + '</td></tr>';
     }
     el.innerHTML =
       '<div style="font-size:64px;font-weight:bold;color:' + titleColor + ';text-shadow:0 0 20px ' + titleColor + '">' + title + '</div>' +
@@ -14701,8 +14717,13 @@ if (PVP_MODE) {
         '<div style="color:#666">vs</div>' +
         '<div style="color:#ff6040">B: ' + (teamScores.B || 0) + '</div>' +
       '</div>' +
-      '<table style="border-collapse:collapse;font-size:18px;min-width:300px">' +
-        '<thead><tr><th style="padding:4px 16px;text-align:left;color:#aaa">ИГРОК</th><th style="padding:4px 16px;text-align:right;color:#aaa">УБИЙСТВ</th></tr></thead>' +
+      '<table style="border-collapse:collapse;font-size:17px;min-width:380px">' +
+        '<thead><tr>' +
+          '<th style="padding:4px 16px;text-align:left;color:#aaa">ИГРОК</th>' +
+          '<th style="padding:4px 14px;text-align:right;color:#aaa">У</th>' +
+          '<th style="padding:4px 14px;text-align:right;color:#aaa">С</th>' +
+          '<th style="padding:4px 14px;text-align:right;color:#aaa">K/D</th>' +
+        '</tr></thead>' +
         '<tbody>' + rows + '</tbody>' +
       '</table>' +
       '<div style="margin-top:32px"><a href="/" style="color:#ffd060;font-size:18px;text-decoration:underline">« Вернуться в меню</a></div>';
@@ -14719,10 +14740,10 @@ if (PVP_MODE) {
     const enemyTotal = _teamTotals[enemyTeam] || 0;
     /* Build the team scoreboard */
     const allyEntries = _teamRoster.filter(p => p.team === meTeam)
-      .map(p => ({ nick: p.nick, kills: _teamScores[p.nick] || 0 }))
+      .map(p => ({ nick: p.nick, kills: _teamScores[p.nick] || 0, deaths: _teamDeaths[p.nick] || 0 }))
       .sort((a, b) => b.kills - a.kills);
     const enemyEntries = _teamRoster.filter(p => p.team === enemyTeam)
-      .map(p => ({ nick: p.nick, kills: _teamScores[p.nick] || 0 }))
+      .map(p => ({ nick: p.nick, kills: _teamScores[p.nick] || 0, deaths: _teamDeaths[p.nick] || 0 }))
       .sort((a, b) => b.kills - a.kills);
     const allyColor = '#44ddff';
     const enemyColor = '#ff5040';
@@ -14735,12 +14756,12 @@ if (PVP_MODE) {
     for (const e of allyEntries) {
       const me = (e.nick === PVP_NICKNAME) ? ' style="font-weight:bold"' : '';
       html += '<div' + me + ' style="font-size:13px;color:#cde;text-align:right">' +
-        e.nick + ' &nbsp; <b>' + e.kills + '</b></div>';
+        e.nick + ' &nbsp; <b>' + e.kills + '</b><span style="color:#7f8ba0;font-size:11px">/' + e.deaths + '</span></div>';
     }
     html += '<div style="font-size:11px;color:' + enemyColor + ';margin-top:6px;text-align:right">ПРОТИВНИК</div>';
     for (const e of enemyEntries) {
       html += '<div style="font-size:13px;color:#ecd;text-align:right">' +
-        e.nick + ' &nbsp; <b>' + e.kills + '</b></div>';
+        e.nick + ' &nbsp; <b>' + e.kills + '</b><span style="color:#7f8ba0;font-size:11px">/' + e.deaths + '</span></div>';
     }
     el.innerHTML = html;
   }

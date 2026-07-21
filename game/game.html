@@ -512,6 +512,28 @@ try {
   if (!Array.isArray(TEAM_ROSTER)) TEAM_ROSTER = [];
 } catch (_) { TEAM_ROSTER = []; }
 
+/* === BOTS-MODE CONFIG — difficulty + objective ==========================
+ * Single-player only (ignored in pvp/team). The menu launches
+ * /game?diff=easy|normal|hard&submode=ctf|dm. Difficulty is a set of
+ * multipliers applied to each bot at spawn; submode switches the objective
+ * between capture-the-flag (default) and deathmatch (clear the field).
+ *   accMul  — multiplies the aim-spread cone (>1 = worse aim / easier)
+ *   fireMul — multiplies shot cooldown  (>1 = slower fire / easier)
+ *   reactMul— multiplies reaction delay (>1 = slower to notice / easier)
+ *   leadMul — multiplies target-lead    (<1 = worse prediction / easier)
+ *   aggrMul — engage aggressiveness
+ *   hpMul   — bot health
+ *   countMul— total force size scale
+ * ====================================================================== */
+const BOTS_SUBMODE = ((_urlParams.get('submode') || 'ctf').toLowerCase() === 'dm') ? 'dm' : 'ctf';
+const _DIFF_TABLE = {
+  easy:   { key:'easy',   label:'ЛЁГКО',   accMul:1.70, fireMul:1.40, reactMul:1.70, leadMul:0.40, aggrMul:0.75, hpMul:0.80, countMul:0.60 },
+  normal: { key:'normal', label:'НОРМА',   accMul:1.00, fireMul:1.00, reactMul:1.00, leadMul:1.00, aggrMul:1.00, hpMul:1.00, countMul:1.00 },
+  hard:   { key:'hard',   label:'ХАРДКОР', accMul:0.60, fireMul:0.72, reactMul:0.55, leadMul:1.40, aggrMul:1.30, hpMul:1.25, countMul:1.20 },
+};
+const DIFFICULTY = _DIFF_TABLE[(_urlParams.get('diff') || 'normal').toLowerCase()] || _DIFF_TABLE.normal;
+function _diffFireMul() { return (typeof DIFFICULTY !== 'undefined') ? DIFFICULTY.fireMul : 1; }
+
 /* ========================================================================
    CORE SETUP
    ======================================================================== */
@@ -3771,13 +3793,103 @@ function _dropFlagOnDeath() {
   showNotice('ФЛАГ УПАЛ');
 }
 
-/* End-of-round overlay */
+/* === DEATHMATCH SUBMODE ================================================
+ * No flag: the objective is to eliminate the whole enemy force. When the
+ * last bot dies we show the results screen. Guarded so it fires once. */
+let _dmWon = false;
+let _dmArmed = false;   /* becomes true a moment after spawn so the "0 alive
+                          before spawn" edge case can't insta-win. */
+function updateDeathmatch(dt) {
+  if (_dmWon) return;
+  if (!_dmArmed) { if (bots.length > 0) _dmArmed = true; return; }
+  if (aliveBotCount() === 0) {
+    _dmWon = true;
+    player.score += 1500;
+    showResultsScreen({ win: true, title: 'ПОБЕДА', subtitle: 'ВСЕ ВРАГИ УНИЧТОЖЕНЫ' });
+  }
+}
+
+/* Hide CTF props when playing deathmatch. */
+if (typeof PVP_MODE !== 'undefined' && !PVP_MODE && BOTS_SUBMODE === 'dm') {
+  try {
+    ctfFlag.visible = false; homePad.visible = false; homeBeam.visible = false;
+    ctf.state = 'disabled';
+  } catch (_) {}
+}
+
+/* === RESULTS SCREEN (single-player) ====================================
+ * Full end-of-run panel with the player's stats and two real actions
+ * (replay / menu). Replaces the old 3.5s text splash. pointer-events are
+ * enabled so the buttons work; the pointer lock is released first. */
+let _resultsShown = false;
+function showResultsScreen(opts) {
+  if (_resultsShown) return;
+  _resultsShown = true;
+  opts = opts || {};
+  const win = !!opts.win;
+  try { controls.unlock(); } catch (_) {}
+
+  const s = player.stats || { kills:0, deaths:0, shots:0, hits:0, headshots:0, startedAt: performance.now() };
+  const kd  = (s.deaths > 0) ? (s.kills / s.deaths).toFixed(2) : String(s.kills);
+  const acc = s.shots > 0 ? Math.round(100 * s.hits / s.shots) : 0;
+  const elapsed = Math.max(0, (performance.now() - s.startedAt) / 1000);
+  const mm = Math.floor(elapsed / 60), ss = Math.floor(elapsed % 60);
+  const timeStr = mm + ':' + (ss < 10 ? '0' : '') + ss;
+
+  const accent = win ? '#3ddc84' : '#ff5145';
+  const accentDeep = win ? '#12603a' : '#8f2019';
+  const rows = [
+    ['Убийства', s.kills],
+    ['Хедшоты', s.headshots || 0],
+    ['Смерти', s.deaths || 0],
+    ['K/D', kd],
+    ['Точность', acc + '%'],
+    ['Захваты флага', (typeof ctf !== 'undefined' ? ctf.captures : 0)],
+    ['Время в бою', timeStr],
+  ];
+  const o = document.createElement('div');
+  o.id = 'resultsOverlay';
+  o.style.cssText = 'position:fixed;inset:0;z-index:150;display:flex;flex-direction:column;' +
+    'align-items:center;justify-content:center;gap:22px;padding:24px;pointer-events:auto;' +
+    'background:radial-gradient(ellipse at 50% 30%, rgba(10,14,20,.72), rgba(6,8,12,.92));' +
+    "font-family:'Segoe UI',Arial,sans-serif;color:#eef2f7;" +
+    'opacity:0;transition:opacity .45s cubic-bezier(.22,1,.36,1)';
+  const statRows = rows.map(([k, v]) =>
+    `<div style="display:flex;justify-content:space-between;gap:24px;padding:9px 0;border-bottom:1px solid rgba(150,170,200,.10)">
+       <span style="color:#93a1b4;font-size:14px;letter-spacing:.04em">${k}</span>
+       <span style="font-weight:800;font-size:16px;color:#eef2f7">${v}</span>
+     </div>`).join('');
+  o.innerHTML =
+    `<div style="font-size:13px;letter-spacing:.34em;text-transform:uppercase;color:${accent}">
+       ${BOTS_SUBMODE === 'dm' ? 'DEATHMATCH' : 'ЗАХВАТ ФЛАГА'} · ${DIFFICULTY.label}
+     </div>
+     <div style="font-size:clamp(46px,9vw,84px);font-weight:800;letter-spacing:.04em;line-height:.95;
+        color:${accent};text-shadow:0 0 42px ${accent}55">${opts.title || (win ? 'ПОБЕДА' : 'ПОРАЖЕНИЕ')}</div>
+     <div style="font-size:15px;letter-spacing:.14em;color:#93a1b4;text-transform:uppercase">${opts.subtitle || ''}</div>
+     <div style="width:360px;max-width:92vw;background:linear-gradient(160deg,#131922,#0e131b);
+        border:1px solid rgba(160,180,210,.18);border-radius:14px;padding:20px 22px;
+        box-shadow:0 30px 70px -30px rgba(0,0,0,.9)">${statRows}</div>
+     <div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center">
+       <button id="res-again" style="padding:14px 26px;border:none;border-radius:10px;cursor:pointer;
+          font-size:14px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#04150d;
+          background:linear-gradient(135deg,${accent},${accentDeep});transition:transform .14s cubic-bezier(.22,1,.36,1),filter .2s">Ещё раз</button>
+       <button id="res-menu" style="padding:14px 26px;border:1px solid rgba(160,180,210,.22);border-radius:10px;cursor:pointer;
+          font-size:14px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#c7d2e0;
+          background:rgba(255,255,255,.05);transition:transform .14s cubic-bezier(.22,1,.36,1)">В меню</button>
+     </div>`;
+  document.body.appendChild(o);
+  requestAnimationFrame(() => { o.style.opacity = '1'; });
+  const again = o.querySelector('#res-again');
+  const menu  = o.querySelector('#res-menu');
+  const press = b => { if (b) { b.onmousedown = () => b.style.transform = 'scale(.97)'; b.onmouseup = () => b.style.transform = ''; } };
+  press(again); press(menu);
+  if (again) again.onclick = () => location.reload();
+  if (menu)  menu.onclick  = () => { location.href = '/'; };
+}
+
+/* End-of-round overlay (CTF win) — now routed through the results screen. */
 function _triggerVictory() {
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,40,10,0.55);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;font:700 64px/1.0 system-ui,sans-serif;color:#caffd8;text-shadow:0 4px 24px #000;letter-spacing:2px;pointer-events:none;';
-  overlay.innerHTML = '<div>ПОБЕДА</div><div style="font-size:24px;margin-top:18px;letter-spacing:4px;">ФЛАГ ДОСТАВЛЕН НА БАЗУ</div>';
-  document.body.appendChild(overlay);
-  setTimeout(() => overlay.remove(), 3500);
+  showResultsScreen({ win: true, title: 'ПОБЕДА', subtitle: 'ФЛАГ ДОСТАВЛЕН НА БАЗУ' });
 }
 
 /* ========================================================================
@@ -6524,6 +6636,21 @@ function createBot(x, z, team = 'red') {
   bot.isGhillie = isGhillie;
   bot.ghillieHideHp = isGhillie;
   bot._wasHit = false;
+
+  /* === DIFFICULTY SCALING (single-player) ==============================
+   * createBot only ever runs in bots mode (spawnInitialBots is gated by
+   * !PVP_MODE), so we can apply the difficulty multipliers unconditionally. */
+  if (typeof DIFFICULTY !== 'undefined') {
+    const D = DIFFICULTY;
+    bot.accuracy     *= D.accMul;
+    bot.fireRate     *= D.fireMul;
+    bot.reactionTime *= D.reactMul;
+    bot.leadFactor    = Math.min(1, bot.leadFactor * D.leadMul);
+    bot.aggression    = Math.min(1.2, bot.aggression * D.aggrMul);
+    const hp = Math.round(100 * D.hpMul);
+    bot.health = hp; bot.maxHealth = hp;
+  }
+
   scene.add(g);
   bots.push(bot);
   return bot;
@@ -6610,12 +6737,19 @@ function pickAssaultRole(i) {
 }
 
 function spawnInitialBots() {
+  /* Difficulty scales the total force. Round each wave independently so the
+   * mix (field / rush / reserve / defenders) stays proportional. */
+  const _cm = (typeof DIFFICULTY !== 'undefined') ? DIFFICULTY.countMul : 1;
+  const W1 = Math.max(1, Math.round(WAVE1_COUNT * _cm));
+  const W2 = Math.max(1, Math.round(WAVE2_COUNT * _cm));
+  const W3 = Math.max(1, Math.round(WAVE3_COUNT * _cm));
+  const W4 = Math.max(1, Math.round(WAVE4_COUNT * _cm));
   /* Wave 1 — already on the field, scattered. They start in 'advance' (not
    * 'engage') so they don't open fire the instant the match starts — gives
    * the player a few seconds of grace to walk to the equipment board and
    * actually grab a weapon. They'll transition to engage once they close
    * the gap or spot the player at close range. */
-  for (let i = 0; i < WAVE1_COUNT; i++) {
+  for (let i = 0; i < W1; i++) {
     const p = fieldSpawnPoint();
     const bot = createBot(p.x, p.z);
     bot.wave = 1;
@@ -6625,7 +6759,7 @@ function spawnInitialBots() {
     bot.phaseUntil = (performance.now() / 1000) + 4.0 + Math.random() * 4.0;
   }
   /* Wave 2 — bursting out from base at match start */
-  for (let i = 0; i < WAVE2_COUNT; i++) {
+  for (let i = 0; i < W2; i++) {
     const p = enemySpawnPointAdvance();
     const bot = createBot(p.x, p.z);
     bot.wave = 2;
@@ -6635,21 +6769,21 @@ function spawnInitialBots() {
     bot.phaseUntil = (performance.now() / 1000) + i * 0.45;
   }
   /* Wave 3 — reserve, holding inside the base, released later */
-  for (let i = 0; i < WAVE3_COUNT; i++) {
+  for (let i = 0; i < W3; i++) {
     const p = enemySpawnPointReserve();
     const bot = createBot(p.x, p.z);
     bot.wave = 3;
     bot.role = 'reserve';                /* special role: idle until released */
     bot.phase = 'idle';
-    bot.fireRate = 0.7 + Math.random() * 0.4;
+    bot.fireRate = (0.7 + Math.random() * 0.4) * _diffFireMul();
   }
   /* Wave 4 — flag defenders */
-  for (let i = 0; i < WAVE4_COUNT; i++) {
+  for (let i = 0; i < W4; i++) {
     const p = enemySpawnPointDefend();
     const bot = createBot(p.x, p.z);
     bot.wave = 4;
     bot.role = 'defender';
-    bot.fireRate = 0.7 + Math.random() * 0.5;
+    bot.fireRate = (0.7 + Math.random() * 0.5) * _diffFireMul();
   }
 }
 if (!PVP_MODE) spawnInitialBots();
@@ -11422,7 +11556,11 @@ function updateHUD() {
   const enemiesEl = document.getElementById('obj-enemies');
   if (enemiesEl) enemiesEl.textContent = aliveBotCount();
   const flagEl = document.getElementById('obj-flag');
-  if (flagEl) {
+  if (flagEl && BOTS_SUBMODE === 'dm') {
+    flagEl.classList.remove('flag-home', 'flag-carried', 'flag-dropped');
+    flagEl.classList.add('flag-home');
+    flagEl.textContent = 'ЗАЧИСТКА — УНИЧТОЖЬ ВСЕХ';
+  } else if (flagEl) {
     flagEl.classList.remove('flag-home', 'flag-carried', 'flag-dropped');
     if (ctf.state === 'carried') {
       flagEl.classList.add('flag-carried');
@@ -13045,7 +13183,10 @@ function animate() {
 
   if (controls.isLocked) {
     updatePlayer(dt);
-    if (!PVP_MODE) { updateBots(dt); updateBotTactics(dt); updateMedkits(dt); updateCTF(dt); }
+    if (!PVP_MODE) {
+      updateBots(dt); updateBotTactics(dt); updateMedkits(dt);
+      if (BOTS_SUBMODE === 'dm') updateDeathmatch(dt); else updateCTF(dt);
+    }
     regen(dt);
     if (PVP_MODE && typeof _pvpUpdate === 'function') _pvpUpdate(dt);
     if (TEAM_MODE && typeof updateKillcam === 'function') updateKillcam();
@@ -13141,7 +13282,10 @@ try {
 }
 
 /* Initial helpful notice */
-if (!PVP_MODE) showNotice('PRESS PLAY TO START');
+if (!PVP_MODE) {
+  const _objTxt = (BOTS_SUBMODE === 'dm') ? 'DEATHMATCH' : 'ЗАХВАТ ФЛАГА';
+  showNotice('РЕЖИМ: ' + _objTxt + ' · СЛОЖНОСТЬ: ' + DIFFICULTY.label);
+}
 
 /* ========================================================================
    PVP ONLINE MODULE

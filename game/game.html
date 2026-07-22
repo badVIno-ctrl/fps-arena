@@ -5897,10 +5897,10 @@ function createHands() {
 
   /* ---------- RIGHT (trigger) hand ---------- */
   const rArm = new THREE.Group();
-  const rSleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.22, 12), sleeveMat);
-  rSleeve.rotation.x = 1.0; rSleeve.position.set(0, -0.05, 0.13); rArm.add(rSleeve);
-  const rCuff = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.05, 0.04, 12), cuffMat);
-  rCuff.rotation.x = 1.0; rCuff.position.set(0, -0.065, 0.095); rArm.add(rCuff);
+  const rSleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.14, 12), sleeveMat);
+  rSleeve.rotation.x = 1.0; rSleeve.position.set(0, -0.035, 0.15); rArm.add(rSleeve);
+  const rCuff = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.05, 0.035, 12), cuffMat);
+  rCuff.rotation.x = 1.0; rCuff.position.set(0, -0.05, 0.115); rArm.add(rCuff);
 
   const rHand = new THREE.Group();
   rHand.position.set(0, -0.07, 0.075);
@@ -5937,10 +5937,13 @@ function createHands() {
 
   /* ---------- LEFT (support) hand ---------- */
   const lArm = new THREE.Group();
-  const lSleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.055, 0.30, 12), sleeveMat);
-  lSleeve.rotation.x = 1.45; lSleeve.rotation.z = -0.15; lSleeve.position.set(-0.04, -0.10, -0.05); lArm.add(lSleeve);
-  const lCuff = new THREE.Mesh(new THREE.CylinderGeometry(0.057, 0.055, 0.04, 12), cuffMat);
-  lCuff.rotation.x = 1.45; lCuff.rotation.z = -0.15; lCuff.position.set(-0.02, -0.06, -0.11); lArm.add(lCuff);
+  /* Short forearm stub: a long sleeve cylinder used to fill the screen and
+   * read as a green "blob"; keep it short so the GLOVE is the prominent, and
+   * tuck it just behind the hand. */
+  const lSleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.052, 0.15, 12), sleeveMat);
+  lSleeve.rotation.x = 1.45; lSleeve.rotation.z = -0.15; lSleeve.position.set(-0.02, -0.055, -0.10); lArm.add(lSleeve);
+  const lCuff = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.05, 0.035, 12), cuffMat);
+  lCuff.rotation.x = 1.45; lCuff.rotation.z = -0.15; lCuff.position.set(-0.012, -0.05, -0.135); lArm.add(lCuff);
 
   const lHand = new THREE.Group();
   lHand.position.set(-0.005, -0.04, -0.18);

@@ -2,12 +2,46 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>FPS ARENA</title>
+<!-- PERF: warm up the CDN connection and start fetching the (1.2MB) three.js
+     module in parallel with HTML parsing, so the engine boots noticeably
+     faster on first load. -->
+<link rel="preconnect" href="https://unpkg.com" crossorigin>
+<link rel="dns-prefetch" href="https://unpkg.com">
+<link rel="modulepreload" href="https://unpkg.com/three@0.160.0/build/three.module.js" crossorigin>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTMiIGZpbGw9IiMwZTEyMTgiLz48Y2lyY2xlIGN4PSIzMiIgY3k9IjMyIiByPSIyMSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMjgzMDNjIiBzdHJva2Utd2lkdGg9IjYiLz48Y2lyY2xlIGN4PSIzMiIgY3k9IjMyIiByPSIxOSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZTg1MDNhIiBzdHJva2Utd2lkdGg9IjIuNSIvPjxyZWN0IHg9IjMwLjYiIHk9IjUiIHdpZHRoPSIyLjgiIGhlaWdodD0iMTUiIGZpbGw9IiNlODUwM2EiLz48cmVjdCB4PSIzMC42IiB5PSI0NCIgd2lkdGg9IjIuOCIgaGVpZ2h0PSIxNSIgZmlsbD0iI2U4NTAzYSIvPjxyZWN0IHg9IjUiIHk9IjMwLjYiIHdpZHRoPSIxNSIgaGVpZ2h0PSIyLjgiIGZpbGw9IiNlODUwM2EiLz48cmVjdCB4PSI0NCIgeT0iMzAuNiIgd2lkdGg9IjE1IiBoZWlnaHQ9IjIuOCIgZmlsbD0iI2U4NTAzYSIvPjxjaXJjbGUgY3g9IjMyIiBjeT0iMzIiIHI9IjMuNCIgZmlsbD0iI2ZmZDIzYSIvPjwvc3ZnPgo=">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Consolas', 'Courier New', monospace; color: #fff; user-select: none; }
   #c { display: block; width: 100%; height: 100%; cursor: none; }
+
+  /* === BOOT / LOADING OVERLAY ==========================================
+   * Shown until the engine finishes booting (three.js download + scene
+   * build). Prevents a frozen menu during load and, if the engine fails to
+   * load (offline / CDN blocked / ad-blocker), degrades to a clear message
+   * instead of a dead PLAY button. Motion respects reduced-motion. */
+  #boot { position: fixed; inset: 0; z-index: 9999; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 20px; background: #0a0d12;
+    color: #cfd6e0; font-family: 'Consolas','Courier New',monospace; text-align: center; padding: 24px; }
+  #boot.gone { opacity: 0; pointer-events: none; transition: opacity .35s cubic-bezier(.22,1,.36,1); }
+  #boot .ring { width: 46px; height: 46px; border-radius: 50%;
+    border: 3px solid rgba(160,180,210,.18); border-top-color: #f5a524;
+    animation: bootspin .8s linear infinite; }
+  #boot .msg { font-size: 15px; letter-spacing: .12em; color: #93a1b4; }
+  #boot .err { display: none; max-width: 30rem; }
+  #boot.error .ring { display: none; }
+  #boot.error .msg { display: none; }
+  #boot.error .err { display: block; }
+  #boot .err h2 { font-size: 18px; color: #ff6a5a; letter-spacing: .08em; margin-bottom: 12px; }
+  #boot .err p { font-size: 13px; line-height: 1.6; color: #93a1b4; margin-bottom: 18px; }
+  #boot .err button { font: inherit; font-size: 14px; letter-spacing: .1em; color: #0a0d12;
+    background: #f5a524; border: 0; border-radius: 8px; padding: 11px 22px; cursor: pointer;
+    transition: transform .16s cubic-bezier(.22,1,.36,1), background .16s ease; }
+  #boot .err button:hover { background: #ffbb46; }
+  #boot .err button:active { transform: scale(.97); }
+  @keyframes bootspin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { #boot .ring { animation: none; } #boot.gone { transition: none; } }
 
   /* === POST-FX OVERLAYS (CSS-based — single-pass, GPU-cheap) ============
    * Achieves the cinematic feel without paying for an EffectComposer pass:
@@ -293,6 +327,31 @@
 </head>
 <body>
 <canvas id="c"></canvas>
+<div id="boot">
+  <div class="ring" aria-hidden="true"></div>
+  <div class="msg">ЗАГРУЗКА ДВИЖКА…</div>
+  <div class="err">
+    <h2>НЕ УДАЛОСЬ ЗАГРУЗИТЬ ДВИЖОК</h2>
+    <p>Не получилось загрузить 3D-библиотеку. Обычно это блокировка сети,
+       VPN/файрвол или расширение-блокировщик. Проверьте соединение и
+       отключите блокировщики для этой страницы.</p>
+    <button type="button" onclick="location.reload()">ПЕРЕЗАГРУЗИТЬ</button>
+  </div>
+</div>
+<script>
+  /* Classic (non-module) boot watchdog — runs even if the module below fails
+   * to load. If the engine hasn't signalled boot in time, show a clear error
+   * instead of a silent, non-functional screen. */
+  (function () {
+    var t = setTimeout(function () {
+      if (!window.__game) {
+        var b = document.getElementById('boot');
+        if (b) b.classList.add('error');
+      }
+    }, 20000);
+    window.__clearBootWatchdog = function () { clearTimeout(t); };
+  })();
+</script>
 
 <!-- POST-FX overlays (CSS) -->
 <div id="colorGrade"></div>
@@ -14063,6 +14122,13 @@ try {
   /* still expose at least player so debug works */
   try { window.__game = { player, controls }; } catch (_) {}
 }
+
+/* Engine booted — dismiss the loading overlay and cancel the failure watchdog. */
+try {
+  if (typeof window.__clearBootWatchdog === 'function') window.__clearBootWatchdog();
+  const _boot = document.getElementById('boot');
+  if (_boot) { _boot.classList.add('gone'); setTimeout(() => { try { _boot.remove(); } catch (_) {} }, 450); }
+} catch (_) {}
 
 /* Initial helpful notice */
 if (!PVP_MODE) {

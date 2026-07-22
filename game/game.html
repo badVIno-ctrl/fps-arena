@@ -779,7 +779,7 @@ const BodycamShader = {
     uTime:       { value: 0 },
     uAberration: { value: 0.0012 },
     uGrain:      { value: 0.045 },
-    uVignette:   { value: 0.34 },
+    uVignette:   { value: 0.24 },
     uDamage:     { value: 0.0 }
   },
   vertexShader: `
@@ -2632,27 +2632,30 @@ const equipBoard = {
 };
 function buildEquipBoard() {
   const g = new THREE.Group();
-  /* Slightly emissive wood so the rack itself gives off a soft warm glow even
-   * in the cabin shadow — mimics a backlit display so player sees it from
-   * spawn position without searching. */
+  /* Neutral tactical pegboard — a cool grey-green panel that reads clearly
+   * under the spawn lights. The old dark saturated-brown wood (0x6a4a26) went
+   * red under the warm point-lights and made the whole spawn look like a dark
+   * red cave; a lighter neutral panel keeps the spawn bright and readable. */
   const woodMat = new THREE.MeshStandardMaterial({
-    map: woodTex, color: 0x6a4a26, roughness: 0.9,
-    emissive: 0x3a2810, emissiveIntensity: 0.45
+    color: 0x5a6068, roughness: 0.85, metalness: 0.05,
+    emissive: 0x2a2e33, emissiveIntensity: 0.35
   });
   const woodDarkMat = new THREE.MeshStandardMaterial({
-    map: woodTex, color: 0x4a3018, roughness: 0.95,
-    emissive: 0x1a0e04, emissiveIntensity: 0.30
+    color: 0x3f444b, roughness: 0.9, metalness: 0.05,
+    emissive: 0x14171a, emissiveIntensity: 0.25
   });
   const peg = new THREE.MeshStandardMaterial({ color: 0x303034, roughness: 0.4, metalness: 0.7 });
   /* === Backboard: 5m wide x 2.4m tall plank wall === */
   const board = new THREE.Mesh(new THREE.BoxGeometry(7.2, 3.4, 0.10), woodMat);
   board.position.set(0, 1.7, 0);
   g.add(board);
-  /* v3.6 — light the loadout board so the spawn area isn't in shadow */
-  { const _bl1=new THREE.PointLight(0xfff1d4,3.2,18,1.8); _bl1.position.set(0,3.2,1.6); g.add(_bl1);
-    const _bl2=new THREE.PointLight(0xffe7c2,2.4,15,1.8); _bl2.position.set(-2.8,2.2,1.0); g.add(_bl2);
-    const _bl3=new THREE.PointLight(0xffe7c2,2.4,15,1.8); _bl3.position.set(2.8,2.2,1.0); g.add(_bl3);
-    const _bl4=new THREE.PointLight(0xfff1d4,2.2,16,1.8); _bl4.position.set(0,3.0,-1.6); g.add(_bl4); }
+  /* v4.1 — light the loadout board with NEUTRAL-white lamps (was warm, which
+   * over-saturated the brown board into red). Stronger + longer range so the
+   * whole spawn bay is clearly lit the moment the player spawns. */
+  { const _bl1=new THREE.PointLight(0xfdfdff,4.2,26,1.4); _bl1.position.set(0,3.2,1.8); g.add(_bl1);
+    const _bl2=new THREE.PointLight(0xf4f8ff,3.2,22,1.4); _bl2.position.set(-2.8,2.2,1.2); g.add(_bl2);
+    const _bl3=new THREE.PointLight(0xf4f8ff,3.2,22,1.4); _bl3.position.set(2.8,2.2,1.2); g.add(_bl3);
+    const _bl4=new THREE.PointLight(0xfdfdff,3.0,24,1.4); _bl4.position.set(0,3.0,-1.6); g.add(_bl4); }
   /* Vertical plank seams (visual detail) */
   for (let i = -3; i <= 3; i++) {
     const seam = new THREE.Mesh(new THREE.BoxGeometry(0.04, 3.4, 0.02), woodDarkMat);
@@ -13701,7 +13704,7 @@ function animate() {
     u.uTime.value       = _camFX.time;
     u.uAberration.value = 0.0011 + turn * 0.0026 + moveCA * 0.0006;
     u.uGrain.value      = 0.045 + (player.health < 30 ? 0.05 : 0.0);
-    u.uVignette.value   = 0.34 + _camFX.hurt * 0.18;
+    u.uVignette.value   = 0.24 + _camFX.hurt * 0.18;
     u.uDamage.value     = _camFX.hurt;
   }
   /* STAGE 3 — advance the lens-rain droplet animation clock */
@@ -13724,6 +13727,7 @@ try {
     setActiveWeapon, pickUpFromBoard,
     WEAPON_OBJS, WEAPON_STATS, sightMounts,
     lights: { hemi, sun, ambient },
+    renderer, composer,
     playReload, playReloadAk, playReloadM416,
     playGunshot, playGunshotAk, playGunshotM416,
   };

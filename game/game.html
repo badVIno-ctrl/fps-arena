@@ -496,6 +496,62 @@ import { ShaderPass }        from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass }        from 'three/addons/postprocessing/OutputPass.js';
 import { FXAAShader }        from 'three/addons/shaders/FXAAShader.js';
 import { RoomEnvironment }   from 'three/addons/environments/RoomEnvironment.js';
+import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
+
+/* === PERF: STATIC GEOMETRY MERGER =====================================
+ * Draw-call count is the dominant CPU cost here (thousands of small meshes).
+ * mergeStatic() collapses all descendant meshes of a group into ONE merged
+ * mesh per unique material, baking each source mesh's transform relative to
+ * the group. The result is visually identical but turns e.g. a 100-mesh tree
+ * or weapon-miniature into ~1-3 draw calls. Only safe for objects that never
+ * animate their sub-parts (trees, props, board displays, bot static cores).
+ *
+ * Returns a NEW THREE.Group (not added to scene) containing the merged meshes,
+ * preserving castShadow/receiveShadow from the first contributor per material.
+ * Materials are shared by reference (identity) so shader/uniform state is kept. */
+function mergeStatic(root, opts) {
+  opts = opts || {};
+  root.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
+  const byMat = new Map();   // material -> { geos:[], cast, recv }
+  root.traverse(o => {
+    if (!o.isMesh || !o.geometry) return;
+    if (o.userData && o.userData._noMerge) return;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    // multi-material meshes are rare here; skip merging them (keep as-is)
+    if (mats.length !== 1) { byMat.set('__keep__' + Math.random(), { keep: o }); return; }
+    const mat = mats[0];
+    const g = o.geometry.clone();
+    // bake world transform relative to root
+    const m = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld);
+    g.applyMatrix4(m);
+    // normalize attributes so merge doesn't fail on mismatched sets
+    for (const k of Object.keys(g.attributes)) {
+      if (k !== 'position' && k !== 'normal' && k !== 'uv') g.deleteAttribute(k);
+    }
+    if (!g.attributes.normal) g.computeVertexNormals();
+    if (!g.attributes.uv) {
+      const n = g.attributes.position.count;
+      g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(n * 2), 2));
+    }
+    let e = byMat.get(mat);
+    if (!e) { e = { geos: [], cast: o.castShadow, recv: o.receiveShadow }; byMat.set(mat, e); }
+    e.geos.push(g);
+  });
+  const out = new THREE.Group();
+  for (const [mat, e] of byMat) {
+    if (e.keep) { out.add(e.keep); continue; }
+    if (!e.geos.length) continue;
+    let merged;
+    try { merged = BufferGeometryUtils.mergeGeometries(e.geos, false); } catch (_) { merged = null; }
+    if (!merged) { for (const g of e.geos) out.add(new THREE.Mesh(g, mat)); continue; }
+    const mesh = new THREE.Mesh(merged, mat);
+    mesh.castShadow = !!e.cast && !opts.noCast;
+    mesh.receiveShadow = !!e.recv;
+    out.add(mesh);
+  }
+  return out;
+}
 
 /* === PVP MODE DETECTION === */
 const _urlParams = new URLSearchParams(window.location.search);
@@ -550,7 +606,13 @@ const renderer = new THREE.WebGLRenderer({
   preserveDrawingBuffer: false,
   stencil: false
 });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, _urlParams.get('mode')==='team' ? 1.0 : 1.5));
+/* PERF: cap the device-pixel-ratio at 1.0. On a high-DPI monitor a ratio of
+ * 1.5 renders 2.25× the pixels through the ENTIRE post chain every frame — the
+ * single biggest GPU cost and the main reason it "лагает на ПК". 1.0 is sharp
+ * enough at these framebuffer sizes and roughly halves fragment work. An
+ * adaptive downscaler (below) drops it further to 0.85 if frames run long. */
+const _BASE_PR = Math.min(window.devicePixelRatio || 1, 1.0);
+renderer.setPixelRatio(_BASE_PR);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -636,15 +698,15 @@ window.addEventListener('resize', () => {
    * keep their own internal render targets, and FXAA needs the new
    * resolution uniform to avoid blurring. */
   if (typeof composer !== 'undefined') {
+    composer.setPixelRatio(_BASE_PR);
     composer.setSize(window.innerWidth, window.innerHeight);
     if (typeof bloomPass !== 'undefined') {
-      bloomPass.setSize(window.innerWidth, window.innerHeight);
+      bloomPass.setSize(Math.max(1, window.innerWidth >> 1), Math.max(1, window.innerHeight >> 1));
     }
     if (typeof fxaaPass !== 'undefined') {
-      const pr = Math.min(window.devicePixelRatio, 1.5);
       fxaaPass.material.uniforms['resolution'].value.set(
-        1 / (window.innerWidth  * pr),
-        1 / (window.innerHeight * pr)
+        1 / (window.innerWidth  * _BASE_PR),
+        1 / (window.innerHeight * _BASE_PR)
       );
     }
     if (typeof lensRainPass !== 'undefined') {
@@ -669,7 +731,7 @@ sun.castShadow = true;
 /* Shadow map bumped 1024 → 2048 for sharper contact shadows on weapons /
  * helmet edges. With autoUpdate=false (re-rendered every 4 frames) the
  * GPU cost is amortized — still cheap on a mid-range laptop. */
-sun.shadow.mapSize.set(_urlParams.get('mode')==='team' ? 1024 : 2048, _urlParams.get('mode')==='team' ? 1024 : 2048);
+sun.shadow.mapSize.set(1024, 1024);
 sun.shadow.camera.left = -60;
 sun.shadow.camera.right = 60;
 sun.shadow.camera.top = 60;
@@ -747,13 +809,13 @@ renderer.toneMappingExposure = 1.02;
                           now that the composer owns final blit).
    ======================================================================== */
 const composer = new EffectComposer(renderer);
-composer.setPixelRatio(Math.min(window.devicePixelRatio, _urlParams.get('mode')==='team' ? 1.0 : 1.5));
+composer.setPixelRatio(_BASE_PR);
 composer.setSize(window.innerWidth, window.innerHeight);
 composer.addPass(new RenderPass(scene, camera));
-/* Bloom: strength 0.45, radius 0.6, threshold 0.85 — gives a punchy but
- * not "blown-out" look. Muzzle flashes & sky highlights pop, walls don't. */
+/* Bloom at HALF resolution — bloom is a blurry glow, so its internal
+ * down/up-sample chain at half res looks ~identical and is ~4× cheaper. */
 const bloomPass = new UnrealBloomPass(
-  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  new THREE.Vector2(Math.max(1, window.innerWidth >> 1), Math.max(1, window.innerHeight >> 1)),
   _urlParams.get('mode')==='team' ? 0.10 : 0.16,   /* strength — lowered so the overcast sky/snow don't blow to white */
   0.5,    /* radius   */
   0.96    /* threshold — only genuine highlights (muzzle flash, tracers, sun) bloom */
@@ -762,16 +824,17 @@ composer.addPass(bloomPass);
 /* FXAA — single pass, sub-pixel edge smoothing */
 const fxaaPass = new ShaderPass(FXAAShader);
 fxaaPass.material.uniforms['resolution'].value.set(
-  1 / (window.innerWidth  * Math.min(window.devicePixelRatio, 1.5)),
-  1 / (window.innerHeight * Math.min(window.devicePixelRatio, 1.5))
+  1 / (window.innerWidth  * _BASE_PR),
+  1 / (window.innerHeight * _BASE_PR)
 );
 composer.addPass(fxaaPass);
-/* === R6 BODYCAM POST-FX — grain + vignette + chromatic aberration =========
- * Gives the cheap "helmet/bodycam" look: lens vignette darkening the edges,
- * animated film grain, and a subtle RGB split that grows toward the frame
- * edges and spikes when the player whip-turns or takes damage. Runs in
- * linear space BEFORE OutputPass so it composes correctly with bloom+ACES.
- * Uniforms are driven per-frame from the render loop. */
+/* === COMBINED POST-FX (color grade + bodycam) — ONE full-screen pass =======
+ * PERF: previously three separate full-screen passes (bodycam, color-grade,
+ * lens-rain). Lens-rain was off by default yet still ran a per-pixel loop every
+ * frame, and each pass is a full framebuffer read+write. Folded the grade and
+ * the bodycam (chromatic aberration + vignette + grain + damage wash) into a
+ * single shader, and dropped lens-rain entirely (rain lives on the map). The
+ * render loop still drives `bodycamPass.uniforms` exactly as before. */
 const _camFX = { hurt: 0, time: 0, prevYaw: 0 };
 const BodycamShader = {
   uniforms: {
@@ -780,7 +843,14 @@ const BodycamShader = {
     uAberration: { value: 0.0012 },
     uGrain:      { value: 0.045 },
     uVignette:   { value: 0.30 },
-    uDamage:     { value: 0.0 }
+    uDamage:     { value: 0.0 },
+    /* color-grade constants (were the ColorGradeShader uniforms) */
+    uSaturation: { value: 0.68 },
+    uContrast:   { value: 1.14 },
+    uGreenTrim:  { value: 0.985 },
+    uTintAmt:    { value: 0.20 },
+    uShadowTint: { value: new THREE.Color(0x2a2c2b) },
+    uHighTint:   { value: new THREE.Color(0x6a5f48) }
   },
   vertexShader: `
     varying vec2 vUv;
@@ -789,134 +859,42 @@ const BodycamShader = {
   fragmentShader: `
     uniform sampler2D tDiffuse;
     uniform float uTime, uAberration, uGrain, uVignette, uDamage;
+    uniform float uSaturation, uContrast, uGreenTrim, uTintAmt;
+    uniform vec3 uShadowTint, uHighTint;
     varying vec2 vUv;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
     void main(){
       vec2 uv = vUv;
       vec2 dir = uv - 0.5;
       float r2 = dot(dir, dir);
-      /* Chromatic aberration grows toward the edges + damage/turn boost */
+      /* Chromatic aberration (RGB split) — grows toward edges + on damage */
       float ca = uAberration * (1.0 + r2 * 3.0) + uDamage * 0.004;
       vec2 off = dir * ca;
-      float cr = texture2D(tDiffuse, uv + off).r;
-      float cg = texture2D(tDiffuse, uv).g;
-      float cb = texture2D(tDiffuse, uv - off).b;
-      vec3 col = vec3(cr, cg, cb);
-      /* Vignette — smooth radial darkening of the corners */
+      vec3 col = vec3(
+        texture2D(tDiffuse, uv + off).r,
+        texture2D(tDiffuse, uv).g,
+        texture2D(tDiffuse, uv - off).b
+      );
+      /* --- color grade (war-film): desaturate, green trim, contrast, tint --- */
+      float l = dot(col, vec3(0.2126, 0.7152, 0.0722));
+      col = mix(vec3(l), col, uSaturation);
+      col.g *= uGreenTrim;
+      col = (col - 0.5) * uContrast + 0.5;
+      vec3 tint = mix(uShadowTint, uHighTint, smoothstep(0.0, 1.0, l));
+      col = mix(col, col + (tint - 0.5), uTintAmt);
+      /* --- bodycam vignette + grain + damage wash --- */
       float vig = smoothstep(0.95, 0.25, r2 * 2.2);
       col *= mix(1.0, vig, uVignette);
-      /* Animated film grain (subtle, per-pixel) */
       float g = hash(uv * vec2(1920.0, 1080.0) + fract(uTime) * 97.3) - 0.5;
       col += g * uGrain;
-      /* Damage red wash at the edges */
       col = mix(col, vec3(0.55, 0.02, 0.02), clamp(uDamage, 0.0, 1.0) * r2 * 2.0);
-      gl_FragColor = vec4(col, 1.0);
+      gl_FragColor = vec4(max(col, 0.0), 1.0);
     }
   `
 };
 const bodycamPass = new ShaderPass(BodycamShader);
 composer.addPass(bodycamPass);
-/* === STAGE-1 COLOR GRADE — cinematic war-film look =======================
- * Pulls overall saturation down (kills the cartoon palette), trims the
- * green channel slightly, lifts contrast a touch, and applies a split-tone:
- * cold teal in the shadows + warm desaturated tan in the highlights. Runs
- * in linear space before OutputPass so it composes with bloom + ACES. One
- * cheap full-screen pass — negligible GPU cost. Tunable via uniforms. */
-const ColorGradeShader = {
-  uniforms: {
-    tDiffuse:    { value: null },
-    uSaturation: { value: 0.68 },
-    uContrast:   { value: 1.14 },
-    uGreenTrim:  { value: 0.985 },
-    uTintAmt:    { value: 0.20 },
-    uShadowTint: { value: new THREE.Color(0x2a2c2b) },  /* neutral-cool shadows (no lavender cast) */
-    uHighTint:   { value: new THREE.Color(0x6a5f48) }   /* dusty warm highlights */
-  },
-  vertexShader: `
-    varying vec2 vUv;
-    void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }
-  `,
-  fragmentShader: `
-    uniform sampler2D tDiffuse;
-    uniform float uSaturation, uContrast, uGreenTrim, uTintAmt;
-    uniform vec3 uShadowTint, uHighTint;
-    varying vec2 vUv;
-    void main(){
-      vec3 col = texture2D(tDiffuse, vUv).rgb;
-      float l = dot(col, vec3(0.2126, 0.7152, 0.0722));
-      /* desaturate toward luminance */
-      col = mix(vec3(l), col, uSaturation);
-      /* tame leftover cartoon green */
-      col.g *= uGreenTrim;
-      /* mild contrast around mid-grey */
-      col = (col - 0.5) * uContrast + 0.5;
-      /* split-tone: shadows cold, highlights warm */
-      vec3 tint = mix(uShadowTint, uHighTint, smoothstep(0.0, 1.0, l));
-      col = mix(col, col + (tint - 0.5), uTintAmt);
-      gl_FragColor = vec4(max(col, 0.0), 1.0);
-    }
-  `
-};
-const colorGradePass = new ShaderPass(ColorGradeShader);
-composer.addPass(colorGradePass);
-/* === STAGE 3 — LENS RAIN — droplets on the camera "lens" ==================
- * Procedural refracting raindrops clinging to the bodycam glass: each drop
- * magnifies/warps the image beneath it and slowly creeps downward before
- * resetting, with a faint wet-sheen highlight. One full-screen pass, a single
- * texture fetch — negligible GPU cost. Sits just before OutputPass so it warps
- * the final graded image like real glass. */
-const LensRainShader = {
-  uniforms: {
-    tDiffuse:    { value: null },
-    uTime:       { value: 0 },
-    uIntensity:  { value: 0.0 },   /* lens droplets off — rain stays on the map, not on camera */
-    uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
-  },
-  vertexShader: `
-    varying vec2 vUv;
-    void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }
-  `,
-  fragmentShader: `
-    uniform sampler2D tDiffuse;
-    uniform float uTime, uIntensity;
-    uniform vec2 uResolution;
-    varying vec2 vUv;
-    float h21(vec2 p){ p = fract(p * vec2(123.34, 345.45)); p += dot(p, p + 34.345); return fract(p.x * p.y); }
-    void main(){
-      float aspect = uResolution.x / max(uResolution.y, 1.0);
-      vec2 uv = vUv;
-      vec2 off = vec2(0.0);
-      float dropMask = 0.0;
-      for (float layer = 0.0; layer < 2.0; layer += 1.0){
-        float scale = 9.0 + layer * 7.0;
-        vec2 gv = vec2(uv.x * aspect, uv.y) * scale;
-        vec2 id = floor(gv);
-        vec2 f  = fract(gv) - 0.5;
-        float rnd = h21(id + layer * 51.7);
-        if (rnd > 0.5){
-          vec2 c = (vec2(h21(id + 2.1), h21(id + 7.3)) - 0.5) * 0.55;
-          float slide = fract(uTime * (0.04 + rnd * 0.06) + rnd);
-          c.y += 0.5 - slide;                 /* drop slowly creeps down, then resets */
-          float d = length(f - c);
-          float r = 0.10 + rnd * 0.14;
-          float drop = smoothstep(r, r * 0.25, d);
-          off += (f - c) * drop * 0.9;        /* lens refraction toward drop centre */
-          dropMask = max(dropMask, drop);
-          float trail = smoothstep(0.045, 0.0, abs(f.x - c.x)) * smoothstep(0.0, 0.4, c.y - f.y) * drop;
-          dropMask = max(dropMask, trail * 0.5);
-        }
-      }
-      vec3 col = texture2D(tDiffuse, uv + off * 0.06 * uIntensity).rgb;
-      col += dropMask * 0.06 * uIntensity;    /* faint wet sheen on the glass */
-      gl_FragColor = vec4(col, 1.0);
-    }
-  `
-};
-const lensRainPass = new ShaderPass(LensRainShader);
-composer.addPass(lensRainPass);
-/* Final tonemap + sRGB blit (handled by OutputPass since the composer
- * internally uses linear half-float buffers when toneMapping is set on
- * the renderer). */
+/* Final tonemap + sRGB blit. */
 composer.addPass(new OutputPass());
 
 /* ========================================================================
@@ -1475,23 +1453,33 @@ scene.add(grassMesh);
 /* ========================================================================
    TREES
    ======================================================================== */
+/* PERF: all trees share TWO materials (trunk + foliage) with per-vertex colors
+ * baking the tier/tone variation, so every tree in the map merges into just a
+ * couple of draw calls. */
+const _treeTrunkMat = new THREE.MeshStandardMaterial({ map: barkTex, color: 0xffffff, roughness: 1, flatShading: true, vertexColors: true });
+const _treeFoliageMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, flatShading: true, vertexColors: true });
+function _bakeColor(geo, col) {
+  const n = geo.attributes.position.count;
+  const arr = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { arr[i*3] = col.r; arr[i*3+1] = col.g; arr[i*3+2] = col.b; }
+  geo.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+  return geo;
+}
 function createTree(x, z) {
   const group = new THREE.Group();
   const h = 6 + Math.random() * 5;
   const trunkR = 0.25 + Math.random() * 0.15;
   const trunkGeo = new THREE.CylinderGeometry(trunkR * 0.6, trunkR * 1.1, h, 7);
-  const trunkMat = new THREE.MeshStandardMaterial({ map: barkTex, color: 0x4a3a2c, roughness: 1, flatShading: true });
-  const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+  _bakeColor(trunkGeo, new THREE.Color(0x4a3a2c));
+  const trunk = new THREE.Mesh(trunkGeo, _treeTrunkMat);
   trunk.position.y = h / 2;
   trunk.rotation.y = Math.random() * Math.PI;
   trunk.castShadow = true;
   trunk.receiveShadow = true;
   group.add(trunk);
 
-  /* Foliage: many irregular, flat-shaded cone tiers with per-tier hue/scale
-   * jitter + slight lateral offset + random spin. Flat shading breaks the
-   * smooth "plastic Christmas tree" read into rough needled tiers; the darker,
-   * desaturated greens keep it a drab battlefield conifer, not a toy. */
+  /* Foliage: many irregular flat-shaded cone tiers; tier tone baked into vertex
+   * colors so all tiers share one material and the whole map's trees merge. */
   const baseHue = 0.23 + Math.random() * 0.05;
   const layers = 6 + Math.floor(Math.random() * 2);
   const spread = 2.2 + Math.random() * 0.7;
@@ -1499,13 +1487,12 @@ function createTree(x, z) {
     const t = i / (layers - 1);
     const r = spread * (1 - t * 0.82) * (0.9 + Math.random() * 0.2);
     const ch = 1.5 + Math.random() * 0.5;
-    const lightness = 0.11 + t * 0.07 + Math.random() * 0.03;   /* darker at base, lighter near top */
+    const lightness = 0.11 + t * 0.07 + Math.random() * 0.03;
     const sat = 0.28 + Math.random() * 0.10;
-    const mat = new THREE.MeshStandardMaterial({
-      color: new THREE.Color().setHSL(baseHue + (Math.random() - 0.5) * 0.03, sat, lightness),
-      roughness: 1, flatShading: true
-    });
-    const c = new THREE.Mesh(new THREE.ConeGeometry(r, ch, 7), mat);
+    const col = new THREE.Color().setHSL(baseHue + (Math.random() - 0.5) * 0.03, sat, lightness);
+    const cg = new THREE.ConeGeometry(r, ch, 7);
+    _bakeColor(cg, col);
+    const c = new THREE.Mesh(cg, _treeFoliageMat);
     c.position.set(
       (Math.random() - 0.5) * 0.35,
       h * 0.42 + i * (h * 0.09),
@@ -1518,12 +1505,12 @@ function createTree(x, z) {
   }
   group.position.set(x, terrainHeight(x, z), z);
   group.rotation.y = Math.random() * Math.PI;
-  /* Slight lean for a wind-battered look */
   group.rotation.z = (Math.random() - 0.5) * 0.06;
   return group;
 }
 
 const trees = [];
+const _treeRoot = new THREE.Group();
 for (let i = 0; i < 70; i++) {
   let tx, tz;
   do {
@@ -1531,11 +1518,14 @@ for (let i = 0; i < 70; i++) {
     tz = (Math.random() - 0.5) * 180;
   } while (Math.hypot(tx, tz) < 12); /* keep player spawn clear */
   const t = createTree(tx, tz);
-  /* Trunk collision radius reduced 0.6 → 0.32 to match the visible trunk
-   * mesh — was causing "invisible cylinder" feel around every tree. */
-  trees.push({ obj: t, x: tx, z: tz, r: 0.32 });
-  scene.add(t);
+  _treeRoot.add(t);
+  /* Trunk collision radius reduced 0.6 → 0.32 to match the visible trunk. */
+  trees.push({ x: tx, z: tz, r: 0.32 });
 }
+/* PERF: collapse ALL 70 trees (shared trunk+foliage materials, vertex-colored)
+ * into ~2 draw calls for the entire forest instead of ~560 meshes. */
+const _treesMerged = mergeStatic(_treeRoot);
+scene.add(_treesMerged);
 
 /* ========================================================================
    PROPS — crates, rocks, sandbags, barrels
@@ -2729,11 +2719,11 @@ function buildEquipBoard() {
    * red cave; a lighter neutral panel keeps the spawn bright and readable. */
   const woodMat = new THREE.MeshStandardMaterial({
     color: 0x5a6068, roughness: 0.85, metalness: 0.05,
-    emissive: 0x2a2e33, emissiveIntensity: 0.35
+    emissive: 0x3a4048, emissiveIntensity: 0.55
   });
   const woodDarkMat = new THREE.MeshStandardMaterial({
     color: 0x3f444b, roughness: 0.9, metalness: 0.05,
-    emissive: 0x14171a, emissiveIntensity: 0.25
+    emissive: 0x181c20, emissiveIntensity: 0.4
   });
   const peg = new THREE.MeshStandardMaterial({ color: 0x303034, roughness: 0.4, metalness: 0.7 });
   /* === Backboard: 5m wide x 2.4m tall plank wall === */
@@ -2743,10 +2733,11 @@ function buildEquipBoard() {
   /* v4.1 — light the loadout board with NEUTRAL-white lamps (was warm, which
    * over-saturated the brown board into red). Stronger + longer range so the
    * whole (now wider) spawn bay is clearly lit the moment the player spawns. */
-  { const _bl1=new THREE.PointLight(0xfdfdff,4.2,30,1.4); _bl1.position.set(0,3.2,1.8); g.add(_bl1);
-    const _bl2=new THREE.PointLight(0xf4f8ff,3.4,26,1.4); _bl2.position.set(-4.2,2.2,1.4); g.add(_bl2);
-    const _bl3=new THREE.PointLight(0xf4f8ff,3.4,26,1.4); _bl3.position.set(4.2,2.2,1.4); g.add(_bl3);
-    const _bl4=new THREE.PointLight(0xfdfdff,3.0,28,1.4); _bl4.position.set(0,3.0,-1.6); g.add(_bl4); }
+  /* PERF: ONE neutral board light instead of four. Every extra light inflates
+   * the fragment shader for EVERY material across the whole map, so decorative
+   * spawn lights cost far beyond the spawn. The board panel + placard are
+   * emissive (self-lit) so a single fill keeps the bay readable. */
+  { const _bl1=new THREE.PointLight(0xffffff,5.5,32,1.3); _bl1.position.set(0,3.0,1.8); g.add(_bl1); }
   /* Vertical plank seams (visual detail) */
   for (let i = -5; i <= 5; i++) {
     const seam = new THREE.Mesh(new THREE.BoxGeometry(0.04, 3.4, 0.02), woodDarkMat);
@@ -3056,7 +3047,21 @@ function buildEquipBoard() {
       item.add(flLens);
       item.position.set(def.x, def.y, 0.18);
     }
-    if (item) g.add(item);
+    if (item) {
+      /* PERF: each weapon miniature is a full ~90-mesh weapon model. Merge it
+       * internally into ~4 draw calls while keeping it ONE object so the slot
+       * can still highlight (scale), hide on pickup (visible) and be raycast.
+       * 9 gun miniatures drop from ~800 meshes to ~40. */
+      let meshCount = 0; item.traverse(o => { if (o.isMesh) meshCount++; });
+      if (meshCount > 6) {
+        const merged = mergeStatic(item);
+        merged.position.copy(item.position);
+        merged.rotation.copy(item.rotation);
+        merged.scale.copy(item.scale);
+        item = merged;
+      }
+      g.add(item);
+    }
     /* Label below the item */
     const lblMat = makeLabel(def.label);
     const lbl = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 0.18), lblMat);
@@ -3105,15 +3110,7 @@ function buildEquipBoard() {
     hood.rotation.x = -0.45;
     hood.position.set(equipBoard.cx + sx, terrainHeight(equipBoard.cx, equipBoard.cz) + 0.30, equipBoard.cz + 0.55);
     scene.add(hood);
-    /* The actual light */
-    const lt = new THREE.PointLight(0xffd070, 1.8, 9.0, 1.5);
-    lt.position.set(equipBoard.cx + sx, terrainHeight(equipBoard.cx, equipBoard.cz) + 1.5, equipBoard.cz + 0.45);
-    scene.add(lt);
   }
-  /* Pole-mounted spotlight above the title placard for that "shop sign" look */
-  const signLight = new THREE.PointLight(0xffe080, 2.2, 8.0, 1.4);
-  signLight.position.set(equipBoard.cx, terrainHeight(equipBoard.cx, equipBoard.cz) + 3.4, equipBoard.cz + 0.45);
-  scene.add(signLight);
   /* Save references for the soft pulse animation */
   equipBoard._lights = scene.children.filter(o => o.isPointLight && o.position.distanceTo(
     new THREE.Vector3(equipBoard.cx, terrainHeight(equipBoard.cx, equipBoard.cz) + 1.5, equipBoard.cz + 0.45)) < 4);
@@ -6809,26 +6806,30 @@ function createBot(x, z, team = 'red') {
 
   /* === W10 GEAR — per-bot loadout variety (visible kit) ===================
    * Plate-carrier straps & pouches for everyone, plus a randomized chance of
-   * a backpack, a flipped-up NVG mount, or a full ghillie cloak (recon). */
+   * a backpack, a flipped-up NVG mount, or a full ghillie cloak (recon).
+   * PERF: all the STATIC cosmetic kit below is built into `cosmetic`, then
+   * merged into ~5 draw calls per bot instead of ~30 (the single biggest
+   * draw-call win — 60 bots × 25 fewer meshes = ~1500 fewer draw calls). */
+  const cosmetic = new THREE.Group();
   const gearDark  = new THREE.MeshStandardMaterial({ color: 0x1c1b18, roughness: 0.85 });
   const gearStrap = new THREE.MeshStandardMaterial({ color: 0x26241e, roughness: 0.9 });
   for (const _sx of [-0.16, 0.16]) {
     const strap = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.5, 0.05), gearStrap);
-    strap.position.set(_sx, 1.28, 0.0); strap.rotation.x = 0.02; g.add(strap);
+    strap.position.set(_sx, 1.28, 0.0); strap.rotation.x = 0.02; cosmetic.add(strap);
   }
   for (let _pi = 0; _pi < 3; _pi++) {
     const pouch = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.13, 0.07), gearDark);
-    pouch.position.set(-0.16 + _pi * 0.16, 1.04, 0.175); g.add(pouch);
+    pouch.position.set(-0.16 + _pi * 0.16, 1.04, 0.175); cosmetic.add(pouch);
   }
   const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.10, 8), skin);
-  neck.position.y = 1.52; g.add(neck);
+  neck.position.y = 1.52; cosmetic.add(neck);
   const pelvis = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.22, 0.30), new THREE.MeshStandardMaterial({ color: 0x3a3528, roughness: 0.95 }));
-  pelvis.position.y = 0.92; g.add(pelvis);
+  pelvis.position.y = 0.92; cosmetic.add(pelvis);
   const belt = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.07, 0.34), gearDark);
-  belt.position.y = 0.86; g.add(belt);
+  belt.position.y = 0.86; cosmetic.add(belt);
   for (const _kx of [-0.13, 0.13]) {
     const knee = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.12, 0.14), gearDark);
-    knee.position.set(_kx, 0.40, 0.06); g.add(knee);
+    knee.position.set(_kx, 0.40, 0.06); cosmetic.add(knee);
   }
   const _gr = Math.random();
   const isGhillie  = _gr < 0.20;
@@ -6837,40 +6838,46 @@ function createBot(x, z, team = 'red') {
   if (hasBackpack) {
     const pack = new THREE.Mesh(new THREE.BoxGeometry(0.40, 0.50, 0.22),
       new THREE.MeshStandardMaterial({ color: team === 'red' ? 0x402420 : 0x33381f, roughness: 0.95 }));
-    pack.position.set(0, 1.18, -0.26); g.add(pack);
+    pack.position.set(0, 1.18, -0.26); cosmetic.add(pack);
     const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.42, 8), gearDark);
-    roll.rotation.z = Math.PI / 2; roll.position.set(0, 0.92, -0.30); g.add(roll);
+    roll.rotation.z = Math.PI / 2; roll.position.set(0, 0.92, -0.30); cosmetic.add(roll);
   }
   if (hasNvg) {
     const mount = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.05), gearDark);
-    mount.position.set(0, 1.84, 0.12); g.add(mount);
+    mount.position.set(0, 1.84, 0.12); cosmetic.add(mount);
     const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.09, 8), gearDark);
-    tube.rotation.x = Math.PI / 2; tube.position.set(-0.03, 1.86, 0.18); g.add(tube);
-    const tube2 = tube.clone(); tube2.position.x = 0.03; g.add(tube2);
+    tube.rotation.x = Math.PI / 2; tube.position.set(-0.03, 1.86, 0.18); cosmetic.add(tube);
+    const tube2 = tube.clone(); tube2.position.x = 0.03; cosmetic.add(tube2);
   }
   if (isGhillie) {
     const burlapCol = team === 'red' ? 0x4a4024 : 0x3d4a26;
-    const cloak = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.7, 0.42),
-      new THREE.MeshStandardMaterial({ color: burlapCol, roughness: 1.0 }));
-    cloak.position.set(0, 1.18, -0.02); g.add(cloak);
-    for (let _si = 0; _si < 26; _si++) {
+    const burlapMat = new THREE.MeshStandardMaterial({ color: burlapCol, roughness: 1.0 });
+    const burlapMat2 = new THREE.MeshStandardMaterial({ color: 0x2e3a1c, roughness: 1.0 });
+    const cloak = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.7, 0.42), burlapMat);
+    cloak.position.set(0, 1.18, -0.02); cosmetic.add(cloak);
+    /* PERF: ghillie strips 26 → 10 (shared materials so they merge). */
+    for (let _si = 0; _si < 10; _si++) {
       const strip = new THREE.Mesh(
         new THREE.BoxGeometry(0.03, 0.18 + Math.random() * 0.22, 0.03),
-        new THREE.MeshStandardMaterial({ color: (Math.random() < 0.5 ? burlapCol : 0x2e3a1c), roughness: 1.0 }));
+        (Math.random() < 0.5 ? burlapMat : burlapMat2));
       const ang = Math.random() * Math.PI * 2;
       const rad = 0.22 + Math.random() * 0.12;
       strip.position.set(Math.cos(ang) * rad, 1.05 + Math.random() * 0.5, Math.sin(ang) * rad * 0.7);
       strip.rotation.set((Math.random()-0.5)*0.5, ang, (Math.random()-0.5)*0.5);
-      g.add(strip);
+      cosmetic.add(strip);
     }
-    const hood = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8, 0, Math.PI*2, 0, Math.PI/2),
-      new THREE.MeshStandardMaterial({ color: burlapCol, roughness: 1.0 }));
-    hood.scale.set(1.1, 1.0, 1.2); hood.position.y = 1.78; g.add(hood);
+    const hood = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8, 0, Math.PI*2, 0, Math.PI/2), burlapMat);
+    hood.scale.set(1.1, 1.0, 1.2); hood.position.y = 1.78; cosmetic.add(hood);
   }
+  /* Eyes (dark visor strip) — cosmetic */
+  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.04, 0.01), dark);
+  visor.position.set(0, 1.66, 0.142);
+  cosmetic.add(visor);
+  /* Collapse all cosmetic kit into a few merged meshes and attach to the bot. */
+  const cosmeticMerged = mergeStatic(cosmetic);
+  g.add(cosmeticMerged);
 
-  /* Head — tapered skull (sphere) instead of a cube, matches the PvP model
-   * silhouette. Stays a single mesh so the headshot hit-test (mesh === bot.head)
-   * keeps working. */
+  /* Head — tapered skull (sphere). Single mesh so headshot hit-test works. */
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.145, 12, 10), skin);
   head.scale.set(1.0, 1.12, 1.05);
   head.position.y = 1.66;
@@ -6880,10 +6887,6 @@ function createBot(x, z, team = 'red') {
   helmet.scale.set(1.05, 0.9, 1.15);
   helmet.position.y = 1.74;
   g.add(helmet);
-  /* Eyes (just dark visor strip) */
-  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.04, 0.01), dark);
-  visor.position.set(0, 1.66, 0.142);
-  g.add(visor);
 
   /* Arms pivot at the SHOULDER: a group sits at shoulder height and the
    * cylinder hangs below it, so the walk swing rotates from the shoulder
@@ -7683,8 +7686,7 @@ function _spawnBiomeReverb() {
   if (typeof trees !== 'undefined') {
     const px = player.position.x, pz = player.position.z;
     for (let i = 0; i < trees.length; i++) {
-      const tp = trees[i].obj.position;
-      const dx = tp.x - px, dz = tp.z - pz;
+      const dx = trees[i].x - px, dz = trees[i].z - pz;
       if (dx*dx + dz*dz < 30*30) nearbyTrees++;
       if (nearbyTrees > 25) break;          /* enough info */
     }
@@ -9697,7 +9699,7 @@ function updateBullets(dt) {
       }
       /* Environment */
       const envHits = raycaster.intersectObjects(
-        [terrain, ...trees.map(t => t.obj), ...obstacles], false
+        [terrain, _treesMerged, ...obstacles], false
       );
       const envHit = envHits.length ? envHits[0] : null;
 
@@ -9737,7 +9739,7 @@ function updateBullets(dt) {
         let mat = (obj.userData && obj.userData.material) || null;
         if (!mat) {
           /* Heuristic: treat trees as wood, everything else as solid */
-          if (trees.some(t => t.obj === obj || (t.obj.children && t.obj.children.includes(obj)))) {
+          if (obj === _treesMerged || (obj.parent === _treesMerged)) {
             mat = 'wood';
           } else {
             mat = 'solid';
@@ -10458,7 +10460,7 @@ function updatePlayer(dt) {
     raycaster.far = probeRange;
     const probeTargets = [];
     if (typeof obstacles !== 'undefined') probeTargets.push(...obstacles);
-    if (typeof trees !== 'undefined') for (const t of trees) if (t.obj) probeTargets.push(t.obj);
+    if (typeof _treesMerged !== 'undefined') probeTargets.push(_treesMerged);
     const hits = raycaster.intersectObjects(probeTargets, true);
     let lowRay = 0;
     if (hits.length) lowRay = THREE.MathUtils.clamp(1 - hits[0].distance / probeRange, 0, 1);
@@ -10935,9 +10937,7 @@ function findCoverPointAwayFromPlayer(bp, playerPos) {
           }
         }
         if (typeof trees !== 'undefined') {
-          for (const t of trees) {
-            if (t && t.obj) arr.push({ x: t.obj.position.x, z: t.obj.position.z });
-          }
+          for (const t of trees) { arr.push({ x: t.x, z: t.z }); }
         }
       } catch(_) {}
       return arr;
@@ -11181,6 +11181,14 @@ function updateBots(dt) {
     const dx = playerPos.x - bp.x;
     const dz = playerPos.z - bp.z;
     const dist = Math.sqrt(dx*dx + dz*dz);
+
+    /* PERF: distance-cull the whole bot model. Beyond ~160m a bot is almost
+     * fully hidden by fog, so hiding it skips ~20 draw calls/bot with no visible
+     * change. AI/movement below still runs so the bot keeps advancing; the
+     * renderer simply doesn't draw an invisible object (this + built-in frustum
+     * culling is what keeps a 60-bot field affordable). */
+    const _botVisible = dist < 160;
+    if (bot.obj.visible !== _botVisible) bot.obj.visible = _botVisible;
 
     /* === AI THROTTLING ===
      * Distant bots (>55m) only run their full AI every 3rd frame; bots
@@ -11539,7 +11547,7 @@ function hasLineOfSight(from, to) {
   dir.normalize();
   raycaster.set(eye, dir);
   raycaster.far = dist - 0.4;
-  const hits = raycaster.intersectObjects([terrain, ...trees.map(t => t.obj), ...obstacles], false);
+  const hits = raycaster.intersectObjects([terrain, _treesMerged, ...obstacles], false);
   return hits.length === 0;
 }
 

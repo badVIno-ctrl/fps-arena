@@ -13725,6 +13725,44 @@ const _battlefield = (() => {
   return { _tick };
 })();
 
+/* === ADAPTIVE RESOLUTION SCALER =======================================
+ * The ultimate perf safety net: measure a rolling average frame time and, if
+ * the game is running slow, quietly lower the render scale (and raise it back
+ * when there's headroom). This keeps the frame RATE smooth on weak GPUs at the
+ * cost of some sharpness, instead of everyone getting a slideshow. Scale is a
+ * multiplier on the base device-pixel-ratio; clamped to [0.6, 1.0].
+ * Targets ~60 fps (16.7ms); acts on a smoothed average to avoid oscillation. */
+const _ARS = {
+  scale: 1.0, min: 0.6, max: 1.0, avgMs: 16.7, cooldown: 0,
+  targetHi: 20.5,   /* > this (≈49 fps) → downscale */
+  targetLo: 13.5,   /* < this (≈74 fps) → upscale   */
+};
+function _applyRenderScale(s) {
+  _ARS.scale = s;
+  const pr = _BASE_PR * s;
+  renderer.setPixelRatio(pr);
+  composer.setPixelRatio(pr);
+  composer.setSize(window.innerWidth, window.innerHeight);
+  if (typeof bloomPass !== 'undefined') bloomPass.setSize(Math.max(1, (window.innerWidth * s) >> 1), Math.max(1, (window.innerHeight * s) >> 1));
+  if (typeof fxaaPass !== 'undefined') fxaaPass.material.uniforms['resolution'].value.set(1 / (window.innerWidth * pr), 1 / (window.innerHeight * pr));
+}
+function _updateAdaptiveRes(frameMs) {
+  /* Ignore stall frames (tab switch, GC pause, headless software rendering):
+   * a single 500ms hitch must not collapse the resolution. Only sustained
+   * real frame times in a sane range drive the scaler. */
+  if (frameMs > 100 || frameMs <= 0) return;
+  /* Exponential moving average of frame time. */
+  _ARS.avgMs = _ARS.avgMs * 0.9 + frameMs * 0.1;
+  if (_ARS.cooldown > 0) { _ARS.cooldown--; return; }
+  if (_ARS.avgMs > _ARS.targetHi && _ARS.scale > _ARS.min) {
+    _applyRenderScale(Math.max(_ARS.min, _ARS.scale - 0.1));
+    _ARS.cooldown = 45;   /* wait ~45 frames before adjusting again */
+  } else if (_ARS.avgMs < _ARS.targetLo && _ARS.scale < _ARS.max) {
+    _applyRenderScale(Math.min(_ARS.max, _ARS.scale + 0.05));
+    _ARS.cooldown = 90;   /* upscale more cautiously */
+  }
+}
+
 function animate() {
   requestAnimationFrame(animate);
   if (document.hidden || _ctxLost) {
@@ -13733,6 +13771,7 @@ function animate() {
     clock.getDelta();
     return;
   }
+  const _frameT0 = performance.now();
   _animFrame = (_animFrame + 1) | 0;
   const dt = Math.min(0.05, clock.getDelta());
 
@@ -13772,14 +13811,14 @@ function animate() {
   /* HUD updates every other frame (text changes) — saves DOM writes */
   if ((_animFrame & 1) === 0) updateHUD();
 
-  /* DAY/NIGHT + sky/fog — drives sun position, light intensities, fog
-   * range and sky/horizon colors. Updated every 4th frame; the cycle is
-   * slow (120s period) so this is more than smooth enough. */
+  /* DAY/NIGHT + sky/fog — every 4th frame (slow cycle, smooth enough). */
   if ((_animFrame & 3) === 0) {
     if (typeof updateDayNight === 'function') updateDayNight();
     if (typeof updateSkyGradient === 'function') updateSkyGradient();
-    /* OPT: re-render the shadow map now that the sun has moved. Paired
-     * with shadowMap.autoUpdate=false so frames 1-3 skip shadow work. */
+  }
+  /* PERF: shadow map re-render is the expensive part; the sun crawls across a
+   * 600s day so refresh only ~twice a second instead of every 4th frame. */
+  if (_animFrame % 32 === 0) {
     renderer.shadowMap.needsUpdate = true;
   }
 
@@ -13814,7 +13853,12 @@ function animate() {
   if (typeof lensRainPass !== 'undefined') lensRainPass.uniforms.uTime.value = _camFX.time;
   /* Route through the post-processing composer (bloom → FXAA → bodycam → tonemap). */
   composer.render(dt);
+  /* Adaptive resolution: measure this frame's work and nudge render scale. */
+  _updateAdaptiveRes(performance.now() - _frameT0);
 }
+/* Prime day/night + sky so the very first rendered frame already has the
+ * correct lighting/sky (no dark startup flash before the first scheduled tick). */
+if (typeof updateDayNight === 'function') { try { updateDayNight(); updateSkyGradient(); } catch(_){} }
 animate();
 
 /* === DEBUG HOOKS === Expose key game state on window so DevTools console

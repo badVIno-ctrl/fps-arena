@@ -664,8 +664,10 @@ canvas.addEventListener('webglcontextlost', (e) => {
   /* Drop all visual effects so the GPU can recover without re-uploading
    * mountains of stale textures/geometries when it comes back. */
   try {
-    if (typeof tracers !== 'undefined') {
-      while (tracers.length) { const t = tracers.shift(); try { scene.remove(t.line); _disposeObj(t.line); } catch(_){} }
+    if (typeof _tracerPool !== 'undefined') {
+      /* Pooled tracers aren't disposed — just hidden; they're tiny and get
+       * re-uploaded automatically when the context is restored. */
+      for (const t of _tracerPool) { t.life = 0; if (t.line) t.line.visible = false; }
     }
     if (typeof decals !== 'undefined') {
       while (decals.length) { const d = decals.shift(); try { scene.remove(d.obj); _disposeObj(d.obj); } catch(_){} }
@@ -9176,7 +9178,6 @@ function getLosMesh() {
   }
   return _losMesh;
 }
-const tracers = []; /* visible bullet tracers */
 const tracerMat = new THREE.LineBasicMaterial({ color: 0xfff0a0, transparent: true, opacity: 0.9 });
 
 /* === BULLETS — physics-based projectiles (B1, B2, B4) ===================
@@ -9199,6 +9200,20 @@ const MAX_TRACERS = 50;
 const MAX_IMPACTS = 90;        /* slight bump — smoke puffs are cheap */
 const MAX_SHELLS  = 30;
 
+/* Pre-allocated tracer pool (see spawnTracer). Each slot owns a 2-vertex line
+ * and its own material (opacity is animated per-tracer as it fades). */
+const _tracerPool = [];
+let _tracerCursor = 0;
+for (let i = 0; i < MAX_TRACERS; i++) {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+  const line = new THREE.Line(geo, tracerMat.clone());
+  line.visible = false;
+  line.frustumCulled = false;   /* tiny 2-vertex segment; skip cull overhead */
+  scene.add(line);
+  _tracerPool.push({ line, life: 0 });
+}
+
 function _disposeObj(obj) {
   scene.remove(obj);
   if (obj.geometry) obj.geometry.dispose();
@@ -9209,14 +9224,18 @@ function _disposeObj(obj) {
 }
 
 function spawnTracer(from, to) {
-  const geo = new THREE.BufferGeometry().setFromPoints([from, to]);
-  const line = new THREE.Line(geo, tracerMat.clone());
-  scene.add(line);
-  tracers.push({ line, life: 0.06 });
-  while (tracers.length > MAX_TRACERS) {
-    const old = tracers.shift();
-    _disposeObj(old.line);
-  }
+  /* Pooled: reuse a pre-allocated Line instead of building+disposing geometry
+   * and a cloned material on every shot. With 60 bots firing this was a steady
+   * source of GC churn (micro-stutter). */
+  const slot = _tracerPool[_tracerCursor];
+  _tracerCursor = (_tracerCursor + 1) % MAX_TRACERS;
+  const arr = slot.line.geometry.attributes.position;
+  arr.setXYZ(0, from.x, from.y, from.z);
+  arr.setXYZ(1, to.x, to.y, to.z);
+  arr.needsUpdate = true;
+  slot.line.material.opacity = 0.9;
+  slot.line.visible = true;
+  slot.life = 0.06;
 }
 
 const impacts = [];
@@ -9774,8 +9793,17 @@ function updateBullets(dt) {
 
       /* Bot zones */
       let hitBot = null, hitPoint = null;
+      /* PERF broad-phase: any point of this step's segment lies within segLen
+       * of b.pos, so a bot whose horizontal distance to b.pos exceeds
+       * segLen + margin cannot be hit — skip building its 8-part target array
+       * and the 8 raycasts entirely. Cuts most of the per-bullet work when a
+       * shot travels across a 60-bot field. */
+      const _reach = segLen + 3.0, _reachSq = _reach * _reach;
       for (const bot of bots) {
         if (bot.state === 'dead') continue;
+        const _bx = bot.obj.position.x - b.pos.x;
+        const _bz = bot.obj.position.z - b.pos.z;
+        if (_bx*_bx + _bz*_bz > _reachSq) continue;
         const targets = [bot.head, bot.helmet, bot.torso, bot.vest,
                          bot.armL, bot.armR, bot.legL, bot.legR];
         const hits = raycaster.intersectObjects(targets, false);
@@ -11887,16 +11915,12 @@ function handleDeath() {
 }
 
 function updateTracers(dt) {
-  for (let i = tracers.length - 1; i >= 0; i--) {
-    const t = tracers[i];
+  for (let i = 0; i < _tracerPool.length; i++) {
+    const t = _tracerPool[i];
+    if (t.life <= 0) continue;
     t.life -= dt;
-    t.line.material.opacity = Math.max(0, t.life / 0.06) * 0.9;
-    if (t.life <= 0) {
-      scene.remove(t.line);
-      t.line.geometry.dispose();
-      t.line.material.dispose();
-      tracers.splice(i, 1);
-    }
+    if (t.life <= 0) { t.line.visible = false; continue; }
+    t.line.material.opacity = (t.life / 0.06) * 0.9;
   }
 }
 

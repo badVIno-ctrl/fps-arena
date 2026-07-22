@@ -13637,8 +13637,12 @@ try {
   window.__game = {
     player, controls, scene, camera, weapon, ak, m416, hands,
     bots,
-    redDotSight, scope3x,
+    redDotSight, scope3x, holoSight,
     applySightToActiveWeapon,
+    getSight, setSight, cycleSight,
+    setActiveWeapon, pickUpFromBoard,
+    WEAPON_OBJS, WEAPON_STATS, sightMounts,
+    lights: { hemi, sun, ambient },
     playReload, playReloadAk, playReloadM416,
     playGunshot, playGunshotAk, playGunshotM416,
   };

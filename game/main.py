@@ -28,6 +28,13 @@ SOUNDS_DIR = os.path.join(BASE_DIR, "sounds")
 os.makedirs(SOUNDS_DIR, exist_ok=True)
 app.mount("/sounds", StaticFiles(directory=SOUNDS_DIR), name="sounds")
 
+# Serve vendored front-end libraries (e.g. three-mesh-bvh) from the same origin
+# as the game, so the client has no external CDN dependency for them. game.html
+# is served at /game and references these as ./vendor/... (i.e. /vendor/...).
+VENDOR_DIR = os.path.join(BASE_DIR, "vendor")
+if os.path.isdir(VENDOR_DIR):
+    app.mount("/vendor", StaticFiles(directory=VENDOR_DIR), name="vendor")
+
 ROOM_TTL = 3600                # 1 hour max room lifetime
 TEAM_MAX = 10                  # max players per team
 TEAM_RESPAWN_SECS = int(os.environ.get("TEAM_RESPAWN_SECS", "5"))

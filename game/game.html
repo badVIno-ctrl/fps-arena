@@ -5885,13 +5885,15 @@ function _makeFinger(mat, jointMat, len1, len2, w) {
   return knuckle;
 }
 
-/* Hands — camo sleeves + articulated gloves */
+/* Hands — solid tactical sleeves + articulated gloves. Materials chosen so the
+ * hands read clearly up close (the old busy camo texture + near-black gloves
+ * looked like a green blob and vanished in shadow). */
 function createHands() {
   const g = new THREE.Group();
-  const sleeveMat = new THREE.MeshStandardMaterial({ map: camoTex, roughness: 0.9 });
-  const gloveMat  = new THREE.MeshStandardMaterial({ color: 0x202024, roughness: 0.72, metalness: 0.05 });
-  const knuckMat  = new THREE.MeshStandardMaterial({ color: 0x141416, roughness: 0.55, metalness: 0.12 });
-  const cuffMat   = new THREE.MeshStandardMaterial({ color: 0x2a2a24, roughness: 0.85 });
+  const sleeveMat = new THREE.MeshStandardMaterial({ color: 0x4a5138, roughness: 0.92, metalness: 0.0 }); /* solid olive-drab fatigue */
+  const gloveMat  = new THREE.MeshStandardMaterial({ color: 0x3b352c, roughness: 0.68, metalness: 0.06 }); /* tan tactical glove */
+  const knuckMat  = new THREE.MeshStandardMaterial({ color: 0x24201a, roughness: 0.55, metalness: 0.10 }); /* dark knuckle pads */
+  const cuffMat   = new THREE.MeshStandardMaterial({ color: 0x30352a, roughness: 0.85 });
 
   /* ---------- RIGHT (trigger) hand ---------- */
   const rArm = new THREE.Group();
@@ -5985,8 +5987,8 @@ const WEAPON_HANDS = {
   m416:     { right: { pos: [0, -0.02, -0.055],rot: [0, 0, 0] },        left: { pos: [0, 0.05, -0.120],  rot: [0, 0, 0] } },
   scar:     { right: { pos: [0, 0.04, -0.060], rot: [0, 0, 0] },        left: { pos: [0, 0.05, -0.160],  rot: [0, 0, 0] } },
   mp5:      { right: { pos: [0, 0.05, -0.050], rot: [0, 0, 0] },        left: { pos: [0, 0.06, -0.060],  rot: [0, 0, 0] } },
-  svd:      { right: { pos: [0, 0.02, -0.060], rot: [0, 0, 0] },        left: { pos: [0, 0.045, -0.200], rot: [0, 0, 0] } },
-  m870:     { right: { pos: [0, 0.03, -0.040], rot: [0, 0, 0] },        left: { pos: [0, 0.06, -0.150],  rot: [0, 0, 0] } },
+  svd:      { right: { pos: [0, 0.02, -0.060], rot: [0, 0, 0] },        left: { pos: [0, 0.045, -0.150], rot: [0, 0, 0] } },
+  m870:     { right: { pos: [0, 0.03, -0.040], rot: [0, 0, 0] },        left: { pos: [0, 0.055, -0.120],  rot: [0, 0, 0] } },
   glock:    { right: { pos: [0, 0.03, -0.060], rot: [0, 0, 0] },        left: { pos: [0.03, -0.02, 0.175], rot: [0, 0.35, 0.6] }, pistol: true },
   deagle:   { right: { pos: [0, 0.025, -0.050],rot: [0, 0, 0] },        left: { pos: [0.03, -0.02, 0.185], rot: [0, 0.35, 0.6] }, pistol: true },
 };
@@ -6086,6 +6088,69 @@ weapon.position.set(0.20, -0.24, -0.30);
 weapon.rotation.set(0, 0, 0);
 camera.add(weapon);
 scene.add(camera);
+
+/* === VIEW-MODEL LIGHTING (fixes "weapon/hands are a black silhouette") =====
+ * The first-person weapon + hands are attached to the camera. When the sun is
+ * behind the player the only visible faces are in shadow, so the gun renders
+ * as a dark blob — which reads as "no hands / too dark". Real FPS games light
+ * the view model with a dedicated rig that never touches the world.
+ *
+ * We use a LAYER so the fill lights affect ONLY the view model:
+ *   - VIEWMODEL_LAYER (1) is enabled on every weapon + hands mesh (in addition
+ *     to layer 0, so scene lights still contribute a little).
+ *   - The camera renders both layers.
+ *   - Two fill lights live on layer 1 ONLY, parented to the camera, so they
+ *     illuminate the gun from the eye/key direction and never brighten the map.
+ * ========================================================================= */
+const VIEWMODEL_LAYER = 1;
+camera.layers.enable(VIEWMODEL_LAYER);
+/* Headlamp key: sits just behind/above the eye and shines FORWARD (-Z), so the
+ * surfaces the player actually sees (the camera-facing side of the gun + the
+ * backs of the hands) are the ones that get lit. */
+const vmKey = new THREE.DirectionalLight(0xfff4e6, 3.0);
+vmKey.position.set(0.25, 0.45, 1.0);       /* camera-local: +Z is toward/behind the eye */
+vmKey.target.position.set(0, -0.25, -1.5);
+vmKey.layers.set(VIEWMODEL_LAYER);
+vmKey.castShadow = false;
+camera.add(vmKey);
+camera.add(vmKey.target);
+/* Hemisphere fill on the view-model layer: lifts shadowed faces (incl. the
+ * hands and dark-metal receivers) so nothing crushes to a black silhouette. */
+const vmFill = new THREE.HemisphereLight(0xe6eef8, 0x6a6250, 1.6);
+vmFill.layers.set(VIEWMODEL_LAYER);
+camera.add(vmFill);
+/* A soft ambient floor on the same layer as a guaranteed minimum. */
+const vmAmbient = new THREE.AmbientLight(0xc4ccd8, 0.9);
+vmAmbient.layers.set(VIEWMODEL_LAYER);
+camera.add(vmAmbient);
+
+/* Enable the view-model layer on every current + future weapon/hands mesh.
+ * Called now for the initial models and again after any weapon is (re)built. */
+function _enableViewModelLayer() {
+  const tunedMats = new WeakSet();
+  weapon.traverse(o => {
+    o.layers.enable(VIEWMODEL_LAYER);
+    /* Tune view-model materials so the fill lights actually shade them.
+     * The guns were authored at metalness ~0.95 (chrome): pure metals show
+     * almost no diffuse response, so under fill light they render as a black
+     * silhouette and only reflect the (dim) scene environment. Clamping to a
+     * realistic gunmetal finish (parkerized/phosphate) lets the view-model
+     * lights produce real shading, and a higher envMapIntensity keeps the
+     * highlights. Done once per material. */
+    const mats = Array.isArray(o.material) ? o.material : (o.material ? [o.material] : []);
+    for (const m of mats) {
+      if (!m || tunedMats.has(m)) continue;
+      tunedMats.add(m);
+      if (typeof m.metalness === 'number' && m.metalness > 0.55) {
+        m.metalness = 0.5;
+        if (m.roughness < 0.38) m.roughness = 0.42;
+      }
+      if ('envMapIntensity' in m) m.envMapIntensity = Math.max(m.envMapIntensity || 1, 1.4);
+      m.needsUpdate = true;
+    }
+  });
+}
+_enableViewModelLayer();
 
 /* === FLASHLIGHT (mounted under barrel) ===================================
  *  A single SpotLight is the actual light source. It is parented to the
@@ -6247,6 +6312,8 @@ function applySightToActiveWeapon() {
   redDotSight.visible = (which === 'red_dot');
   holoSight.visible   = (which === 'holo');
   scope3x.visible     = (which === 'scope_3x');
+  /* Newly-shown optic meshes must join the view-model lighting layer. */
+  if (typeof _enableViewModelLayer === 'function') _enableViewModelLayer();
 }
 
 /* Switches the active weapon (or unequips if name is null/empty hands).
@@ -6279,6 +6346,9 @@ function setActiveWeapon(name) {
     /* Update the muzzle-flash anchor to point at the active weapon's muzzle */
     setMuzzleFlashAnchor(name);
     applyHandsForWeapon(name);
+    /* Keep the view-model fill lights affecting the (possibly newly-parented)
+     * weapon + attachment meshes. */
+    if (typeof _enableViewModelLayer === 'function') _enableViewModelLayer();
   } else {
     /* Empty hands */
     player.ammo = 0;
@@ -12112,12 +12182,15 @@ function pickUpFromBoard(slot) {
       player.weaponState.svd.ammo = WEAPON_STATS.svd.magSize;
       player.weaponState.svd.reserve = 40;
       player.slots.rifle = 'svd';
-      /* SVD ships with its 3x optic mounted. */
+      /* SVD ships with its 3x optic mounted. Grant ownership of the 3x optic
+       * too, otherwise cycleSight() (B) has nothing to rotate through and the
+       * scope can't be toggled back to irons — the reported SVD sight bug. */
+      player.inv.hasScope3x = true;
       if (typeof setSight === 'function') setSight('svd', 'scope_3x');
       if (!player.activeWeapon) setActiveWeapon('svd');
       else if (player.activeWeapon === 'svd' && typeof applySightToActiveWeapon === 'function') applySightToActiveWeapon();
       syncLoadoutFromInv();
-      showNotice('ПОЛУЧЕНО: СВД + ОПТИКА 3X (клавиша 2)');
+      showNotice('ПОЛУЧЕНО: СВД + ОПТИКА 3X (B — сменить прицел)');
       break;
     case 'm870':
       if (player.inv.hasM870) { showNotice('M870 УЖЕ В ИНВЕНТАРЕ'); return; }
@@ -12480,7 +12553,11 @@ const dayNight = {
   nightLen: 120,        /* 2 min of full night */
   dawnLen:  30,         /* sunrise transition in seconds */
   duskLen:  30,         /* sunset transition in seconds */
-  t0: performance.now() / 1000,
+  /* Start the cycle at solar mid-morning (well past the dawn ramp) so the map
+   * is at FULL daylight the instant the player spawns — previously it started
+   * at t=0 = dawn (dl=0), so every match opened dark and took 30 s to brighten,
+   * which read as "the map is too dark". */
+  t0: performance.now() / 1000 - 150,
   daylight: 1,
   isNight: false
 };
@@ -12529,10 +12606,11 @@ function updateDayNight() {
     cz + Math.sin(ang) * sunDist * 0.4
   );
   sun.target.position.set(cx, 0, cz);
-  /* Light intensities */
-  sun.intensity     = THREE.MathUtils.lerp(0.55, 1.55, dl);
-  hemi.intensity    = THREE.MathUtils.lerp(0.90, 1.40, dl);
-  ambient.intensity = THREE.MathUtils.lerp(0.80, 1.10, dl);
+  /* Light intensities — daytime values raised so the map reads as bright,
+   * clear daylight (was 1.55/1.40/1.10 which felt overcast-dim). */
+  sun.intensity     = THREE.MathUtils.lerp(0.55, 2.30, dl);
+  hemi.intensity    = THREE.MathUtils.lerp(0.90, 1.55, dl);
+  ambient.intensity = THREE.MathUtils.lerp(0.80, 1.15, dl);
   /* Hemi sky color blends from deep night-blue to overcast grey */
   hemi.color.setRGB(
     THREE.MathUtils.lerp(0.34, 0.71, dl),

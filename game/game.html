@@ -622,19 +622,61 @@ const renderer = new THREE.WebGLRenderer({
   preserveDrawingBuffer: false,
   stencil: false
 });
+
+/* ========================================================================
+   QUALITY TIER — auto-detected rendering budget
+   ------------------------------------------------------------------------
+   The single most important knob for "runs smoothly on ANY machine". We pick
+   a preset from the device (memory, cores, mobile, GPU string) and scale the
+   expensive things: device-pixel-ratio ceiling, bloom, shadow-map size/filter,
+   grass density and bot draw distance. The runtime adaptive-resolution scaler
+   (further down) still fine-tunes within the tier frame-by-frame.
+
+   Override + persist with ?quality=low|medium|high (handy for support). */
+const _QUALITY_PRESETS = {
+  low:    { prCap: 0.80, bloom: false, shadowMap: 512,  shadowType: THREE.PCFShadowMap,     grass: 1200, botCull: 110 },
+  medium: { prCap: 1.00, bloom: true,  shadowMap: 1024, shadowType: THREE.PCFSoftShadowMap, grass: 2500, botCull: 150 },
+  high:   { prCap: 1.00, bloom: true,  shadowMap: 2048, shadowType: THREE.PCFSoftShadowMap, grass: 4000, botCull: 160 },
+};
+function _detectQualityTier() {
+  let q = (_urlParams.get('quality') || '').toLowerCase();
+  if (q !== 'low' && q !== 'medium' && q !== 'high') {
+    try { q = (localStorage.getItem('fpsArenaQuality') || '').toLowerCase(); } catch (_) {}
+  }
+  if (q === 'low' || q === 'medium' || q === 'high') return q;
+  const mem    = navigator.deviceMemory || 4;          /* GB (coarse, Chromium) */
+  const cores  = navigator.hardwareConcurrency || 4;
+  const mobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+  let gpu = '';
+  try {
+    const gl = renderer.getContext();
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    if (dbg) gpu = (gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '').toLowerCase();
+  } catch (_) {}
+  const weakGpu = /swiftshader|software|llvmpipe|basic render|intel.*(hd|uhd) graphics (4|5|6)|mali-[t]?[45]|adreno \(tm\) [123]|powervr/i.test(gpu);
+  if (mobile || mem <= 2 || cores <= 2 || weakGpu) return 'low';
+  if (mem <= 4 || cores <= 4) return 'medium';
+  return 'high';
+}
+const QUALITY_TIER = _detectQualityTier();
+const QUALITY = _QUALITY_PRESETS[QUALITY_TIER] || _QUALITY_PRESETS.medium;
+try { localStorage.setItem('fpsArenaQuality', QUALITY_TIER); } catch (_) {}
+try { console.info('[quality] tier =', QUALITY_TIER, JSON.stringify(QUALITY)); } catch (_) {}
+const _BOT_CULL_DIST = QUALITY.botCull;   /* bot model draw-distance cull (per tier) */
+
 /* PERF: cap the device-pixel-ratio at 1.0. On a high-DPI monitor a ratio of
  * 1.5 renders 2.25× the pixels through the ENTIRE post chain every frame — the
  * single biggest GPU cost and the main reason it "лагает на ПК". 1.0 is sharp
  * enough at these framebuffer sizes and roughly halves fragment work. An
  * adaptive downscaler (below) drops it further to 0.85 if frames run long. */
-const _BASE_PR = Math.min(window.devicePixelRatio || 1, 1.0);
+const _BASE_PR = Math.min(window.devicePixelRatio || 1, QUALITY.prCap);
 renderer.setPixelRatio(_BASE_PR);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.02;
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = QUALITY.shadowType;
 /* OPT: shadow map autoUpdate=false. Sun position barely moves, so we only
  * need to re-render the shadow map when the sun actually shifts. animate()
  * flips `renderer.shadowMap.needsUpdate = true` every 4th frame (aligned
@@ -749,7 +791,7 @@ sun.castShadow = true;
 /* Shadow map bumped 1024 → 2048 for sharper contact shadows on weapons /
  * helmet edges. With autoUpdate=false (re-rendered every 4 frames) the
  * GPU cost is amortized — still cheap on a mid-range laptop. */
-sun.shadow.mapSize.set(1024, 1024);
+sun.shadow.mapSize.set(QUALITY.shadowMap, QUALITY.shadowMap);
 sun.shadow.camera.left = -60;
 sun.shadow.camera.right = 60;
 sun.shadow.camera.top = 60;
@@ -839,6 +881,10 @@ const bloomPass = new UnrealBloomPass(
   0.96    /* threshold — only genuine highlights (muzzle flash, tracers, sun) bloom */
 );
 composer.addPass(bloomPass);
+/* PERF: bloom is a multi-pass blur — the most expensive part of the post
+ * chain on weak GPUs. The quality tier turns it off on low-end devices
+ * (EffectComposer skips passes with enabled=false). */
+bloomPass.enabled = QUALITY.bloom;
 /* FXAA — single pass, sub-pixel edge smoothing */
 const fxaaPass = new ShaderPass(FXAAShader);
 fxaaPass.material.uniforms['resolution'].value.set(
@@ -1458,7 +1504,7 @@ bladeMat.onBeforeCompile = (shader) => {
     );
 };
 
-const GRASS_COUNT = _urlParams.get('mode')==='team' ? 2000 : 4000;
+const GRASS_COUNT = Math.min(QUALITY.grass, _urlParams.get('mode')==='team' ? 2000 : QUALITY.grass);
 const grassMesh = new THREE.InstancedMesh(bladeGeo, bladeMat, GRASS_COUNT);
 const dummy = new THREE.Object3D();
 for (let i = 0; i < GRASS_COUNT; i++) {
@@ -11307,7 +11353,7 @@ function updateBots(dt) {
      * change. AI/movement below still runs so the bot keeps advancing; the
      * renderer simply doesn't draw an invisible object (this + built-in frustum
      * culling is what keeps a 60-bot field affordable). */
-    const _botVisible = dist < 160;
+    const _botVisible = dist < _BOT_CULL_DIST;
     if (bot.obj.visible !== _botVisible) bot.obj.visible = _botVisible;
 
     /* === AI THROTTLING ===

@@ -1389,7 +1389,7 @@ for (let i = 0; i < tPos.count; i++) {
   tPos.setY(i, terrainHeight(x, z));
 }
 terrainGeo.computeVertexNormals();
-const terrainMat = new THREE.MeshStandardMaterial({ map: grassTex, roughness: 0.9, metalness: 0 });
+const terrainMat = new THREE.MeshStandardMaterial({ map: grassTex, roughness: 1.0, metalness: 0 });
 terrainMat.envMapIntensity = 0.85;
 /* === STAGE 2 — WET GROUND shader injection ============================
  * Low-lying ground (trench + crater floors, y < ~0) darkens and turns

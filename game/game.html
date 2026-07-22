@@ -554,7 +554,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, _urlParams.get('mode')=
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.16;
+renderer.toneMappingExposure = 1.02;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* OPT: shadow map autoUpdate=false. Sun position barely moves, so we only
@@ -605,9 +605,9 @@ canvas.addEventListener('webglcontextrestored', () => {
 }, false);
 
 const scene = new THREE.Scene();
-/* Overcast/rainy sky — desaturated, cool grey/blue */
-scene.background = new THREE.Color(0xb4cfe6);
-scene.fog = new THREE.Fog(0xc3d8ea, 90, 360);
+/* Overcast war-zone sky — desaturated cool steel, hazy horizon. */
+scene.background = new THREE.Color(0x545c64);
+scene.fog = new THREE.Fog(0x5e6158, 70, 340);
 
 /* PMREM env was removed — added pressure on GPU texture memory and was
  * implicated in browser-tab crashes on lower-end machines. We rely on
@@ -691,7 +691,7 @@ scene.add(ambient);
  * window.setTimeOfDay('day'|'dusk'|'night') swaps the whole lighting rig at
  * runtime (sky, fog, sun, fill, ambient, exposure) in one call. */
 const TIME_PRESETS = {
-  day:   { sky:0xc2dcef, fog:[0xd0e2f0,120,460], hemi:[0xdcefff,0x6f6450,1.55], sun:[0xfff6e6,2.7],  amb:[0xc8d4de,0.90], exp:1.34 },
+  day:   { sky:0x545c64, fog:[0x5e6158,70,340], hemi:[0xa8b2bc,0x54503f,1.02], sun:[0xffe9d2,1.5], amb:[0x8f97a0,0.66], exp:1.0 },
   dusk:  { sky:0x8a7f8f, fog:[0x9a8c84,55,250], hemi:[0xc9b8c0,0x4a3d33,0.70], sun:[0xffcaa0,1.20], amb:[0x9a93a0,0.40], exp:1.05 },
   night: { sky:0x10131c, fog:[0x12151f,30,150], hemi:[0x2a3550,0x100f0c,0.35], sun:[0x9fb4d8,0.35], amb:[0x2c3340,0.25], exp:0.95 }
 };
@@ -710,7 +710,7 @@ window.setTimeOfDay = setTimeOfDay;
 setTimeOfDay('day');
 
 /* Tone mapping exposure: comfortable mid-range so weapon and bots are visible */
-renderer.toneMappingExposure = 1.34;
+renderer.toneMappingExposure = 1.02;
 
 /* ========================================================================
    IBL — image-based lighting via Three's RoomEnvironment
@@ -754,9 +754,9 @@ composer.addPass(new RenderPass(scene, camera));
  * not "blown-out" look. Muzzle flashes & sky highlights pop, walls don't. */
 const bloomPass = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
-  _urlParams.get('mode')==='team' ? 0.16 : 0.26,   /* strength */
-  0.55,   /* radius   */
-  0.90    /* threshold */
+  _urlParams.get('mode')==='team' ? 0.10 : 0.16,   /* strength — lowered so the overcast sky/snow don't blow to white */
+  0.5,    /* radius   */
+  0.96    /* threshold — only genuine highlights (muzzle flash, tracers, sun) bloom */
 );
 composer.addPass(bloomPass);
 /* FXAA — single pass, sub-pixel edge smoothing */
@@ -779,7 +779,7 @@ const BodycamShader = {
     uTime:       { value: 0 },
     uAberration: { value: 0.0012 },
     uGrain:      { value: 0.045 },
-    uVignette:   { value: 0.24 },
+    uVignette:   { value: 0.30 },
     uDamage:     { value: 0.0 }
   },
   vertexShader: `
@@ -825,12 +825,12 @@ composer.addPass(bodycamPass);
 const ColorGradeShader = {
   uniforms: {
     tDiffuse:    { value: null },
-    uSaturation: { value: 0.80 },
-    uContrast:   { value: 1.06 },
-    uGreenTrim:  { value: 0.97 },
-    uTintAmt:    { value: 0.12 },
-    uShadowTint: { value: new THREE.Color(0x2b3a3e) },  /* cold teal  */
-    uHighTint:   { value: new THREE.Color(0x6e5d40) }   /* warm tan   */
+    uSaturation: { value: 0.68 },
+    uContrast:   { value: 1.14 },
+    uGreenTrim:  { value: 0.985 },
+    uTintAmt:    { value: 0.20 },
+    uShadowTint: { value: new THREE.Color(0x2a2c2b) },  /* neutral-cool shadows (no lavender cast) */
+    uHighTint:   { value: new THREE.Color(0x6a5f48) }   /* dusty warm highlights */
   },
   vertexShader: `
     varying vec2 vUv;
@@ -1094,7 +1094,7 @@ function updateStorm(dt) {
     if (_storm.flash > 0) scene.fog.color.copy(_storm._fogBase).lerp(_WHITE, _storm.flash * 0.7);
     else scene.fog.color.copy(_storm._fogBase);
   }
-  renderer.toneMappingExposure = 1.34 + _storm.flash * 0.55;
+  renderer.toneMappingExposure = 1.02 + _storm.flash * 0.55;
 }
 
 /* Update rain — recycle drops back up when they fall below ground.
@@ -1151,6 +1151,74 @@ function makeNoiseCanvas(size, fn) {
   return cv;
 }
 
+/* Coherent value-noise field (0..1) sampled on a low-res lattice with bilinear
+ * interpolation + a couple of octaves. Unlike per-pixel Math.random() (which
+ * is high-frequency "TV static" that mip-maps to flat grey), this produces
+ * soft blotches at real-world scale — the difference between a plasticky
+ * cartoon ground and a photographic, dirt-and-grass battlefield floor. */
+function _valueNoise2D(cells) {
+  const g = new Float32Array((cells + 1) * (cells + 1));
+  for (let i = 0; i < g.length; i++) g[i] = Math.random();
+  return (u, v) => {
+    const x = u * cells, y = v * cells;
+    const x0 = Math.floor(x) % cells, y0 = Math.floor(y) % cells;
+    const x1 = (x0 + 1) % cells, y1 = (y0 + 1) % cells;
+    const fx = x - Math.floor(x), fy = y - Math.floor(y);
+    const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+    const a = g[y0 * (cells + 1) + x0], b = g[y0 * (cells + 1) + x1];
+    const c = g[y1 * (cells + 1) + x0], d = g[y1 * (cells + 1) + x1];
+    return (a * (1 - sx) + b * sx) * (1 - sy) + (c * (1 - sx) + d * sx) * sy;
+  };
+}
+
+/* Photographic-ish battlefield ground: churned wet earth with patches of drab
+ * trampled grass, dry dirt and darker mud pooling. A wide tonal range between
+ * light dry patches and dark wet mud is what makes it read as real terrain
+ * instead of a flat cartoon plane. */
+function makeGroundCanvas(size) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = size;
+  const ctx = cv.getContext('2d');
+  const img = ctx.createImageData(size, size);
+  const nBig  = _valueNoise2D(4);    /* big mud/grass regions */
+  const nMid  = _valueNoise2D(11);   /* clumps */
+  const nFine = _valueNoise2D(37);   /* fine breakup */
+  const nTuft = _valueNoise2D(89);   /* grass-blade speckle */
+  /* Earthy palette with REAL tonal contrast (light dry ↔ dark wet). */
+  const grassDry = [104, 98,  58];   /* sun-dried straw grass (light) */
+  const grass    = [58,  70,  36];   /* drab green grass */
+  const dirtDry  = [118, 96,  64];   /* dry churned dirt (light) */
+  const dirt     = [74,  58,  40];   /* damp earth */
+  const mud      = [40,  32,  23];   /* wet mud (dark) */
+  const mudWet   = [26,  22,  17];   /* pooled water mud (darkest) */
+  const mix = (a, b, t) => [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t];
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const u = x / size, v = y / size;
+      const big = nBig(u, v), mid = nMid(u, v), fine = nFine(u, v), tuft = nTuft(u, v);
+      /* Base: dry↔damp dirt gradient driven by big regions */
+      let col = mix(dirt, dirtDry, THREE.MathUtils.clamp(big * 1.3 - 0.15, 0, 1));
+      /* Grass patches where mid noise is high — dry vs green from fine noise */
+      const grassAmt = THREE.MathUtils.clamp((mid - 0.42) * 2.4, 0, 1);
+      const grassCol = mix(grass, grassDry, THREE.MathUtils.clamp(fine * 1.2, 0, 1));
+      col = mix(col, grassCol, grassAmt);
+      /* Wet mud pooling in the low areas (inverse of big) */
+      const wet = THREE.MathUtils.clamp(0.42 - big, 0, 1) * 2.0;
+      col = mix(col, mix(mud, mudWet, THREE.MathUtils.clamp(0.4 - mid, 0, 1) * 2), THREE.MathUtils.clamp(wet, 0, 1));
+      /* Fine grass-tuft speckle adds high-freq life on grassy areas */
+      col = mix(col, grass, tuft * 0.28 * grassAmt);
+      /* subtle per-texel grain */
+      const grain = (Math.random() - 0.5) * 6;
+      const i = (y * size + x) * 4;
+      img.data[i]   = THREE.MathUtils.clamp(col[0] + grain, 0, 255);
+      img.data[i+1] = THREE.MathUtils.clamp(col[1] + grain, 0, 255);
+      img.data[i+2] = THREE.MathUtils.clamp(col[2] + grain, 0, 255);
+      img.data[i+3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return cv;
+}
+
 function tex(canvas, repeat = 1) {
   const t = new THREE.CanvasTexture(canvas);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
@@ -1162,16 +1230,15 @@ function tex(canvas, repeat = 1) {
 
 const grassTex = tex(makeNoiseCanvas(256, (x, y) => {
   const v = Math.random();
-  /* Trampled, rain-soaked field: mostly mud, sparse drab olive grass.
-   * Heavy dirt coverage + low-saturation khaki kills the cartoon-green look. */
-  const dirt = Math.random() < 0.30;
+  /* Trampled, rain-soaked field: mostly mud, sparse drab olive grass. */
+  const dirt = Math.random() < 0.42;
   if (dirt) {
     const m = Math.random();
-    return [54 + m*26, 43 + m*18, 30 + m*12, 255];   /* clay / wet mud */
+    return [50 + m*22, 40 + m*16, 28 + m*11, 255];   /* clay / wet mud */
   }
-  const r = 60 + v * 22;
-  const g = 64 + v * 26;   /* was 95+50 — pulled way down toward olive */
-  const b = 40 + v * 12;
+  const r = 54 + v * 18;
+  const g = 58 + v * 22;
+  const b = 36 + v * 10;
   return [r, g, b, 255];
 }), 60);
 
@@ -1346,7 +1413,7 @@ scene.add(terrain);
 const bladeGeo = new THREE.PlaneGeometry(0.18, 0.55);
 bladeGeo.translate(0, 0.275, 0);
 const bladeMat = new THREE.MeshStandardMaterial({
-  color: 0x5a5832, side: THREE.DoubleSide, roughness: 1, transparent: true, alphaTest: 0.5
+  color: 0x3d3b22, side: THREE.DoubleSide, roughness: 1, transparent: true, alphaTest: 0.5
 });
 /* simple alpha map shaped like a blade */
 const aCv = document.createElement('canvas'); aCv.width = aCv.height = 32;
@@ -1419,7 +1486,7 @@ function createTree(x, z) {
   group.add(trunk);
 
   /* Foliage: stack of cones for a pine look */
-  const foliageMat = new THREE.MeshStandardMaterial({ color: new THREE.Color().setHSL(0.28 + Math.random()*0.05, 0.5, 0.22), roughness: 1 });
+  const foliageMat = new THREE.MeshStandardMaterial({ color: new THREE.Color().setHSL(0.24 + Math.random()*0.04, 0.32, 0.15), roughness: 1 });
   const layers = 4;
   for (let i = 0; i < layers; i++) {
     const r = 2.4 - i * 0.4;
@@ -2646,30 +2713,30 @@ function buildEquipBoard() {
   });
   const peg = new THREE.MeshStandardMaterial({ color: 0x303034, roughness: 0.4, metalness: 0.7 });
   /* === Backboard: 5m wide x 2.4m tall plank wall === */
-  const board = new THREE.Mesh(new THREE.BoxGeometry(7.2, 3.4, 0.10), woodMat);
+  const board = new THREE.Mesh(new THREE.BoxGeometry(11.6, 3.4, 0.10), woodMat);
   board.position.set(0, 1.7, 0);
   g.add(board);
   /* v4.1 — light the loadout board with NEUTRAL-white lamps (was warm, which
    * over-saturated the brown board into red). Stronger + longer range so the
-   * whole spawn bay is clearly lit the moment the player spawns. */
-  { const _bl1=new THREE.PointLight(0xfdfdff,4.2,26,1.4); _bl1.position.set(0,3.2,1.8); g.add(_bl1);
-    const _bl2=new THREE.PointLight(0xf4f8ff,3.2,22,1.4); _bl2.position.set(-2.8,2.2,1.2); g.add(_bl2);
-    const _bl3=new THREE.PointLight(0xf4f8ff,3.2,22,1.4); _bl3.position.set(2.8,2.2,1.2); g.add(_bl3);
-    const _bl4=new THREE.PointLight(0xfdfdff,3.0,24,1.4); _bl4.position.set(0,3.0,-1.6); g.add(_bl4); }
+   * whole (now wider) spawn bay is clearly lit the moment the player spawns. */
+  { const _bl1=new THREE.PointLight(0xfdfdff,4.2,30,1.4); _bl1.position.set(0,3.2,1.8); g.add(_bl1);
+    const _bl2=new THREE.PointLight(0xf4f8ff,3.4,26,1.4); _bl2.position.set(-4.2,2.2,1.4); g.add(_bl2);
+    const _bl3=new THREE.PointLight(0xf4f8ff,3.4,26,1.4); _bl3.position.set(4.2,2.2,1.4); g.add(_bl3);
+    const _bl4=new THREE.PointLight(0xfdfdff,3.0,28,1.4); _bl4.position.set(0,3.0,-1.6); g.add(_bl4); }
   /* Vertical plank seams (visual detail) */
-  for (let i = -3; i <= 3; i++) {
+  for (let i = -5; i <= 5; i++) {
     const seam = new THREE.Mesh(new THREE.BoxGeometry(0.04, 3.4, 0.02), woodDarkMat);
-    seam.position.set(i * 1.0, 1.7, 0.06);
+    seam.position.set(i * 1.05, 1.7, 0.06);
     g.add(seam);
   }
   /* Top capping board */
-  const cap = new THREE.Mesh(new THREE.BoxGeometry(7.4, 0.10, 0.18), woodDarkMat);
+  const cap = new THREE.Mesh(new THREE.BoxGeometry(11.8, 0.10, 0.18), woodDarkMat);
   cap.position.set(0, 3.42, 0);
   g.add(cap);
   /* Two side support beams */
   for (const sx of [-1, 1]) {
     const beam = new THREE.Mesh(new THREE.BoxGeometry(0.10, 3.4, 0.10), woodDarkMat);
-    beam.position.set(sx * 3.65, 1.7, 0);
+    beam.position.set(sx * 5.85, 1.7, 0);
     g.add(beam);
   }
   /* === Title placard — bright glowing gold text on dark plank, visible from
@@ -2688,7 +2755,7 @@ function buildEquipBoard() {
     cx.strokeStyle = '#ffd060'; cx.lineWidth = 5; cx.strokeRect(3, 3, 1018, 122);
     return new THREE.CanvasTexture(cv);
   })();
-  const placard = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 0.55),
+  const placard = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 0.62),
     new THREE.MeshBasicMaterial({ map: title, toneMapped: false }));
   placard.position.set(0, 3.05, 0.062);
   g.add(placard);
@@ -2696,7 +2763,7 @@ function buildEquipBoard() {
   const glowMat = new THREE.MeshBasicMaterial({
     color: 0xffc060, transparent: true, opacity: 0.18, depthWrite: false
   });
-  const glowPlane = new THREE.Mesh(new THREE.PlaneGeometry(7.4, 0.95), glowMat);
+  const glowPlane = new THREE.Mesh(new THREE.PlaneGeometry(9.2, 1.05), glowMat);
   glowPlane.position.set(0, 3.05, 0.055);
   g.add(glowPlane);
 
@@ -2717,32 +2784,32 @@ function buildEquipBoard() {
   }
   /* Slot layout: localX, localY, kind, label */
   const SLOT_DEFS = [
-    /* Row 1 — weapons (pistols → rifles → special) */
-    { x: -3.6, y: 2.6, kind: 'glock',  label: 'GLOCK-18 (1)' },
-    { x: -2.7, y: 2.6, kind: 'deagle', label: 'DEAGLE (1)' },
-    { x: -1.8, y: 2.6, kind: 'ak',     label: 'AKM (2)' },
-    { x: -0.9, y: 2.6, kind: 'm416',   label: 'M416 (2)' },
+    /* Row 1 — weapons (pistols → rifles → special), spread across the wide board */
+    { x: -4.8, y: 2.6, kind: 'glock',  label: 'GLOCK-18 (1)' },
+    { x: -3.6, y: 2.6, kind: 'deagle', label: 'DEAGLE (1)' },
+    { x: -2.4, y: 2.6, kind: 'ak',     label: 'AKM (2)' },
+    { x: -1.2, y: 2.6, kind: 'm416',   label: 'M416 (2)' },
     { x:  0.0, y: 2.6, kind: 'ak74',   label: 'АК-74 (2)' },
-    { x:  0.9, y: 2.6, kind: 'scar',   label: 'SCAR-H (2)' },
-    { x:  1.8, y: 2.6, kind: 'svd',    label: 'СВД (2)' },
-    { x:  2.7, y: 2.6, kind: 'mp5',    label: 'MP5 (3)' },
-    { x:  3.6, y: 2.6, kind: 'm870',   label: 'M870 (3)' },
+    { x:  1.2, y: 2.6, kind: 'scar',   label: 'SCAR-H (2)' },
+    { x:  2.4, y: 2.6, kind: 'svd',    label: 'СВД (2)' },
+    { x:  3.6, y: 2.6, kind: 'mp5',    label: 'MP5 (3)' },
+    { x:  4.8, y: 2.6, kind: 'm870',   label: 'M870 (3)' },
     /* Row 2 — gear */
-    { x: -3.0, y: 1.5, kind: 'armor',    label: 'БРОНЕЖИЛЕТ' },
-    { x: -1.8, y: 1.5, kind: 'helmet',   label: 'ШЛЕМ' },
-    { x: -0.6, y: 1.5, kind: 'backpack', label: 'РЮКЗАК' },
-    { x:  0.5, y: 1.5, kind: 'ghillie',  label: 'МАСКХАЛАТ' },
-    { x:  1.5, y: 1.5, kind: 'medkit',   label: 'АПТЕЧКИ x2' },
-    { x:  2.4, y: 1.5, kind: 'suppressor', label: 'ГЛУШИТЕЛЬ (O)' },
-    { x:  3.3, y: 1.5, kind: 'flashlight', label: 'ФОНАРИК (L)' },
+    { x: -4.8, y: 1.5, kind: 'armor',    label: 'БРОНЕЖИЛЕТ' },
+    { x: -3.2, y: 1.5, kind: 'helmet',   label: 'ШЛЕМ' },
+    { x: -1.6, y: 1.5, kind: 'backpack', label: 'РЮКЗАК' },
+    { x:  0.0, y: 1.5, kind: 'ghillie',  label: 'МАСКХАЛАТ' },
+    { x:  1.6, y: 1.5, kind: 'medkit',   label: 'АПТЕЧКИ x2' },
+    { x:  3.2, y: 1.5, kind: 'suppressor', label: 'ГЛУШИТЕЛЬ (O)' },
+    { x:  4.8, y: 1.5, kind: 'flashlight', label: 'ФОНАРИК (L)' },
     /* Row 3 — optics, attachments & night gear */
-    { x: -3.0, y: 0.5, kind: 'red_dot',  label: 'КОЛЛИМАТОР' },
-    { x: -2.0, y: 0.5, kind: 'holo',     label: 'ГОЛОГРАФ. (B)' },
-    { x: -1.0, y: 0.5, kind: 'scope_3x', label: 'ПРИЦЕЛ 3X' },
+    { x: -4.8, y: 0.5, kind: 'red_dot',  label: 'КОЛЛИМАТОР' },
+    { x: -3.2, y: 0.5, kind: 'holo',     label: 'ГОЛОГРАФ. (B)' },
+    { x: -1.6, y: 0.5, kind: 'scope_3x', label: 'ПРИЦЕЛ 3X' },
     { x:  0.0, y: 0.5, kind: 'laser',    label: 'ЛАЗЕР (T)' },
-    { x:  1.0, y: 0.5, kind: 'foregrip', label: 'РУКОЯТКА' },
-    { x:  2.0, y: 0.5, kind: 'rig',      label: 'РАЗГРУЗКА' },
-    { x:  3.0, y: 0.5, kind: 'nvg',      label: 'ПНВ (N)' }
+    { x:  1.6, y: 0.5, kind: 'foregrip', label: 'РУКОЯТКА' },
+    { x:  3.2, y: 0.5, kind: 'rig',      label: 'РАЗГРУЗКА' },
+    { x:  4.8, y: 0.5, kind: 'nvg',      label: 'ПНВ (N)' }
   ];
   const tinyOpticOffset = 0.30;     /* push optics out from board so they're visible */
   for (const def of SLOT_DEFS) {
@@ -6113,7 +6180,7 @@ camera.layers.enable(VIEWMODEL_LAYER);
 /* Headlamp key: sits just behind/above the eye and shines FORWARD (-Z), so the
  * surfaces the player actually sees (the camera-facing side of the gun + the
  * backs of the hands) are the ones that get lit. */
-const vmKey = new THREE.DirectionalLight(0xfff4e6, 3.0);
+const vmKey = new THREE.DirectionalLight(0xfff4e6, 4.8);
 vmKey.position.set(0.25, 0.45, 1.0);       /* camera-local: +Z is toward/behind the eye */
 vmKey.target.position.set(0, -0.25, -1.5);
 vmKey.layers.set(VIEWMODEL_LAYER);
@@ -6122,11 +6189,11 @@ camera.add(vmKey);
 camera.add(vmKey.target);
 /* Hemisphere fill on the view-model layer: lifts shadowed faces (incl. the
  * hands and dark-metal receivers) so nothing crushes to a black silhouette. */
-const vmFill = new THREE.HemisphereLight(0xe6eef8, 0x6a6250, 1.6);
+const vmFill = new THREE.HemisphereLight(0xe6eef8, 0x6a6250, 2.6);
 vmFill.layers.set(VIEWMODEL_LAYER);
 camera.add(vmFill);
 /* A soft ambient floor on the same layer as a guaranteed minimum. */
-const vmAmbient = new THREE.AmbientLight(0xc4ccd8, 0.9);
+const vmAmbient = new THREE.AmbientLight(0xc4ccd8, 1.5);
 vmAmbient.layers.set(VIEWMODEL_LAYER);
 camera.add(vmAmbient);
 
@@ -12520,13 +12587,16 @@ function updateSkyGradient() {
   const sunY = sun.position.clone().normalize().y;
   /* warmth: 0 = sunset/sunrise warmth, 1 = high noon */
   const warmth = THREE.MathUtils.clamp(sunY * 1.1, 0.0, 1.0);
-  /* Daylight palette */
-  const topRD = Math.round(70  + (1-warmth) * 70);
-  const topGD = Math.round(120 + (1-warmth) * 30);
-  const topBD = Math.round(190 - (1-warmth) * 30);
-  const horRD = Math.round(220 - warmth * 50);
-  const horGD = Math.round(180 - warmth * 30);
-  const horBD = Math.round(160 + warmth * 60);
+  /* Daylight palette — OVERCAST WAR-ZONE, not bright cartoon blue. Cool
+   * steel-grey zenith fading to a dusty desaturated haze at the horizon, so
+   * distant objects dissolve into atmosphere instead of popping against a
+   * white sky. Kept deliberately muted; the color grade + fog carry mood. */
+  const topRD = Math.round(58  + (1-warmth) * 20);   /* 58..78  cool steel */
+  const topGD = Math.round(66  + (1-warmth) * 16);   /* 66..82  */
+  const topBD = Math.round(80  + (1-warmth) * 8);    /* 80..88  slight blue */
+  const horRD = Math.round(96 - warmth * 12);        /* ~84..96 earthy haze */
+  const horGD = Math.round(94 - warmth * 12);
+  const horBD = Math.round(86 - warmth * 8);
   /* Night palette — deep blue, very dark */
   const topRN = 8,  topGN = 12, topBN = 30;
   const horRN = 18, horGN = 22, horBN = 42;
@@ -12612,28 +12682,29 @@ function updateDayNight() {
     cz + Math.sin(ang) * sunDist * 0.4
   );
   sun.target.position.set(cx, 0, cz);
-  /* Light intensities — daytime values raised so the map reads as bright,
-   * clear daylight (was 1.55/1.40/1.10 which felt overcast-dim). */
-  sun.intensity     = THREE.MathUtils.lerp(0.55, 2.30, dl);
-  hemi.intensity    = THREE.MathUtils.lerp(0.90, 1.55, dl);
-  ambient.intensity = THREE.MathUtils.lerp(0.80, 1.15, dl);
-  /* Hemi sky color blends from deep night-blue to overcast grey */
+  /* Light intensities — moody overcast daytime. Strong directional sun for
+   * contrast + shadows, restrained cool fill so the ground reads as earthy
+   * mud rather than a flat lavender wash. */
+  sun.intensity     = THREE.MathUtils.lerp(0.50, 1.80, dl);
+  hemi.intensity    = THREE.MathUtils.lerp(0.65, 0.95, dl);
+  ambient.intensity = THREE.MathUtils.lerp(0.55, 0.72, dl);
+  /* Hemi sky color: neutral-warm grey by day (not blue) so it doesn't tint the
+   * whole map cold; deep blue at night. */
   hemi.color.setRGB(
-    THREE.MathUtils.lerp(0.34, 0.71, dl),
-    THREE.MathUtils.lerp(0.38, 0.76, dl),
-    THREE.MathUtils.lerp(0.46, 0.81, dl)
+    THREE.MathUtils.lerp(0.30, 0.60, dl),
+    THREE.MathUtils.lerp(0.34, 0.59, dl),
+    THREE.MathUtils.lerp(0.42, 0.55, dl)
   );
   hemi.groundColor.setRGB(
     THREE.MathUtils.lerp(0.20, 0.31, dl),
     THREE.MathUtils.lerp(0.20, 0.29, dl),
     THREE.MathUtils.lerp(0.20, 0.24, dl)
   );
-  /* Fog near/far: at night, pull fog in MUCH closer so visibility is
-   * cut to ~30m — matches the user's "20-80m fog" spec and lets the
-   * flashlight beam read prominently. */
+  /* Fog near/far: pull the haze in so distance dissolves into atmosphere
+   * (adds depth + a real battlefield mood). Night cuts visibility further. */
   if (scene.fog) {
-    scene.fog.near = THREE.MathUtils.lerp(45, 60, dl);
-    scene.fog.far  = THREE.MathUtils.lerp(170, 220, dl);
+    scene.fog.near = THREE.MathUtils.lerp(28, 70, dl);
+    scene.fog.far  = THREE.MathUtils.lerp(140, 340, dl);
   }
   /* Disable expensive sun shadow map at night (sun barely contributes) */
   sun.castShadow = dl > 0.18;
@@ -13703,8 +13774,8 @@ function animate() {
     const u = bodycamPass.uniforms;
     u.uTime.value       = _camFX.time;
     u.uAberration.value = 0.0011 + turn * 0.0026 + moveCA * 0.0006;
-    u.uGrain.value      = 0.045 + (player.health < 30 ? 0.05 : 0.0);
-    u.uVignette.value   = 0.24 + _camFX.hurt * 0.18;
+    u.uGrain.value      = 0.062 + (player.health < 30 ? 0.05 : 0.0);
+    u.uVignette.value   = 0.30 + _camFX.hurt * 0.18;
     u.uDamage.value     = _camFX.hurt;
   }
   /* STAGE 3 — advance the lens-rain droplet animation clock */
@@ -13727,7 +13798,7 @@ try {
     setActiveWeapon, pickUpFromBoard,
     WEAPON_OBJS, WEAPON_STATS, sightMounts,
     lights: { hemi, sun, ambient },
-    renderer, composer,
+    renderer, composer, THREE, terrain, terrainMat,
     playReload, playReloadAk, playReloadM416,
     playGunshot, playGunshotAk, playGunshotM416,
   };

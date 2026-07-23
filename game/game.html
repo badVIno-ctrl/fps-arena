@@ -2,12 +2,46 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>FPS ARENA</title>
+<!-- PERF: warm up the CDN connection and start fetching the (1.2MB) three.js
+     module in parallel with HTML parsing, so the engine boots noticeably
+     faster on first load. -->
+<link rel="preconnect" href="https://unpkg.com" crossorigin>
+<link rel="dns-prefetch" href="https://unpkg.com">
+<link rel="modulepreload" href="https://unpkg.com/three@0.160.0/build/three.module.js" crossorigin>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTMiIGZpbGw9IiMwZTEyMTgiLz48Y2lyY2xlIGN4PSIzMiIgY3k9IjMyIiByPSIyMSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMjgzMDNjIiBzdHJva2Utd2lkdGg9IjYiLz48Y2lyY2xlIGN4PSIzMiIgY3k9IjMyIiByPSIxOSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZTg1MDNhIiBzdHJva2Utd2lkdGg9IjIuNSIvPjxyZWN0IHg9IjMwLjYiIHk9IjUiIHdpZHRoPSIyLjgiIGhlaWdodD0iMTUiIGZpbGw9IiNlODUwM2EiLz48cmVjdCB4PSIzMC42IiB5PSI0NCIgd2lkdGg9IjIuOCIgaGVpZ2h0PSIxNSIgZmlsbD0iI2U4NTAzYSIvPjxyZWN0IHg9IjUiIHk9IjMwLjYiIHdpZHRoPSIxNSIgaGVpZ2h0PSIyLjgiIGZpbGw9IiNlODUwM2EiLz48cmVjdCB4PSI0NCIgeT0iMzAuNiIgd2lkdGg9IjE1IiBoZWlnaHQ9IjIuOCIgZmlsbD0iI2U4NTAzYSIvPjxjaXJjbGUgY3g9IjMyIiBjeT0iMzIiIHI9IjMuNCIgZmlsbD0iI2ZmZDIzYSIvPjwvc3ZnPgo=">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Consolas', 'Courier New', monospace; color: #fff; user-select: none; }
   #c { display: block; width: 100%; height: 100%; cursor: none; }
+
+  /* === BOOT / LOADING OVERLAY ==========================================
+   * Shown until the engine finishes booting (three.js download + scene
+   * build). Prevents a frozen menu during load and, if the engine fails to
+   * load (offline / CDN blocked / ad-blocker), degrades to a clear message
+   * instead of a dead PLAY button. Motion respects reduced-motion. */
+  #boot { position: fixed; inset: 0; z-index: 9999; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 20px; background: #0a0d12;
+    color: #cfd6e0; font-family: 'Consolas','Courier New',monospace; text-align: center; padding: 24px; }
+  #boot.gone { opacity: 0; pointer-events: none; transition: opacity .35s cubic-bezier(.22,1,.36,1); }
+  #boot .ring { width: 46px; height: 46px; border-radius: 50%;
+    border: 3px solid rgba(160,180,210,.18); border-top-color: #f5a524;
+    animation: bootspin .8s linear infinite; }
+  #boot .msg { font-size: 15px; letter-spacing: .12em; color: #93a1b4; }
+  #boot .err { display: none; max-width: 30rem; }
+  #boot.error .ring { display: none; }
+  #boot.error .msg { display: none; }
+  #boot.error .err { display: block; }
+  #boot .err h2 { font-size: 18px; color: #ff6a5a; letter-spacing: .08em; margin-bottom: 12px; }
+  #boot .err p { font-size: 13px; line-height: 1.6; color: #93a1b4; margin-bottom: 18px; }
+  #boot .err button { font: inherit; font-size: 14px; letter-spacing: .1em; color: #0a0d12;
+    background: #f5a524; border: 0; border-radius: 8px; padding: 11px 22px; cursor: pointer;
+    transition: transform .16s cubic-bezier(.22,1,.36,1), background .16s ease; }
+  #boot .err button:hover { background: #ffbb46; }
+  #boot .err button:active { transform: scale(.97); }
+  @keyframes bootspin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { #boot .ring { animation: none; } #boot.gone { transition: none; } }
 
   /* === POST-FX OVERLAYS (CSS-based — single-pass, GPU-cheap) ============
    * Achieves the cinematic feel without paying for an EffectComposer pass:
@@ -293,6 +327,31 @@
 </head>
 <body>
 <canvas id="c"></canvas>
+<div id="boot">
+  <div class="ring" aria-hidden="true"></div>
+  <div class="msg">ЗАГРУЗКА ДВИЖКА…</div>
+  <div class="err">
+    <h2>НЕ УДАЛОСЬ ЗАГРУЗИТЬ ДВИЖОК</h2>
+    <p>Не получилось загрузить 3D-библиотеку. Обычно это блокировка сети,
+       VPN/файрвол или расширение-блокировщик. Проверьте соединение и
+       отключите блокировщики для этой страницы.</p>
+    <button type="button" onclick="location.reload()">ПЕРЕЗАГРУЗИТЬ</button>
+  </div>
+</div>
+<script>
+  /* Classic (non-module) boot watchdog — runs even if the module below fails
+   * to load. If the engine hasn't signalled boot in time, show a clear error
+   * instead of a silent, non-functional screen. */
+  (function () {
+    var t = setTimeout(function () {
+      if (!window.__game) {
+        var b = document.getElementById('boot');
+        if (b) b.classList.add('error');
+      }
+    }, 20000);
+    window.__clearBootWatchdog = function () { clearTimeout(t); };
+  })();
+</script>
 
 <!-- POST-FX overlays (CSS) -->
 <div id="colorGrade"></div>
@@ -476,7 +535,8 @@
 {
   "imports": {
     "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+    "three-mesh-bvh": "./vendor/three-mesh-bvh.module.js"
   }
 }
 </script>
@@ -497,6 +557,21 @@ import { OutputPass }        from 'three/addons/postprocessing/OutputPass.js';
 import { FXAAShader }        from 'three/addons/shaders/FXAAShader.js';
 import { RoomEnvironment }   from 'three/addons/environments/RoomEnvironment.js';
 import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
+/* === PERF: RAYCAST ACCELERATION (three-mesh-bvh, vendored) ===============
+ * Bot line-of-sight and bullet hit-detection raycast the terrain mesh, which
+ * has ~39k triangles. Without an acceleration structure each raycast walks
+ * every triangle (~3-5ms per call) — with 60 bots probing LOS and bullets
+ * resolving every frame, this was the single biggest CPU cost.
+ *
+ * We patch Mesh.prototype.raycast with the accelerated version and build a
+ * BVH only on the static terrain (built once at startup, ~few ms). Meshes
+ * WITHOUT a boundsTree transparently fall back to three's default raycast,
+ * so nothing else changes behaviourally. The library is vendored locally
+ * (same origin as game.html) so there is no extra CDN dependency. */
+import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
+THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
+THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
+THREE.Mesh.prototype.raycast = acceleratedRaycast;
 
 /* === PERF: STATIC GEOMETRY MERGER =====================================
  * Draw-call count is the dominant CPU cost here (thousands of small meshes).
@@ -606,19 +681,61 @@ const renderer = new THREE.WebGLRenderer({
   preserveDrawingBuffer: false,
   stencil: false
 });
+
+/* ========================================================================
+   QUALITY TIER — auto-detected rendering budget
+   ------------------------------------------------------------------------
+   The single most important knob for "runs smoothly on ANY machine". We pick
+   a preset from the device (memory, cores, mobile, GPU string) and scale the
+   expensive things: device-pixel-ratio ceiling, bloom, shadow-map size/filter,
+   grass density and bot draw distance. The runtime adaptive-resolution scaler
+   (further down) still fine-tunes within the tier frame-by-frame.
+
+   Override + persist with ?quality=low|medium|high (handy for support). */
+const _QUALITY_PRESETS = {
+  low:    { prCap: 0.80, bloom: false, shadowMap: 512,  shadowType: THREE.PCFShadowMap,     grass: 1200, botCull: 110 },
+  medium: { prCap: 1.00, bloom: true,  shadowMap: 1024, shadowType: THREE.PCFSoftShadowMap, grass: 2500, botCull: 150 },
+  high:   { prCap: 1.00, bloom: true,  shadowMap: 2048, shadowType: THREE.PCFSoftShadowMap, grass: 4000, botCull: 160 },
+};
+function _detectQualityTier() {
+  let q = (_urlParams.get('quality') || '').toLowerCase();
+  if (q !== 'low' && q !== 'medium' && q !== 'high') {
+    try { q = (localStorage.getItem('fpsArenaQuality') || '').toLowerCase(); } catch (_) {}
+  }
+  if (q === 'low' || q === 'medium' || q === 'high') return q;
+  const mem    = navigator.deviceMemory || 4;          /* GB (coarse, Chromium) */
+  const cores  = navigator.hardwareConcurrency || 4;
+  const mobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+  let gpu = '';
+  try {
+    const gl = renderer.getContext();
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    if (dbg) gpu = (gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '').toLowerCase();
+  } catch (_) {}
+  const weakGpu = /swiftshader|software|llvmpipe|basic render|intel.*(hd|uhd) graphics (4|5|6)|mali-[t]?[45]|adreno \(tm\) [123]|powervr/i.test(gpu);
+  if (mobile || mem <= 2 || cores <= 2 || weakGpu) return 'low';
+  if (mem <= 4 || cores <= 4) return 'medium';
+  return 'high';
+}
+const QUALITY_TIER = _detectQualityTier();
+const QUALITY = _QUALITY_PRESETS[QUALITY_TIER] || _QUALITY_PRESETS.medium;
+try { localStorage.setItem('fpsArenaQuality', QUALITY_TIER); } catch (_) {}
+try { console.info('[quality] tier =', QUALITY_TIER, JSON.stringify(QUALITY)); } catch (_) {}
+const _BOT_CULL_DIST = QUALITY.botCull;   /* bot model draw-distance cull (per tier) */
+
 /* PERF: cap the device-pixel-ratio at 1.0. On a high-DPI monitor a ratio of
  * 1.5 renders 2.25× the pixels through the ENTIRE post chain every frame — the
  * single biggest GPU cost and the main reason it "лагает на ПК". 1.0 is sharp
  * enough at these framebuffer sizes and roughly halves fragment work. An
  * adaptive downscaler (below) drops it further to 0.85 if frames run long. */
-const _BASE_PR = Math.min(window.devicePixelRatio || 1, 1.0);
+const _BASE_PR = Math.min(window.devicePixelRatio || 1, QUALITY.prCap);
 renderer.setPixelRatio(_BASE_PR);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.02;
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = QUALITY.shadowType;
 /* OPT: shadow map autoUpdate=false. Sun position barely moves, so we only
  * need to re-render the shadow map when the sun actually shifts. animate()
  * flips `renderer.shadowMap.needsUpdate = true` every 4th frame (aligned
@@ -648,8 +765,10 @@ canvas.addEventListener('webglcontextlost', (e) => {
   /* Drop all visual effects so the GPU can recover without re-uploading
    * mountains of stale textures/geometries when it comes back. */
   try {
-    if (typeof tracers !== 'undefined') {
-      while (tracers.length) { const t = tracers.shift(); try { scene.remove(t.line); _disposeObj(t.line); } catch(_){} }
+    if (typeof _tracerPool !== 'undefined') {
+      /* Pooled tracers aren't disposed — just hidden; they're tiny and get
+       * re-uploaded automatically when the context is restored. */
+      for (const t of _tracerPool) { t.life = 0; if (t.line) t.line.visible = false; }
     }
     if (typeof decals !== 'undefined') {
       while (decals.length) { const d = decals.shift(); try { scene.remove(d.obj); _disposeObj(d.obj); } catch(_){} }
@@ -731,7 +850,7 @@ sun.castShadow = true;
 /* Shadow map bumped 1024 → 2048 for sharper contact shadows on weapons /
  * helmet edges. With autoUpdate=false (re-rendered every 4 frames) the
  * GPU cost is amortized — still cheap on a mid-range laptop. */
-sun.shadow.mapSize.set(1024, 1024);
+sun.shadow.mapSize.set(QUALITY.shadowMap, QUALITY.shadowMap);
 sun.shadow.camera.left = -60;
 sun.shadow.camera.right = 60;
 sun.shadow.camera.top = 60;
@@ -821,6 +940,10 @@ const bloomPass = new UnrealBloomPass(
   0.96    /* threshold — only genuine highlights (muzzle flash, tracers, sun) bloom */
 );
 composer.addPass(bloomPass);
+/* PERF: bloom is a multi-pass blur — the most expensive part of the post
+ * chain on weak GPUs. The quality tier turns it off on low-end devices
+ * (EffectComposer skips passes with enabled=false). */
+bloomPass.enabled = QUALITY.bloom;
 /* FXAA — single pass, sub-pixel edge smoothing */
 const fxaaPass = new ShaderPass(FXAAShader);
 fxaaPass.material.uniforms['resolution'].value.set(
@@ -1388,6 +1511,12 @@ terrainMat.onBeforeCompile = (shader) => {
 const terrain = new THREE.Mesh(terrainGeo, terrainMat);
 terrain.receiveShadow = true;
 scene.add(terrain);
+/* PERF: build the terrain BVH once. This is what turns a ~4ms brute-force
+ * raycast (39k triangles) into a ~0.01ms query for every LOS / bullet test.
+ * Guarded so a stripped build (no three-mesh-bvh) still runs, just slower. */
+if (typeof terrainGeo.computeBoundsTree === 'function') {
+  try { terrainGeo.computeBoundsTree(); } catch (e) { console.warn('[bvh] terrain BVH build failed:', e && e.message); }
+}
 
 /* Grass blades (instanced) */
 const bladeGeo = new THREE.PlaneGeometry(0.18, 0.55);
@@ -1434,7 +1563,7 @@ bladeMat.onBeforeCompile = (shader) => {
     );
 };
 
-const GRASS_COUNT = _urlParams.get('mode')==='team' ? 2000 : 4000;
+const GRASS_COUNT = Math.min(QUALITY.grass, _urlParams.get('mode')==='team' ? 2000 : QUALITY.grass);
 const grassMesh = new THREE.InstancedMesh(bladeGeo, bladeMat, GRASS_COUNT);
 const dummy = new THREE.Object3D();
 for (let i = 0; i < GRASS_COUNT; i++) {
@@ -9082,7 +9211,78 @@ controls.addEventListener('unlock', () => { menuEl.classList.remove('hidden'); c
    COMBAT — bullets / hits
    ======================================================================== */
 const raycaster = new THREE.Raycaster();
-const tracers = []; /* visible bullet tracers */
+/* PERF: three-mesh-bvh reads `firstHitOnly` off the raycaster — when true it
+ * walks the BVH and returns as soon as ANY triangle is hit, instead of
+ * gathering + distance-sorting every intersection. LOS is boolean and bullets
+ * take the nearest hit, so first-hit is always what we want. This is a plain
+ * property (no-op on meshes without a BVH), so set it unconditionally. */
+raycaster.firstHitOnly = true;
+
+/* PERF: the set of static blockers (terrain + merged trees + all obstacles)
+ * is rebuilt into a fresh array on every LOS / bullet raycast in the original
+ * code — `[terrain, _treesMerged, ...obstacles]` spreads ~1700 elements each
+ * call. obstacles only ever grows, so cache the array and rebuild it only
+ * when its length changes. Saves a large per-call allocation (GC pressure). */
+let _staticColliders = null, _staticCollidersLen = -1;
+function getStaticColliders() {
+  if (_staticColliders === null || _staticCollidersLen !== obstacles.length) {
+    _staticColliders = [terrain, _treesMerged, ...obstacles];
+    _staticCollidersLen = obstacles.length;
+  }
+  return _staticColliders;
+}
+
+/* PERF: dedicated line-of-sight collision mesh.
+ * hasLineOfSight() only needs a boolean "is anything between eye and target",
+ * but the collider set is ~1700 separate obstacle meshes — intersectObjects
+ * walks every one (~0.3ms/call even after the terrain BVH). We merge all
+ * static blockers (terrain + obstacles, position-only) into ONE mesh with a
+ * BVH, turning a LOS query into a single accelerated raycast (~20us) no matter
+ * how many obstacles exist. Merged trees are intentionally EXCLUDED: the
+ * original raycast passed them with recursive=false so they never blocked LOS,
+ * and we preserve that exact behaviour. Rebuilt only when the obstacle count
+ * changes (obstacles only grow, during setup). */
+let _losMesh = null, _losMeshLen = -1, _losMeshTried = false;
+function _buildLosMesh() {
+  if (typeof BufferGeometryUtils === 'undefined' || !BufferGeometryUtils.mergeGeometries) return null;
+  const src = [terrain, ...obstacles];
+  const geos = [];
+  for (const o of src) {
+    const g = o && o.geometry;
+    if (!g || !g.attributes || !g.attributes.position) continue;
+    o.updateWorldMatrix(true, false);
+    let ng = new THREE.BufferGeometry();
+    ng.setAttribute('position', g.attributes.position.clone());
+    if (g.index) ng.setIndex(g.index.clone());
+    ng.applyMatrix4(o.matrixWorld);
+    if (ng.index) ng = ng.toNonIndexed();
+    for (const k of Object.keys(ng.attributes)) if (k !== 'position') ng.deleteAttribute(k);
+    geos.push(ng);
+  }
+  if (geos.length === 0) return null;
+  const merged = BufferGeometryUtils.mergeGeometries(geos, false);
+  for (const g of geos) g.dispose();
+  if (!merged) return null;
+  const mesh = new THREE.Mesh(merged, new THREE.MeshBasicMaterial());
+  mesh.visible = false;
+  mesh.matrixAutoUpdate = false;
+  if (typeof merged.computeBoundsTree === 'function') merged.computeBoundsTree();
+  return mesh;
+}
+function getLosMesh() {
+  if (_losMeshLen !== obstacles.length) {
+    let m = null;
+    try { m = _buildLosMesh(); }
+    catch (e) { console.warn('[los] merged LOS mesh build failed, falling back:', e && e.message); }
+    if (m) {
+      if (_losMesh) { try { _losMesh.geometry.disposeBoundsTree && _losMesh.geometry.disposeBoundsTree(); _losMesh.geometry.dispose(); } catch(_){} }
+      _losMesh = m;
+    }
+    _losMeshLen = obstacles.length;   /* don't rebuild every call if merge failed */
+    _losMeshTried = true;
+  }
+  return _losMesh;
+}
 const tracerMat = new THREE.LineBasicMaterial({ color: 0xfff0a0, transparent: true, opacity: 0.9 });
 
 /* === BULLETS — physics-based projectiles (B1, B2, B4) ===================
@@ -9105,6 +9305,20 @@ const MAX_TRACERS = 50;
 const MAX_IMPACTS = 90;        /* slight bump — smoke puffs are cheap */
 const MAX_SHELLS  = 30;
 
+/* Pre-allocated tracer pool (see spawnTracer). Each slot owns a 2-vertex line
+ * and its own material (opacity is animated per-tracer as it fades). */
+const _tracerPool = [];
+let _tracerCursor = 0;
+for (let i = 0; i < MAX_TRACERS; i++) {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+  const line = new THREE.Line(geo, tracerMat.clone());
+  line.visible = false;
+  line.frustumCulled = false;   /* tiny 2-vertex segment; skip cull overhead */
+  scene.add(line);
+  _tracerPool.push({ line, life: 0 });
+}
+
 function _disposeObj(obj) {
   scene.remove(obj);
   if (obj.geometry) obj.geometry.dispose();
@@ -9115,14 +9329,18 @@ function _disposeObj(obj) {
 }
 
 function spawnTracer(from, to) {
-  const geo = new THREE.BufferGeometry().setFromPoints([from, to]);
-  const line = new THREE.Line(geo, tracerMat.clone());
-  scene.add(line);
-  tracers.push({ line, life: 0.06 });
-  while (tracers.length > MAX_TRACERS) {
-    const old = tracers.shift();
-    _disposeObj(old.line);
-  }
+  /* Pooled: reuse a pre-allocated Line instead of building+disposing geometry
+   * and a cloned material on every shot. With 60 bots firing this was a steady
+   * source of GC churn (micro-stutter). */
+  const slot = _tracerPool[_tracerCursor];
+  _tracerCursor = (_tracerCursor + 1) % MAX_TRACERS;
+  const arr = slot.line.geometry.attributes.position;
+  arr.setXYZ(0, from.x, from.y, from.z);
+  arr.setXYZ(1, to.x, to.y, to.z);
+  arr.needsUpdate = true;
+  slot.line.material.opacity = 0.9;
+  slot.line.visible = true;
+  slot.life = 0.06;
 }
 
 const impacts = [];
@@ -9680,8 +9898,17 @@ function updateBullets(dt) {
 
       /* Bot zones */
       let hitBot = null, hitPoint = null;
+      /* PERF broad-phase: any point of this step's segment lies within segLen
+       * of b.pos, so a bot whose horizontal distance to b.pos exceeds
+       * segLen + margin cannot be hit — skip building its 8-part target array
+       * and the 8 raycasts entirely. Cuts most of the per-bullet work when a
+       * shot travels across a 60-bot field. */
+      const _reach = segLen + 3.0, _reachSq = _reach * _reach;
       for (const bot of bots) {
         if (bot.state === 'dead') continue;
+        const _bx = bot.obj.position.x - b.pos.x;
+        const _bz = bot.obj.position.z - b.pos.z;
+        if (_bx*_bx + _bz*_bz > _reachSq) continue;
         const targets = [bot.head, bot.helmet, bot.torso, bot.vest,
                          bot.armL, bot.armR, bot.legL, bot.legR];
         const hits = raycaster.intersectObjects(targets, false);
@@ -9697,10 +9924,8 @@ function updateBullets(dt) {
         const pvpHit = _pvpBulletHit(raycaster, b);
         if (pvpHit) { resolved = true; }
       }
-      /* Environment */
-      const envHits = raycaster.intersectObjects(
-        [terrain, _treesMerged, ...obstacles], false
-      );
+      /* Environment (BVH-accelerated terrain + cached collider array) */
+      const envHits = raycaster.intersectObjects(getStaticColliders(), false);
       const envHit = envHits.length ? envHits[0] : null;
 
       if (hitBot && (!envHit || hitPoint.distance < envHit.distance)) {
@@ -11187,7 +11412,7 @@ function updateBots(dt) {
      * change. AI/movement below still runs so the bot keeps advancing; the
      * renderer simply doesn't draw an invisible object (this + built-in frustum
      * culling is what keeps a 60-bot field affordable). */
-    const _botVisible = dist < 160;
+    const _botVisible = dist < _BOT_CULL_DIST;
     if (bot.obj.visible !== _botVisible) bot.obj.visible = _botVisible;
 
     /* === AI THROTTLING ===
@@ -11534,20 +11759,31 @@ function ghillieStealth() {
   return mul;
 }
 
+/* PERF: reused scratch vectors — this is called many times per frame across
+ * 60 bots; allocating three Vector3s per call was pure GC churn. */
+const _losEye = new THREE.Vector3();
+const _losTarget = new THREE.Vector3();
+const _losDir = new THREE.Vector3();
 function hasLineOfSight(from, to) {
-  const eye = new THREE.Vector3(from.x, from.y + 1.5, from.z);
-  const target = new THREE.Vector3(to.x, to.y + 0.0, to.z);
+  _losEye.set(from.x, from.y + 1.5, from.z);
+  _losTarget.set(to.x, to.y, to.z);
   /* Smoke clouds break LOS — bots cannot see through them. Cheap segment
    * vs sphere test (smokeBlocksLine is defined in EXTENDED SYSTEMS). */
-  if (typeof smokeBlocksLine === 'function' && smokeBlocksLine(eye, target)) {
+  if (typeof smokeBlocksLine === 'function' && smokeBlocksLine(_losEye, _losTarget)) {
     return false;
   }
-  const dir = target.clone().sub(eye);
-  const dist = dir.length();
-  dir.normalize();
-  raycaster.set(eye, dir);
+  _losDir.subVectors(_losTarget, _losEye);
+  const dist = _losDir.length();
+  if (dist < 0.0001) return true;
+  _losDir.multiplyScalar(1 / dist);
+  raycaster.set(_losEye, _losDir);
   raycaster.far = dist - 0.4;
-  const hits = raycaster.intersectObjects([terrain, _treesMerged, ...obstacles], false);
+  /* Single BVH-accelerated raycast against the merged LOS mesh; falls back to
+   * the cached multi-object collider list if the merge was unavailable. */
+  const losMesh = getLosMesh();
+  const hits = losMesh
+    ? raycaster.intersectObject(losMesh, false)
+    : raycaster.intersectObjects(getStaticColliders(), false);
   return hits.length === 0;
 }
 
@@ -11784,16 +12020,12 @@ function handleDeath() {
 }
 
 function updateTracers(dt) {
-  for (let i = tracers.length - 1; i >= 0; i--) {
-    const t = tracers[i];
+  for (let i = 0; i < _tracerPool.length; i++) {
+    const t = _tracerPool[i];
+    if (t.life <= 0) continue;
     t.life -= dt;
-    t.line.material.opacity = Math.max(0, t.life / 0.06) * 0.9;
-    if (t.life <= 0) {
-      scene.remove(t.line);
-      t.line.geometry.dispose();
-      t.line.material.dispose();
-      tracers.splice(i, 1);
-    }
+    if (t.life <= 0) { t.line.visible = false; continue; }
+    t.line.material.opacity = (t.life / 0.06) * 0.9;
   }
 }
 
@@ -13859,6 +14091,12 @@ function animate() {
 /* Prime day/night + sky so the very first rendered frame already has the
  * correct lighting/sky (no dark startup flash before the first scheduled tick). */
 if (typeof updateDayNight === 'function') { try { updateDayNight(); updateSkyGradient(); } catch(_){} }
+/* PERF: build the merged line-of-sight collision mesh now, during load, so the
+ * first frame of gameplay doesn't pay a one-time merge/BVH hitch. Only bots
+ * mode uses LOS (PvP/team have no bots), so skip the work + memory otherwise. */
+if (typeof PVP_MODE !== 'undefined' && !PVP_MODE && typeof getLosMesh === 'function') {
+  try { getLosMesh(); } catch (_) {}
+}
 animate();
 
 /* === DEBUG HOOKS === Expose key game state on window so DevTools console
@@ -13884,6 +14122,13 @@ try {
   /* still expose at least player so debug works */
   try { window.__game = { player, controls }; } catch (_) {}
 }
+
+/* Engine booted — dismiss the loading overlay and cancel the failure watchdog. */
+try {
+  if (typeof window.__clearBootWatchdog === 'function') window.__clearBootWatchdog();
+  const _boot = document.getElementById('boot');
+  if (_boot) { _boot.classList.add('gone'); setTimeout(() => { try { _boot.remove(); } catch (_) {} }, 450); }
+} catch (_) {}
 
 /* Initial helpful notice */
 if (!PVP_MODE) {
